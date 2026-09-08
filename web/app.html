@@ -53,15 +53,15 @@
   .log{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:90px;overflow:auto;direction:ltr;text-align:left}
 </style>
 <style id="engineCss">
-  .scene{position:absolute;inset:0;overflow:hidden;background-size:cover;background-position:center}
-  .cam{position:absolute;inset:0;transform-origin:50% 50%}
-  .el{position:absolute}
-  .el svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-  .el .fill{opacity:0}
-  .el .strokes path{fill:none;stroke-linecap:round;stroke-linejoin:round}
-  .el .text{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;white-space:pre;line-height:1.35}
-  .el .text .line{display:inline-block;max-width:100%}
-  .el img.photo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+  #stage .scene{position:absolute;inset:0;overflow:hidden;background-size:cover;background-position:center;border:0;border-radius:0;padding:0;margin:0}
+  #stage .cam{position:absolute;inset:0;transform-origin:50% 50%}
+  #stage .el{position:absolute;display:block;margin:0;font-size:inherit}
+  #stage .el svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  #stage .el .fill{opacity:0}
+  #stage .el .strokes path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+  #stage .el .text{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;white-space:pre;line-height:1.35}
+  #stage .el .text .line{display:inline-block;max-width:100%}
+  #stage .el img.photo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 </style>
 </head>
 <body>
@@ -181,7 +181,7 @@ async function init() {
   for (const n of CAT.art) ART.set(n, 'assets/art/' + n); // loaded lazily; converted to data URLs when first used
   renderArt();
   try { await Promise.all(faces.map(([n]) => document.fonts.load(`20px "${n}"`))); } catch {}
-  if (!settings.key) openSettings();
+  if (!settings.key) $('aiMsg').innerHTML = '🔑 ضع مفتاح Gemini المجاني في <b>⚙️ الإعدادات</b> (أعلى الصفحة) لتشغيل السيناريو والصوت. المعاينة والرسم يعملان بدونه.';
   await loadExample();
 }
 function openSettings() { $('settings').style.display = ''; $('settings').scrollIntoView({ behavior: 'smooth' }); }
