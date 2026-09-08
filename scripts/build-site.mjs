@@ -37,4 +37,5 @@ const catalog = {
   art: readdirSync(join(ROOT, 'examples/art')),
 };
 writeFileSync(join(SITE, 'assets/catalog.json'), JSON.stringify(catalog));
+cpSync(join(ROOT, 'deploy/netlify.toml'), join(SITE, 'netlify.toml'));
 console.log(`✅ site built: ${SITE} (tabler icons: ${catalog.tabler.length}, doodles: ${catalog.doodles.length}, peeps: ${catalog.peeps.length})`);

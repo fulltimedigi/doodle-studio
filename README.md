@@ -7,6 +7,18 @@
 فكرة  →  (وكيل السيناريو)  →  script.json  +  رسومات  →  doodle render  →  video.mp4
 ```
 
+
+## 🌐 النسخة الجاهزة على الإنترنت (بلا تثبيت)
+
+**https://fulltimedigi-doodle-studio.netlify.app**
+
+افتح الرابط في Chrome أو Edge، ضع مفتاح Gemini المجاني في الإعدادات، واكتب فكرتك. كل شيء يعمل داخل متصفحك:
+كتابة السيناريو والصوت (Gemini)، الرسم بيد حقيقية، وترميز الفيديو (WebCodecs) ثم التحميل كملف MP4.
+لا يوجد خادم ولا تُرسل بياناتك لأي جهة غير Google (لمفتاحك أنت).
+
+إعادة النشر بعد أي تعديل: `npm run build:site` ثم انشر مجلد `site/` على Netlify أو Vercel أو GitHub Pages
+(ملف `vercel.json` و`deploy/netlify.toml` جاهزان).
+
 ## ما الذي تغيّر في النسخة الثانية (جودة Doodly)
 
 | المحور | قبل | الآن |
