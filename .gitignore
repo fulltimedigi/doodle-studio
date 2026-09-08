@@ -2,4 +2,5 @@ node_modules/
 .cache/
 output/
 workspace/
+site/
 *.zip

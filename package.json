@@ -13,7 +13,8 @@
     "icons": "node scripts/make-icons.mjs",
     "doodles": "node scripts/extract-doodles.mjs",
     "start": "node src/server.mjs",
-    "ui": "node src/server.mjs"
+    "ui": "node src/server.mjs",
+    "build:site": "node scripts/build-site.mjs"
   },
   "license": "MIT",
   "engines": {
@@ -25,11 +26,13 @@
     "@tabler/icons": "^3.46.0",
     "ffmpeg-static": "^5.3.0",
     "jimp": "^0.22.12",
+    "mp4-muxer": "^5.2.2",
     "msedge-tts": "^2.0.7",
     "playwright": "^1.63.0",
     "potrace": "^2.1.8",
     "react-open-doodles": "^1.0.5",
-    "skeleton-tracing-js": "^1.0.4"
+    "skeleton-tracing-js": "^1.0.4",
+    "webm-muxer": "^5.1.4"
   },
   "devDependencies": {
     "react": "^19.2.8",

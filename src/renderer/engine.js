@@ -175,14 +175,23 @@
       stage.appendChild(sdiv); state.scenes.push(srec);
     });
     for (const srec of state.scenes) for (const e of srec.sc.elements) { const r = await buildElement(srec.sc, e); srec.cam.appendChild(r.div); srec.els.push(r); }
-    // measure stroke lengths now that everything is attached
+    // measure stroke lengths now that everything is attached (+ canvas paths / colour layer for paint())
+    const fillLoads = [];
     state.scenes.forEach((s) => s.els.forEach((r) => {
       if (r.kind === 'drawing') {
-        r.strokes.forEach((st) => { st.len = st.p.getTotalLength(); st.p.style.strokeDasharray = st.len; st.p.style.strokeDashoffset = st.len; });
+        r.strokes.forEach((st) => { st.len = st.p.getTotalLength(); st.p.style.strokeDasharray = st.len; st.p.style.strokeDashoffset = st.len; if (typeof Path2D !== 'undefined') st.path2d = new Path2D(st.p.getAttribute('d')); });
         r.totalLen = r.strokes.reduce((a, s) => a + s.len, 0);
+        if (r.fillLayer && r.e.svg) {
+          const [vx, vy, vw, vh] = r.vb;
+          const norm = r.e.svg.replace(/<svg([^>]*)>/, (m, attrs) => `<svg${attrs.replace(/\s(width|height)="[^"]*"/g, '')} width="${vw}" height="${vh}">`);
+          const im = new Image(); r.fillImg = im;
+          fillLoads.push(new Promise((ok) => { im.onload = ok; im.onerror = ok; im.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(norm))); }));
+        }
       }
       if (r.kind === 'text') {
-        r.lines.forEach((l) => { l.rect = l.el.getBoundingClientRect(); });
+        // measure relative to the stage so the stage may be placed/scaled anywhere in the page
+        const sr = stage.getBoundingClientRect(); const k = sr.width / P.width || 1;
+        r.lines.forEach((l) => { const b = l.el.getBoundingClientRect(); l.rect = { left: (b.left - sr.left) / k, right: (b.right - sr.left) / k, top: (b.top - sr.top) / k, width: b.width / k, height: b.height / k }; });
       }
     }));
     hand.src = P.hand.src;
@@ -196,12 +205,14 @@
     const result = { ok: true, strokes: state.scenes.map((s) => s.els.map((r) => r.strokes.length)) };
     // make sure the hand bitmap and every embedded image are decoded before the first frame
     const imgs = [hand, ...stage.querySelectorAll('img')];
-    return Promise.all(imgs.map((im) => im.decode().catch(() => {}))).then(() => result);
+    return Promise.all([...imgs.map((im) => (im.decode ? im.decode().catch(() => {}) : Promise.resolve())), ...fillLoads]).then(() => result);
   }
 
   // ---------- seeking ----------
   const handState = { lastT: -1, tilt: 0 };
+  let lastHand = { visible: false };
   function placeHand(pt, { visible, lifted = false, tilt = 0, opacity = 1 }) {
+    lastHand = visible ? { visible: true, x: pt.x, y: pt.y, lifted, tilt, opacity, tipx: parseFloat(hand.dataset.tipx), tipy: parseFloat(hand.dataset.tipy), height: P.hand.height } : { visible: false };
     if (!visible) { hand.style.opacity = 0; return; }
     hand.style.opacity = opacity;
     const tx = pt.x - parseFloat(hand.dataset.tipx), ty = pt.y - parseFloat(hand.dataset.tipy);
@@ -265,7 +276,7 @@
 
   function applyCamera(srec, t) {
     const sc = srec.sc; const cam = sc.camera;
-    if (!cam) { srec.cam.style.transform = ''; return (p) => p; }
+    if (!cam) { srec.cam.style.transform = ''; srec.camNumbers = { scale: 1, tx: 0, ty: 0 }; return (p) => p; }
     const p = easeInOut(clamp((t - sc.start) / Math.max(0.001, sc.end - sc.start), 0, 1));
     const from = cam.from || { scale: 1, x: 50, y: 50 }, to = cam.to || from;
     const scale = lerp(from.scale ?? 1, to.scale ?? 1, p);
@@ -273,6 +284,7 @@
     const tx = P.width / 2 - cx * scale, ty = P.height / 2 - cy * scale;
     srec.cam.style.transformOrigin = '0 0';
     srec.cam.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+    srec.camNumbers = { scale, tx, ty };
     return (pt) => ({ x: pt.x * scale + tx, y: pt.y * scale + ty });
   }
 
@@ -340,11 +352,13 @@
       if (trIn !== 'slide-up') srec.div.style.transform = tx ? `translateX(${tx}px)` : '';
       srec.div.style.zIndex = i + 1;
       camMaps[i] = applyCamera(srec, t);
+      srec.paint = { op, tx, ty: trIn === 'slide-up' && t < sc.start + dur ? (1 - easeInOut(clamp((t - sc.start + dur) / (2 * dur), 0, 1))) * P.height : 0, cam: srec.camNumbers || { scale: 1, tx: 0, ty: 0 } };
       srec.els.forEach((r) => {
         const e = r.e;
         const p = clamp((t - e.start) / Math.max(0.001, e.draw), 0, 1);
         const before = t < e.start; const gone = e.until != null && t >= e.until;
         r.div.style.visibility = before || gone ? 'hidden' : 'visible';
+        r._vis = !before && !gone; r._p = p;
         if (!before && !gone) drawElement(r, p);
       });
     });
@@ -353,5 +367,67 @@
     return true;
   }
 
-  window.doodle = { build, seek, svgToStrokes };
+
+  // ---------- canvas painter (browser export path) ----------
+  function paint(ctx, scale = 1, handImg = null) {
+    const W = P.width, H = P.height;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.fillStyle = P.defaults.background; ctx.fillRect(0, 0, W, H);
+    state.scenes.forEach((srec) => {
+      if (srec.div.style.display === 'none' || !srec.paint) return;
+      const { op, tx, ty, cam } = srec.paint;
+      ctx.save(); ctx.globalAlpha = op; ctx.translate(tx, ty);
+      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      ctx.fillStyle = srec.sc.background || P.defaults.background; ctx.fillRect(0, 0, W, H);
+      ctx.translate(cam.tx, cam.ty); ctx.scale(cam.scale, cam.scale);
+      srec.els.forEach((r) => {
+        if (!r._vis) return; const p = r._p; const e = r.e;
+        ctx.save();
+        if (e.rotate) { ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.rotate(e.rotate * Math.PI / 180); ctx.translate(-(r.x + r.w / 2), -(r.y + r.h / 2)); }
+        if (r.kind === 'drawing') {
+          const [vx, vy, vw, vh] = r.vb; const s = r.scale; const ox = (r.w - vw * s) / 2, oy = (r.h - vh * s) / 2;
+          ctx.translate(r.x + ox, r.y + oy); ctx.scale(s, s); ctx.translate(-vx, -vy);
+          const fo = r.fillLayer ? (p >= 1 ? 1 : clamp((p - 0.82) / 0.18, 0, 1)) : 0;
+          if (fo > 0 && r.fillImg && r.fillImg.naturalWidth) { ctx.save(); ctx.globalAlpha *= fo; ctx.drawImage(r.fillImg, vx, vy, vw, vh); ctx.restore(); }
+          const target = p * r.totalLen; let acc = 0;
+          ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.strokeStyle = e.color || P.defaults.strokeColor;
+          ctx.lineWidth = parseFloat(r.strokes[0]?.p.getAttribute('stroke-width') || 2);
+          if (e.strokeOpacity != null) ctx.globalAlpha *= e.strokeOpacity;
+          for (const st of r.strokes) {
+            const local = clamp(target - acc, 0, st.len); acc += st.len;
+            if (local <= 0.01 || !st.path2d) continue;
+            if (local < st.len) { ctx.setLineDash([local, st.len + 10]); ctx.lineDashOffset = 0; } else ctx.setLineDash([]);
+            ctx.stroke(st.path2d);
+          }
+          ctx.setLineDash([]);
+        } else if (r.kind === 'text') {
+          const t = r.div.querySelector('.text'); const cs = getComputedStyle(t);
+          ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; ctx.fillStyle = cs.color; ctx.textBaseline = 'middle';
+          ctx.direction = r.rtl ? 'rtl' : 'ltr'; ctx.textAlign = r.rtl ? 'right' : 'left';
+          const total = r.lines.reduce((a, l) => a + l.weight, 0); let acc = 0;
+          for (const l of r.lines) {
+            const lp = clamp((p * total - acc) / l.weight, 0, 1); acc += l.weight; if (lp <= 0) continue;
+            const rect = l.rect; ctx.save(); ctx.beginPath();
+            if (r.rtl) ctx.rect(rect.right - lp * rect.width, rect.top - 4, lp * rect.width + 4, rect.height + 8); else ctx.rect(rect.left - 4, rect.top - 4, lp * rect.width + 4, rect.height + 8);
+            ctx.clip(); ctx.fillText(l.el.textContent, r.rtl ? rect.right : rect.left, rect.top + rect.height * 0.52); ctx.restore();
+          }
+        } else if (r.kind === 'photo' && r.img && r.img.naturalWidth) {
+          const iw = r.img.naturalWidth, ih = r.img.naturalHeight; const s = Math.min(r.w / iw, r.h / ih); const dw = iw * s, dh = ih * s;
+          ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h * p); ctx.clip();
+          ctx.drawImage(r.img, r.x + (r.w - dw) / 2, r.y + (r.h - dh) / 2, dw, dh);
+        }
+        ctx.restore();
+      });
+      ctx.restore();
+    });
+    if (handImg && lastHand.visible && !P.hand.hidden) {
+      const hs = lastHand; const hh = hs.height, hw = hh * (handImg.naturalWidth / handImg.naturalHeight); const s = hs.lifted ? 1.035 : 1;
+      ctx.save(); ctx.globalAlpha = hs.opacity ?? 1; ctx.filter = hs.lifted ? 'drop-shadow(18px 22px 16px rgba(0,0,0,0.22))' : 'drop-shadow(9px 11px 9px rgba(0,0,0,0.30))';
+      ctx.translate(hs.x, hs.y); ctx.rotate((hs.tilt || 0) * Math.PI / 180); ctx.scale(s, s); ctx.drawImage(handImg, -hs.tipx, -hs.tipy, hw, hh); ctx.restore();
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  window.doodle = { build, seek, paint, svgToStrokes, handState: () => lastHand, duration: () => (P ? P.duration : 0) };
 })();
