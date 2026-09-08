@@ -13,7 +13,8 @@
   header h1{font-size:20px;margin:0}
   header .sub{color:var(--muted);font-size:13px}
   main{max-width:1240px;margin:0 auto;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media (max-width:980px){main{grid-template-columns:1fr}}
+  @media (max-width:980px){main{grid-template-columns:1fr;padding:10px;gap:12px}.el input,.el select{min-width:80px}.el input[style]{max-width:52px!important}}
+  #previewWrap{min-height:120px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
   .card h2{margin:0 0 10px;font-size:17px;display:flex;align-items:center;gap:8px}
   .step{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;align-items:center;justify-content:center;font-size:13px}
@@ -149,6 +150,7 @@
 <script src="js/shapes.js"></script>
 <script src="js/mp4-muxer.js"></script>
 <script src="js/webm-muxer.js"></script>
+<script>window.DOODLE_WORKER_SCRIPTS = ["js/trace_skeleton.js", "js/strokes-core.js"].map((u) => new URL(u, location.href).href);</script>
 <script src="js/engine.js"></script>
 <script>
 // ------------------------------------------------------------ state
@@ -175,10 +177,10 @@ async function init() {
   $('voice').innerHTML = GEMINI_VOICES.map((v) => `<option>${v}</option>`).join('');
   $('s_key').value = settings.key; $('s_model').value = settings.model;
   const faces = [['Patrick Hand', 'PatrickHand.ttf'], ['Aref Ruqaa', 'ArefRuqaa.ttf'], ['Cairo', 'Cairo.ttf']];
-  FONT_CSS = (await Promise.all(faces.map(async ([n, f]) => `@font-face{font-family:"${n}";src:url(${await fetchDataUrl('assets/fonts/' + f)});}`))).join('');
-  const st = document.createElement('style'); st.textContent = FONT_CSS; document.head.appendChild(st);
-  for (const a of CAT.art) ART.set(a, await fetchDataUrl('assets/art/' + a));
+  const st = document.createElement('style'); st.textContent = faces.map(([n, f]) => `@font-face{font-family:"${n}";src:url(assets/fonts/${f});}`).join(''); document.head.appendChild(st);
+  for (const n of CAT.art) ART.set(n, 'assets/art/' + n); // loaded lazily; converted to data URLs when first used
   renderArt();
+  try { await Promise.all(faces.map(([n]) => document.fonts.load(`20px "${n}"`))); } catch {}
   if (!settings.key) openSettings();
   await loadExample();
 }
@@ -274,11 +276,12 @@ function moveScene(i, d) { const j = i + d; if (j < 0 || j >= SCRIPT.scenes.leng
 function toggleJson() { const b = $('jsonBox'); if (b.style.display === 'none') { syncHeader(); b.value = JSON.stringify(SCRIPT, null, 2); b.style.display = ''; } else { try { SCRIPT = JSON.parse(b.value); drawScenes(); b.style.display = 'none'; $('title').value = SCRIPT.title || ''; COMPILED = null; } catch (e) { alert('JSON غير صالح: ' + e.message); } } }
 function downloadScript() { syncHeader(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(SCRIPT, null, 2)], { type: 'application/json' })); a.download = (SCRIPT.title || 'script') + '.json'; a.click(); }
 async function openScript(f) { if (!f) return; SCRIPT = JSON.parse(await f.text()); $('title').value = SCRIPT.title || ''; drawScenes(); COMPILED = null; }
-function renderArt() { $('artGallery').innerHTML = [...ART.entries()].map(([n, u]) => `<img src="${u}" title="art/${n}">`).join(''); }
+function renderArt() { $('artGallery').innerHTML = [...ART.entries()].map(([n, u]) => `<img src="${u}" title="art/${n}" loading="lazy">`).join(''); }
 async function uploadArt(files) { for (const f of files) ART.set(f.name, await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); })); renderArt(); drawScenes(); }
 const tl = document.createElement('datalist'); tl.id = 'tablerList'; document.body.appendChild(tl);
 
 // ------------------------------------------------------------ client-side compiler (mirror of src/project.mjs)
+const MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4;
 async function compileClient(p, { withAudio }) {
   const [W, H] = FORMATS[p.format || '16:9'] || FORMATS['16:9'];
   const d = p.defaults || {};
@@ -315,33 +318,36 @@ async function compileClient(p, { withAudio }) {
 async function compileEl(e, W, H, seed, defaults) {
   const box = { x: pct(e.x ?? '10%', W), y: pct(e.y ?? '10%', H), w: pct(e.w ?? '30%', W), h: pct(e.h ?? '30%', H) };
   const base = { ...box, rotate: e.rotate || 0, draw: e.draw, at: e.at, until: e.until, color: e.color, strokeWidth: e.strokeWidth };
-  const artUrl = (src) => { const n = String(src || '').replace(/^art\//, ''); if (ART.has(n)) return ART.get(n); if (String(src).startsWith('data:')) return src; throw new Error(`الرسمة غير موجودة: ${src} — ارفعها في قسم الرسومات`); };
+  const artUrl = async (src) => { const n = String(src || '').replace(/^art\//, ''); if (String(src).startsWith('data:')) return src; if (!ART.has(n)) throw new Error(`الرسمة غير موجودة: ${src} — ارفعها في قسم الرسومات`); let v = ART.get(n); if (!v.startsWith('data:')) { v = await fetchDataUrl(v); ART.set(n, v); } return v; };
   switch (e.type) {
     case 'text': return { ...base, kind: 'text', content: String(e.text ?? ''), size: e.size, font: e.font, align: e.align, weight: e.weight, dir: e.dir };
     case 'icon': { let svg = await fetchText(`assets/icons/${e.name}.svg`); if (e.color) svg = svg.replace(/#222222|#222\b/g, e.color); return { ...base, kind: 'drawing', svg, style: e.style || 'line' }; }
     case 'tabler': { const svg = (await fetchText(`assets/tabler/${e.name}.svg`)).replace(/stroke="currentColor"/g, `stroke="${e.color || '#222222'}"`); return { ...base, kind: 'drawing', svg, style: 'line' }; }
-    case 'doodle': { let svg = await fetchText(`assets/illustrations/open-doodles/${e.name}.svg`); if (e.accent) svg = svg.replace(/#f4a261/gi, e.accent); return { ...base, kind: 'drawing', svg, trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || 1200 }; }
-    case 'peep': { const s = String(e.seed || e.name || 'ahmed'); const name = CAT.peeps.includes(s) ? s : CAT.peeps[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % CAT.peeps.length]; return { ...base, kind: 'drawing', svg: await fetchText(`assets/illustrations/peeps/${name}.svg`), trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || 1000 }; }
-    case 'svg': { const svg = await fetchText(artUrl(e.src)); return { ...base, kind: 'drawing', svg, trace: e.mode === 'draw' ? 'centerline' : undefined, style: e.style || 'color' }; }
-    case 'image': { const src = artUrl(e.src); if (e.mode === 'reveal') return { ...base, kind: 'photo', src }; if (src.startsWith('data:image/svg')) return { ...base, kind: 'drawing', svg: atob(src.split(',')[1]), trace: 'centerline', style: e.style || 'color' }; return { ...base, kind: 'drawing', src, trace: 'centerline', threshold: e.threshold, traceSize: e.traceSize, strokeScale: e.strokeScale, style: e.style || 'color' }; }
+    case 'doodle': { let svg = await fetchText(`assets/illustrations/open-doodles/${e.name}.svg`); if (e.accent) svg = svg.replace(/#f4a261/gi, e.accent); return { ...base, kind: 'drawing', svg, trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || (MOBILE ? 800 : 1200) }; }
+    case 'peep': { const s = String(e.seed || e.name || 'ahmed'); const name = CAT.peeps.includes(s) ? s : CAT.peeps[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % CAT.peeps.length]; return { ...base, kind: 'drawing', svg: await fetchText(`assets/illustrations/peeps/${name}.svg`), trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || (MOBILE ? 700 : 1000) }; }
+    case 'svg': { const svg = atob((await artUrl(e.src)).split(',')[1]); return { ...base, kind: 'drawing', svg, trace: e.mode === 'draw' ? 'centerline' : undefined, style: e.style || 'color' }; }
+    case 'image': { const src = await artUrl(e.src); if (e.mode === 'reveal') return { ...base, kind: 'photo', src }; if (src.startsWith('data:image/svg')) return { ...base, kind: 'drawing', svg: atob(src.split(',')[1]), trace: 'centerline', style: e.style || 'color' }; return { ...base, kind: 'drawing', src, trace: 'centerline', threshold: e.threshold, traceSize: e.traceSize || (MOBILE ? 900 : 1400), strokeScale: e.strokeScale, style: e.style || 'color' }; }
     case 'shape': return { ...base, kind: 'drawing', svg: window.shapeSvg(e, seed, { w: box.w, h: box.h }), style: 'line', strokeWidth: e.strokeWidth || (e.shape === 'highlight' ? 0.72 * box.h : undefined), strokeOpacity: e.shape === 'highlight' ? (e.opacity ?? 0.45) : (e.opacity ?? 1) };
     default: throw new Error('نوع عنصر غير معروف: ' + e.type);
   }
 }
 
 // ------------------------------------------------------------ preview
-let previewScale = 1;
+let previewScale = 1, BUSY = false;
+window.doodleProgress = (done, total) => { $('jobMsg').textContent = `✏️ تجهيز الرسومات ${done}/${total}…`; };
+function setBusy(b) { BUSY = b; document.querySelectorAll('button').forEach((x) => { if (!x.classList.contains('small')) x.disabled = b; }); document.body.style.cursor = b ? 'progress' : ''; }
+async function buildStage() { const { audio, ...rest } = COMPILED; await window.doodle.build(structuredClone(rest)); }
 function fitPreview(W, H) { const wrap = $('previewWrap'); const w = wrap.clientWidth; previewScale = w / W; wrap.style.height = Math.round(H * previewScale) + 'px'; $('stageHolder').style.transform = `scale(${previewScale})`; }
 async function prepare(showFrame) {
-  syncHeader(); $('jobMsg').textContent = '⏳ تجهيز المشاهد…';
+  if (BUSY) return; syncHeader(); $('jobMsg').textContent = '⏳ تجهيز المشاهد…'; setBusy(true);
   try {
     COMPILED = await compileClient(SCRIPT, { withAudio: false });
     fitPreview(COMPILED.width, COMPILED.height);
-    await window.doodle.build(structuredClone(COMPILED));
+    await buildStage();
     $('scrub').max = Math.ceil(COMPILED.duration);
     if (showFrame) scrubTo(+$('scrub').value);
     $('jobMsg').textContent = `المدة التقديرية (بلا صوت): ${COMPILED.duration.toFixed(1)} ث — حرّك الشريط لمعاينة أي لحظة`;
-  } catch (e) { $('jobMsg').textContent = '❌ ' + e.message; throw e; }
+  } catch (e) { $('jobMsg').textContent = '❌ ' + e.message; throw e; } finally { setBusy(false); }
 }
 function scrubTo(t) { $('scrubVal').textContent = t + ' ث'; if (COMPILED) window.doodle.seek(t); }
 let playing = false;
@@ -352,13 +358,13 @@ async function snapshot(ctx, W, H, scale) { window.doodle.paint(ctx, scale, COMP
 
 // ------------------------------------------------------------ render: WebCodecs + mp4/webm muxer, audio mixed offline
 async function render(draft) {
-  syncHeader(); $('result').innerHTML = ''; $('barFill').style.width = '0%';
+  if (BUSY) return; syncHeader(); $('result').innerHTML = ''; $('barFill').style.width = '0%'; setBusy(true);
   if (!('VideoEncoder' in window)) return ($('jobMsg').textContent = '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge حديثًا');
   try {
     $('jobMsg').textContent = '🎙️ توليد الصوت وتجهيز الرسومات…';
     COMPILED = await compileClient(SCRIPT, { withAudio: !!settings.key && !SCRIPT.mute });
     fitPreview(COMPILED.width, COMPILED.height);
-    await window.doodle.build(structuredClone(COMPILED));
+    await buildStage();
     const fps = draft ? 15 : 30, scale = draft ? 0.5 : 1;
     const W = Math.round(COMPILED.width * scale / 2) * 2, H = Math.round(COMPILED.height * scale / 2) * 2;
     const frames = Math.ceil(COMPILED.duration * fps);
@@ -399,9 +405,9 @@ async function render(draft) {
     const url = URL.createObjectURL(blob); const name = (SCRIPT.title || 'doodle') + (draft ? '-preview' : '') + '.' + container;
     $('result').innerHTML = `<video src="${url}" controls autoplay></video><div class="row"><a class="fix" href="${url}" download="${esc(name)}"><button class="primary">⬇ تحميل ${esc(name)} (${(blob.size / 1e6).toFixed(1)} MB)</button></a><span class="muted">${container === 'webm' ? 'متصفحك لا يدعم ترميز H.264 فأُخرج WebM؛ Chrome/Edge على ويندوز/ماك يُخرجان MP4' : (acfg ? '' : 'بلا صوت: لا مفتاح Gemini')}</span></div>`;
     $('barFill').style.width = '100%'; $('jobMsg').textContent = `✅ اكتمل — ${COMPILED.duration.toFixed(1)} ث`;
-  } catch (e) { $('jobMsg').textContent = '❌ ' + e.message; log(e.stack || e.message); }
+  } catch (e) { $('jobMsg').textContent = '❌ ' + e.message; log(e.stack || e.message); } finally { setBusy(false); }
 }
-init();
+init().catch((e) => { $('aiMsg').textContent = '❌ تعذّر تحميل الأداة: ' + e.message; });
 </script>
 </body>
 </html>

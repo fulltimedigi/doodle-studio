@@ -15,7 +15,7 @@ cpSync(join(ROOT, 'web/app.html'), join(SITE, 'index.html'));
 // engine + tracing (plain scripts)
 cpSync(join(ROOT, 'src/renderer/engine.js'), join(SITE, 'js/engine.js'));
 cpSync(join(ROOT, 'src/renderer/strokes-core.js'), join(SITE, 'js/strokes-core.js'));
-writeFileSync(join(SITE, 'js/trace_skeleton.js'), readFileSync(join(ROOT, 'node_modules/skeleton-tracing-js/trace_skeleton.vanilla.js'), 'utf8').replace(/export\s+default\s+TraceSkeleton\s*;?/, 'window.TraceSkeleton = TraceSkeleton;'));
+writeFileSync(join(SITE, 'js/trace_skeleton.js'), readFileSync(join(ROOT, 'node_modules/skeleton-tracing-js/trace_skeleton.vanilla.js'), 'utf8').replace(/export\s+default\s+TraceSkeleton\s*;?/, ';(typeof self !== "undefined" ? self : window).TraceSkeleton = TraceSkeleton;'));
 writeFileSync(join(SITE, 'js/shapes.js'), readFileSync(join(ROOT, 'src/shapes.mjs'), 'utf8').replace('export function shapeSvg', 'window.shapeSvg = function shapeSvg'));
 cpSync(join(ROOT, 'node_modules/mp4-muxer/build/mp4-muxer.js'), join(SITE, 'js/mp4-muxer.js'));
 cpSync(join(ROOT, 'node_modules/webm-muxer/build/webm-muxer.js'), join(SITE, 'js/webm-muxer.js'));

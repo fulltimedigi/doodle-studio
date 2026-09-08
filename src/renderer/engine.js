@@ -65,7 +65,34 @@
 
   // ---------- in-browser centerline tracing (raster or filled SVG -> ordered pen strokes) ----------
   function loadImage(src) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; }); }
+  // heavy tracing runs in a Web Worker when the host page lists the worker scripts (keeps phones responsive);
+  // results are cached per source so re-preparing a script is instant
+  const traceCache = new Map();
+  let worker = null, workerBusy = Promise.resolve();
+  function getWorker() {
+    if (worker || !window.Worker || !window.DOODLE_WORKER_SCRIPTS) return worker;
+    const code = `importScripts(${window.DOODLE_WORKER_SCRIPTS.map((u) => JSON.stringify(u)).join(',')});
+      self.onmessage = (ev) => { const { id, gray, w, h, opts } = ev.data; try { const r = StrokesCore.extract(gray, w, h, TraceSkeleton.fromBoolArray, opts); self.postMessage({ id, lines: r.lines, width: r.width }); } catch (e) { self.postMessage({ id, error: e.message }); } };`;
+    try { worker = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))); } catch (e) { return null; }
+    worker.addEventListener('error', (ev) => { console.warn('trace worker failed, falling back to main thread:', ev.message); try { worker.terminate(); } catch {} worker = null; window.DOODLE_WORKER_SCRIPTS = null; });
+    return worker;
+  }
+  function extractStrokes(gray, w, h, opts) {
+    const wk = getWorker();
+    if (!wk) return Promise.resolve(window.StrokesCore.extract(gray, w, h, window.TraceSkeleton.fromBoolArray, opts));
+    const grayCopy = gray.slice();
+    const run = () => new Promise((ok, bad) => {
+      const id = Math.random().toString(36).slice(2);
+      const onMsg = (ev) => { if (ev.data.id !== id) return; cleanup(); ev.data.error ? bad(new Error(ev.data.error)) : ok(ev.data); };
+      const onErr = () => { cleanup(); ok(window.StrokesCore.extract(grayCopy, w, h, window.TraceSkeleton.fromBoolArray, opts)); };
+      const cleanup = () => { wk.removeEventListener('message', onMsg); wk.removeEventListener('error', onErr); };
+      wk.addEventListener('message', onMsg); wk.addEventListener('error', onErr); wk.postMessage({ id, gray, w, h, opts }, [gray.buffer]);
+    });
+    const p = workerBusy.then(run, run); workerBusy = p.catch(() => {}); return p;
+  }
   async function traceCenterline(src, opts) {
+    const key = src.length + ':' + src.slice(0, 200) + ':' + src.slice(-200) + ':' + JSON.stringify(opts);
+    if (traceCache.has(key)) return traceCache.get(key);
     const im = await loadImage(src);
     const maxSide = opts.traceSize || 1400;
     const sc = Math.min(1, maxSide / Math.max(im.naturalWidth || im.width, im.naturalHeight || im.height));
@@ -77,11 +104,10 @@
     const gray = new Float32Array(w * h);
     for (let i = 0; i < w * h; i++) gray[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
     const minLen = Math.max(10, Math.min(w, h) * 0.012);
-    const { lines, width } = window.StrokesCore.extract(gray, w, h, window.TraceSkeleton.fromBoolArray, { threshold: opts.threshold || 150, minLen });
+    const { lines, width } = await extractStrokes(gray, w, h, { threshold: opts.threshold || 150, minLen });
     const paths = lines.map((l) => `<path d="M${l.map(([x, y]) => x.toFixed(1) + ' ' + y.toFixed(1)).join('L')}"/>`).join('');
     let fill = '';
     if (opts.fill !== 'none') {
-      // colour layer: the original picture with its (near-)white paper made transparent so it sits on any background
       for (let i = 0; i < w * h; i++) {
         const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2]; const mn = Math.min(r, g, b), mx = Math.max(r, g, b);
         if (mn > 225 && mx - mn < 22) d[i * 4 + 3] = Math.round(clamp((248 - mn) / 23, 0, 1) * 255);
@@ -90,7 +116,8 @@
       fill = `<image href="${c.toDataURL('image/png')}" x="0" y="0" width="${w}" height="${h}"/>`;
     }
     const penW = width * 1.25;
-    return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${fill}<g class="strokes" fill="none" stroke="${opts.color || '#1a1a1a'}" stroke-width="${penW.toFixed(2)}">${paths}</g></svg>`, width: penW, size: [w, h] };
+    const out = { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${fill}<g class="strokes" fill="none" stroke="${opts.color || '#1a1a1a'}" stroke-width="${penW.toFixed(2)}">${paths}</g></svg>`, width: penW, size: [w, h] };
+    traceCache.set(key, out); return out;
   }
 
   // ---------- building ----------
@@ -174,7 +201,8 @@
       const srec = { sc, div: sdiv, cam, els: [] };
       stage.appendChild(sdiv); state.scenes.push(srec);
     });
-    for (const srec of state.scenes) for (const e of srec.sc.elements) { const r = await buildElement(srec.sc, e); srec.cam.appendChild(r.div); srec.els.push(r); }
+    let done = 0; const totalEls = state.scenes.reduce((a, s) => a + s.sc.elements.length, 0);
+    for (const srec of state.scenes) for (const e of srec.sc.elements) { if (window.doodleProgress) window.doodleProgress(done, totalEls); const r = await buildElement(srec.sc, e); srec.cam.appendChild(r.div); srec.els.push(r); done++; }
     // measure stroke lengths now that everything is attached (+ canvas paths / colour layer for paint())
     const fillLoads = [];
     state.scenes.forEach((s) => s.els.forEach((r) => {
