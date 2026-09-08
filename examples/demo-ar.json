@@ -1,0 +1,66 @@
+{
+  "title": "مساعد التسوّق الذكي — فيديو تعريفي",
+  "format": "16:9",
+  "voice": "ar-EG-Shakir",
+  "hand": "marker-a",
+  "defaults": { "transition": "fade", "strokeWidth": 9 },
+  "scenes": [
+    {
+      "narration": "بتصرف على الإعلانات، والعميل بيدخل متجرك… ويطلع من غير ما يشتري؟",
+      "camera": { "from": { "scale": 1 }, "to": { "scale": 1.05 } },
+      "elements": [
+        { "type": "image", "src": "art/customer-leaving.png", "x": "4%", "y": "6%", "w": "38%", "h": "88%", "draw": 4.5 },
+        { "type": "text", "text": "زوّار كتير…\nمبيعات قليلة؟", "x": "48%", "y": "22%", "w": "46%", "h": "46%", "size": "10%", "align": "right" },
+        { "type": "shape", "shape": "underline", "x": "52%", "y": "66%", "w": "40%", "h": "7%", "color": "#e63946", "draw": 0.6 }
+      ]
+    },
+    {
+      "narration": "السبب في الغالب إن العميل مش لاقي المنتج اللي يناسبه بسرعة، فبيسيب المتجر.",
+      "elements": [
+        { "type": "peep", "seed": "customer-3", "x": "6%", "y": "14%", "w": "30%", "h": "76%", "draw": 3 },
+        { "type": "shape", "shape": "bubble", "x": "36%", "y": "6%", "w": "42%", "h": "44%", "color": "#1a1a1a", "draw": 1.2 },
+        { "type": "text", "text": "مش لاقي اللي يناسبني!", "x": "40%", "y": "14%", "w": "34%", "h": "22%", "size": "6%", "align": "center" },
+        { "type": "tabler", "name": "shopping-cart-off", "x": "78%", "y": "30%", "w": "18%", "h": "36%", "color": "#e63946", "draw": 1 }
+      ]
+    },
+    {
+      "narration": "هنا بييجي دور مساعد التسوّق الذكي: بيفهم العميل، وبيوصّله للمنتج الصح.",
+      "camera": { "from": { "scale": 1.04, "x": 50, "y": 52 }, "to": { "scale": 1, "x": 50, "y": 50 } },
+      "elements": [
+        { "type": "image", "src": "art/assistant-chat.png", "x": "58%", "y": "6%", "w": "38%", "h": "88%", "draw": 5 },
+        { "type": "text", "text": "مساعد تسوّق ذكي", "x": "6%", "y": "30%", "w": "48%", "h": "26%", "size": "10%", "align": "right", "weight": "bold" },
+        { "type": "shape", "shape": "highlight", "x": "8%", "y": "28%", "w": "46%", "h": "30%", "color": "#ffd166", "draw": 0.8, "at": 5.2 }
+      ]
+    },
+    {
+      "narration": "بيفهم طلب العميل، بيرشّح المنتج المناسب من الكتالوج، وبيرد في ثواني.",
+      "elements": [
+        { "type": "tabler", "name": "message-chatbot", "x": "6%", "y": "22%", "w": "30%", "h": "56%", "color": "#2a9d8f", "draw": 2 },
+        { "type": "shape", "shape": "check", "x": "82%", "y": "18%", "w": "10%", "h": "14%", "color": "#2a9d8f", "draw": 0.5 },
+        { "type": "text", "text": "يفهم طلب العميل", "x": "42%", "y": "16%", "w": "38%", "h": "18%", "size": "6.5%", "align": "right" },
+        { "type": "shape", "shape": "check", "x": "82%", "y": "42%", "w": "10%", "h": "14%", "color": "#2a9d8f", "draw": 0.5 },
+        { "type": "text", "text": "يرشّح المنتج المناسب", "x": "42%", "y": "40%", "w": "38%", "h": "18%", "size": "6.5%", "align": "right" },
+        { "type": "shape", "shape": "check", "x": "82%", "y": "66%", "w": "10%", "h": "14%", "color": "#2a9d8f", "draw": 0.5 },
+        { "type": "text", "text": "يرد في ثواني", "x": "42%", "y": "64%", "w": "38%", "h": "18%", "size": "6.5%", "align": "right" }
+      ]
+    },
+    {
+      "narration": "وبيتركّب على متجرك في دقائق، من غير أي برمجة. صاحب المتجر بيركّز في البيع… والمساعد بيرد على العملاء.",
+      "elements": [
+        { "type": "image", "src": "art/shop-owner.png", "x": "4%", "y": "6%", "w": "60%", "h": "82%", "draw": 7 },
+        { "type": "text", "text": "في دقائق\nبدون برمجة", "x": "66%", "y": "26%", "w": "30%", "h": "36%", "size": "7.5%", "align": "right" },
+        { "type": "shape", "shape": "arrow", "x": "64%", "y": "62%", "w": "14%", "h": "12%", "color": "#e63946", "draw": 0.6, "rotate": 180 }
+      ]
+    },
+    {
+      "narration": "جرّبه مجانًا النهارده. الرابط تحت الفيديو.",
+      "hold": 1.8,
+      "elements": [
+        { "type": "doodle", "name": "jumping", "x": "6%", "y": "10%", "w": "34%", "h": "80%", "draw": 3 },
+        { "type": "shape", "shape": "highlight", "x": "44%", "y": "30%", "w": "48%", "h": "30%", "color": "#ffd166", "draw": 0.8 },
+        { "type": "text", "text": "جرّب مجانًا", "x": "44%", "y": "28%", "w": "48%", "h": "34%", "size": "12%", "align": "center", "weight": "bold", "draw": 1.2 },
+        { "type": "text", "text": "الرابط تحت الفيديو", "x": "44%", "y": "64%", "w": "48%", "h": "14%", "size": "5%", "align": "center", "color": "#555" }
+      ]
+    }
+  ]
+}

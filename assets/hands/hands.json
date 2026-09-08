@@ -1,0 +1,5 @@
+{
+  "marker-a": { "src": "hands/marker-a.png", "tip": [6, 200], "height": "58%", "note": "photoreal right hand, black chisel marker, forearm exits bottom-right" },
+  "marker-b": { "src": "hands/marker-b.png", "tip": [6, 200], "height": "58%", "note": "photoreal right hand (hairier), black chisel marker" },
+  "cartoon":  { "src": "hand.svg", "tip": [14, 14], "height": "52%", "note": "vector cartoon hand with sleeve" }
+}

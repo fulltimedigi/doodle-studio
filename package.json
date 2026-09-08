@@ -1,0 +1,38 @@
+{
+  "name": "doodle-studio",
+  "version": "0.1.0",
+  "description": "Free, local doodle / whiteboard-animation video maker with an AI script agent. No subscriptions.",
+  "type": "module",
+  "bin": {
+    "doodle": "./src/cli.mjs"
+  },
+  "scripts": {
+    "setup": "npx playwright install chromium",
+    "demo": "node src/cli.mjs render examples/demo-ar.json -o output/demo-ar.mp4",
+    "demo:draft": "node src/cli.mjs render examples/demo-ar.json --draft -o output/demo-ar-draft.mp4",
+    "icons": "node scripts/make-icons.mjs",
+    "doodles": "node scripts/extract-doodles.mjs",
+    "start": "node src/server.mjs",
+    "ui": "node src/server.mjs"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@dicebear/core": "^9.4.3",
+    "@dicebear/open-peeps": "^9.4.2",
+    "@tabler/icons": "^3.46.0",
+    "ffmpeg-static": "^5.3.0",
+    "jimp": "^0.22.12",
+    "msedge-tts": "^2.0.7",
+    "playwright": "^1.63.0",
+    "potrace": "^2.1.8",
+    "react-open-doodles": "^1.0.5",
+    "skeleton-tracing-js": "^1.0.4"
+  },
+  "devDependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
+}

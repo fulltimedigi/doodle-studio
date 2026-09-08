@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <!-- Pen tip is at (14,14). Everything is drawn in a frame rotated 45deg around the tip:
+       +x runs along the marker toward the hand and the sleeve (off the bottom-right corner). -->
+  <g transform="translate(14 14) rotate(45)" stroke="#5b3a21" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+    <!-- sleeve + cuff -->
+    <rect x="430" y="-105" width="1200" height="270" fill="#1f2a44" stroke="#14203a"/>
+    <rect x="430" y="-105" width="34" height="270" fill="#eef2f9" stroke="#14203a"/>
+    <!-- palm (under the marker) -->
+    <path d="M150 22 C140 110 215 168 325 162 C400 158 432 112 432 40 L432 22 Z" fill="#f1c9a5"/>
+    <!-- marker -->
+    <path d="M0 0 L42 -15 L42 15 Z" fill="#2b2b2b"/>
+    <rect x="38" y="-21" width="400" height="42" rx="11" fill="#3a3a3a"/>
+    <rect x="38" y="-21" width="50" height="42" rx="11" fill="#e63946"/>
+    <rect x="404" y="-21" width="34" height="42" rx="11" fill="#e63946"/>
+    <!-- four fingers curled over the marker -->
+    <rect x="150" y="-74" width="46" height="118" rx="23" fill="#f1c9a5" transform="rotate(-8 173 -15)"/>
+    <rect x="200" y="-80" width="48" height="126" rx="24" fill="#f1c9a5" transform="rotate(-5 224 -17)"/>
+    <rect x="252" y="-80" width="48" height="126" rx="24" fill="#f1c9a5" transform="rotate(-2 276 -17)"/>
+    <rect x="304" y="-72" width="46" height="116" rx="23" fill="#f1c9a5" transform="rotate(2 327 -14)"/>
+    <!-- thumb resting along the marker -->
+    <ellipse cx="128" cy="-34" rx="64" ry="27" fill="#f1c9a5" transform="rotate(-12 128 -34)"/>
+    <!-- nail on the index finger -->
+    <ellipse cx="170" cy="-60" rx="10" ry="13" fill="#f8ddc8" stroke-width="4"/>
+  </g>
+</svg>
