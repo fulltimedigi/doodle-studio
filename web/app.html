@@ -140,7 +140,7 @@
     <h2>⚙️ الإعدادات</h2>
     <div class="warn">مفتاح Gemini المجاني يشغّل كتابة السيناريو والصوت الطبيعي. أنشئه من <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> ثم الصقه هنا. يُحفظ في متصفحك فقط ولا يُرسل لأي مكان غير Google.</div>
     <div class="row"><label class="fix">GEMINI_API_KEY</label><input id="s_key" placeholder="AIza…"></div>
-    <div class="row"><label class="fix">نموذج السيناريو</label><input id="s_model" value="gemini-2.5-flash"></div>
+    <div class="row"><label class="fix">نموذج السيناريو</label><input id="s_model" value="gemini-3.6-flash" placeholder="gemini-3.6-flash"></div>
     <div class="row"><button class="fix" onclick="saveSettings()">حفظ</button><button class="soft fix" onclick="document.getElementById('settings').style.display='none'">إغلاق</button><span id="setMsg" class="muted"></span></div>
   </section>
 </main>
@@ -161,7 +161,10 @@ let CAT = null, SCRIPT = { title: '', format: '16:9', hand: 'marker-a', scenes: 
 let COMPILED = null, HAND_IMG = null, FONT_CSS = '';
 const ART = new Map();           // name -> dataURL (uploaded by the user)
 const TTS_CACHE = new Map();     // key -> AudioBuffer
-const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || 'gemini-2.5-flash' };
+const SCRIPT_MODELS = ['gemini-3.6-flash', 'gemini-3.1-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
+const TTS_MODELS = { 'gemini-2.5-flash-preview-tts': ['gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview', 'gemini-2.5-pro-preview-tts'], 'gemini-2.5-pro-preview-tts': ['gemini-2.5-pro-preview-tts', 'gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview'] };
+const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || SCRIPT_MODELS[0] };
+if (settings.model === 'gemini-2.5-flash') settings.model = SCRIPT_MODELS[0]; // retired by Google for new users
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const pct = (v, total) => (typeof v === 'string' && v.endsWith('%') ? (parseFloat(v) / 100) * total : +v);
 const log = (m) => { const l = $('log'); l.textContent = (l.textContent + '\n' + m).split('\n').slice(-5).join('\n'); };
@@ -193,10 +196,16 @@ async function gemini(model, body) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': settings.key }, body: JSON.stringify(body) });
     if (r.status === 429 || r.status === 503) { const wait = 8000 * (attempt + 1); log(`⏳ حصة Google ممتلئة مؤقتًا، انتظار ${wait / 1000} ث…`); await new Promise((ok) => setTimeout(ok, wait)); continue; }
-    if (!r.ok) throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 300)}`);
+    if (!r.ok) { const err = new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 300)}`); err.status = r.status; throw err; }
     return r.json();
   }
   throw new Error('Gemini: تجاوزت الحصة المجانية، حاول بعد دقيقة');
+}
+// try a list of models in order; a retired/unknown model answers 404 and we move on to the next one
+async function geminiAny(models, body) {
+  let last;
+  for (const m of models) { try { const j = await gemini(m, body); if (m !== models[0]) log(`ℹ️ استُخدم النموذج ${m}`); return { j, model: m }; } catch (e) { last = e; if (e.status !== 404 && e.status !== 400) throw e; } }
+  throw last;
 }
 async function runAI() {
   const brief = $('brief').value.trim(); if (!brief) return alert('اكتب الفكرة أولًا');
@@ -204,7 +213,9 @@ async function runAI() {
   try {
     const sys = await fetchText('assets/script-writer.md');
     const user = `Brief:\n${brief}\n\nConstraints:\n- format: ${$('format').value}\n- language: ${$('lang').value}\n- available peep seeds: ${CAT.peeps.join(', ')}\n- available art files (use exactly these names with "art/" prefix if they fit, otherwise request custom art): ${[...ART.keys()].join(', ')}\nReturn ONLY the JSON.`;
-    const j = await gemini(settings.model, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } });
+    const models = [settings.model, ...SCRIPT_MODELS.filter((m) => m !== settings.model)];
+    const { j, model } = await geminiAny(models, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } });
+    if (model !== settings.model) { settings.model = model; localStorage.setItem('gemini_model', model); $('s_model').value = model; }
     const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
     SCRIPT = JSON.parse(text.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'));
     SCRIPT.format ||= $('format').value; SCRIPT.hand ||= 'marker-a';
@@ -221,7 +232,8 @@ function pcmToBuffer(b64, rate = 24000) {
 async function tts(text, { voice, style, model }) {
   const key = [model, voice, style, text].join('|'); if (TTS_CACHE.has(key)) return TTS_CACHE.get(key);
   const prompt = `${style || 'Read this narration naturally, warm and clear'}:\n${text}`;
-  const j = await gemini(model || $('ttsModel').value, { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || 'Charon' } } } } });
+  const wanted = model || $('ttsModel').value;
+  const { j } = await geminiAny(TTS_MODELS[wanted] || [wanted, ...TTS_MODELS['gemini-2.5-flash-preview-tts']], { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || 'Charon' } } } } });
   const part = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData); if (!part) throw new Error('Gemini لم يُرجع صوتًا');
   const rate = +(part.inlineData.mimeType.match(/rate=(\d+)/)?.[1] || 24000);
   const buf = pcmToBuffer(part.inlineData.data, rate); TTS_CACHE.set(key, buf); return buf;
