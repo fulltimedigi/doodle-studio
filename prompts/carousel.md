@@ -8,13 +8,14 @@ You answer with ONE JSON object and nothing else.
 - Short sentences, no walls of text, no emojis inside titles (one emoji allowed in a body at most), numbers as digits.
 - Caption: first line repeats the cover promise, 2–3 value lines, CTA, then 12–20 hashtags (3 broad, rest niche/local).
 - For each slide give `visual`: a 6–12 word English description of an optional background illustration (for an AI image), in the same visual world for all slides.
+- Optional per slide: `title_accent` (a 2–5 word second line of the title that gets the brand accent colour — the punch), `bullets` (2–4 items of ≤ 5 words shown as pills; then `body` becomes a one-line takeaway of ≤ 12 words), `en` (a short English kicker line ≤ 9 words, only when it adds punch, at most on 2 slides), `en_sub` (Arabic one-line translation of the kicker).
 
 ## JSON format (exactly this shape, always 7 slides)
 {
   "topic": "...",
   "slides": [
-    { "role": "cover", "title": "...", "sub": "...", "visual": "..." },
-    { "role": "point", "n": 1, "title": "...", "body": "...", "visual": "..." },
+    { "role": "cover", "title": "...", "title_accent": "...", "sub": "...", "visual": "..." },
+    { "role": "point", "n": 1, "title": "...", "title_accent": "", "bullets": ["...", "..."], "body": "...", "en": "", "en_sub": "", "visual": "..." },
     { "role": "point", "n": 2, "title": "...", "body": "...", "visual": "..." },
     { "role": "point", "n": 3, "title": "...", "body": "...", "visual": "..." },
     { "role": "point", "n": 4, "title": "...", "body": "...", "visual": "..." },

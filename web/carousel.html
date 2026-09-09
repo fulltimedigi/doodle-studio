@@ -34,6 +34,35 @@
   .slide.t-dark{background:#0f1115;color:#fff}.slide.t-dark .in::before{content:"";position:absolute;left:-260px;bottom:-260px;width:760px;height:760px;border-radius:50%;background:radial-gradient(circle,var(--a),transparent 70%);opacity:.55}
   .slide.t-paper{background:#faf6ec;color:#23201b}.slide.t-paper h1,.slide.t-paper h2{font-family:"Aref Ruqaa","Cairo",serif;font-weight:400}.slide.t-paper .ul{height:14px;width:60%;background:var(--a);border-radius:8px;transform:rotate(-1deg);opacity:.85}
   .slide.hasimg .veil{background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.62) 50%,rgba(0,0,0,.22) 100%)}.slide.hasimg .in::before{display:none}.slide.hasimg .num{background:var(--a);color:#fff}.slide.hasimg .cta{background:var(--a);color:#fff}.slide.hasimg{color:#fff}.slide.hasimg h1,.slide.hasimg h2,.slide.hasimg p{color:#fff}
+  /* brand template: white canvas, heavy black headline with an accent line, soft pills and cards (FullTimeDigi look) */
+  .slide.t-brand{background:#fff;color:#111}
+  .slide.t-brand .in{padding:72px 80px}
+  .slide.t-brand .top{opacity:1;font-size:34px;font-weight:800;color:#111;gap:14px}
+  .slide.t-brand .top img{height:74px}
+  .slide.t-brand .top .pg{font-size:30px;color:#444}
+  .slide.t-brand .mid{justify-content:flex-start;padding-top:60px;gap:22px}
+  .slide.t-brand h1{font-size:112px;line-height:1.12;color:#111;text-align:center;font-weight:900}
+  .slide.t-brand h1.long{font-size:92px}.slide.t-brand h1.xlong{font-size:74px}
+  .slide.t-brand h2{font-size:84px;line-height:1.3;color:#111;text-align:center;font-weight:900}
+  .slide.t-brand.r-cover .mid,.slide.t-brand.r-cta .mid{justify-content:center;padding-top:0}
+  .slide.t-brand h2.long{font-size:66px}
+  .slide.t-brand .acc{color:var(--a);text-align:center;font-weight:900;font-size:76px;line-height:1.15;margin-top:-6px}
+  .slide.t-brand .sub{text-align:center;font-size:44px;color:#333;font-weight:600;opacity:1}
+  .slide.t-brand p{font-size:40px;line-height:1.6;color:#333;text-align:center}
+  .slide.t-brand .num{display:none}
+  .slide.t-brand .pills{display:flex;flex-direction:column;gap:18px;margin-top:10px}
+  .slide.t-brand .pill{display:flex;align-items:center;gap:22px;background:#f2f4f3;border-radius:999px;padding:18px 26px;font-size:40px;font-weight:600;color:#1d1d1d}
+  .slide.t-brand .pill i{width:64px;height:64px;border-radius:50%;background:color-mix(in srgb,var(--a) 18%,#fff);color:var(--a);display:inline-flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;font-style:normal;flex:none}
+  .slide.t-brand .card{background:color-mix(in srgb,var(--a) 10%,#fff);border-radius:32px;padding:34px 40px;text-align:center;font-size:44px;font-weight:800;color:#111;margin-top:18px}
+  .slide.t-brand .card b{color:var(--a)}
+  .slide.t-brand .en{direction:ltr;text-align:left;font-family:"Cairo",Inter,sans-serif;font-size:36px;font-weight:700;color:#111;border-top:8px solid var(--a);padding-top:22px;margin-top:auto;width:100%;max-width:640px;align-self:flex-start;line-height:1.35}
+  .slide.t-brand .en small{display:block;font-size:26px;color:#666;font-weight:400;margin-top:8px;direction:rtl;text-align:right}
+  .slide.t-brand .cta{align-self:center;background:linear-gradient(135deg,var(--p),var(--a));color:#fff;font-size:44px;font-weight:800;padding:24px 70px;border-radius:999px;box-shadow:0 12px 30px rgba(0,0,0,.12)}
+  .slide.t-brand .bot{color:#555;opacity:1;font-size:28px}
+  .slide.t-brand .bot .swipe{background:color-mix(in srgb,var(--a) 12%,#fff);color:#0f3d2e;padding:10px 26px;border-radius:999px}
+  .slide.t-brand .bigword{font-size:118px;font-weight:900;color:var(--a);text-align:center;letter-spacing:1px;line-height:1.1;direction:ltr}
+  .slide.t-brand.hasimg .bgimg{top:auto;bottom:0;height:52%;object-fit:cover;-webkit-mask-image:linear-gradient(to top,#000 60%,transparent);mask-image:linear-gradient(to top,#000 60%,transparent)}
+  .slide.t-brand.hasimg .veil{display:none}.slide.t-brand.hasimg{color:#111}.slide.t-brand.hasimg h1,.slide.t-brand.hasimg h2,.slide.t-brand.hasimg p{color:#111}.slide.t-brand.hasimg .mid{padding-top:20px;justify-content:flex-start}
   /* page */
   .frames{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
   .editor{border:1px solid #cfe7e3;border-radius:12px;padding:10px;background:#fff;margin-top:10px}
@@ -54,7 +83,8 @@
       <textarea id="topic" placeholder="مثال: ٥ أسباب تخلي عميلك يسيب متجرك من غير ما يشتري، وإزاي تصلحها"></textarea>
       <label class="f">القالب</label>
       <div class="tpl" id="tpl">
-        <label><input type="radio" name="tpl" value="t-bold" checked><i id="sw-bold"></i>جريء</label>
+        <label><input type="radio" name="tpl" value="t-brand" checked><i id="sw-brand" style="background:#fff;border:1px solid #ddd;position:relative"></i>هوية البراند</label>
+        <label><input type="radio" name="tpl" value="t-bold"><i id="sw-bold"></i>جريء</label>
         <label><input type="radio" name="tpl" value="t-clean"><i style="background:#fff;border:1px solid #ddd"></i>نظيف</label>
         <label><input type="radio" name="tpl" value="t-dark"><i style="background:#0f1115"></i>داكن</label>
         <label><input type="radio" name="tpl" value="t-paper"><i style="background:#faf6ec;border:1px solid #e5dccb"></i>ورقي</label>
@@ -86,7 +116,7 @@
 <script>
 const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, loadBrand, lib, needKey, chatEdit, nodeToPng, zipBlobs, download, q, sleep } = Suite;
 Suite.mountHeader('كاروسيل');
-const B = loadBrand(); $('sw-bold').style.background = B.colors.primary;
+const B = loadBrand(); $('sw-bold').style.background = B.colors.primary; $('sw-brand').style.boxShadow = `inset 0 -8px 0 ${B.colors.accent}`;
 let DATA = null, SEL = 0, ID = q.get('id'), BG = {}; // BG: slide index -> dataURL
 const tpl = () => document.querySelector('input[name=tpl]:checked').value;
 document.querySelectorAll('input[name=tpl]').forEach((x) => x.addEventListener('change', render));
@@ -108,11 +138,19 @@ function slideHTML(s, i, n) {
   const dots = `<div class="dots">${Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>`;
   const cls = (t, a, b) => (t.length > b ? 'xlong' : t.length > a ? 'long' : '');
   let mid;
-  if (s.role === 'cover') mid = `<div class="mid"><h1 class="${cls(s.title || '', 22, 40)}">${esc(s.title)}</h1>${tpl() === 't-paper' ? '<div class="ul"></div>' : ''}<div class="sub">${esc(s.sub || '')}</div></div><div class="bot"><span class="swipe">اسحب للتفاصيل ←</span>${dots}</div>`;
+  const pills = (arr) => arr?.length ? `<div class="pills">${arr.map((b) => `<div class="pill"><i>✓</i><span>${esc(b)}</span></div>`).join('')}</div>` : '';
+  const en = s.en ? `<div class="en">${esc(s.en)}${s.en_sub ? `<small>${esc(s.en_sub)}</small>` : ''}</div>` : '';
+  if (tpl() === 't-brand') {
+    const accLine = s.title_accent ? `<div class="acc">${esc(s.title_accent)}</div>` : '';
+    if (s.role === 'cover') mid = `<div class="mid"><h1 class="${cls(s.title || '', 22, 40)}">${esc(s.title)}</h1>${accLine}<div class="sub">${esc(s.sub || '')}</div>${pills(s.bullets)}${en}</div><div class="bot"><span class="swipe">اسحب ←</span>${dots}</div>`;
+    else if (s.role === 'cta') mid = `<div class="mid"><h2 class="${cls(s.title || '', 24, 999) ? 'long' : ''}">${esc(s.title)}</h2>${accLine}<p>${esc(s.body || '')}</p>${pills(s.bullets)}<span class="cta">${esc(s.cta || B.cta || 'اطلب الآن')}</span>${en}</div><div class="bot"><span class="swipe">${esc((B.hashtags || '').split(/\s+/)[0] || '@' + (B.name || ''))}</span>${dots}</div>`;
+    else mid = `<div class="mid"><h2 class="${cls(s.title || '', 24, 999) ? 'long' : ''}">${esc(s.title)}</h2>${accLine}${s.bullets?.length ? pills(s.bullets) + (s.body ? `<div class="card">${esc(s.body)}</div>` : '') : `<p>${esc(s.body || '')}</p>`}${en}</div><div class="bot"><span class="swipe">${i < n - 1 ? 'التالي ←' : ''}</span>${dots}</div>`;
+  }
+  else if (s.role === 'cover') mid = `<div class="mid"><h1 class="${cls(s.title || '', 22, 40)}">${esc(s.title)}</h1>${tpl() === 't-paper' ? '<div class="ul"></div>' : ''}<div class="sub">${esc(s.sub || '')}</div></div><div class="bot"><span class="swipe">اسحب للتفاصيل ←</span>${dots}</div>`;
   else if (s.role === 'cta') mid = `<div class="mid"><h2 class="${cls(s.title || '', 24, 999) ? 'long' : ''}">${esc(s.title)}</h2><p>${esc(s.body || '')}</p><span class="cta">${esc(s.cta || B.cta || 'اطلب الآن')}</span>${B.website || B.phone ? `<p style="font-size:34px;opacity:.8">${esc(B.website || '')} ${esc(B.phone || '')}</p>` : ''}</div><div class="bot"><span class="swipe">احفظ المنشور 🔖</span>${dots}</div>`;
   else mid = `<div class="mid"><div class="num">${s.n || i}</div><h2 class="${cls(s.title || '', 24, 999) ? 'long' : ''}">${esc(s.title)}</h2><p>${esc(s.body || '')}</p></div><div class="bot"><span class="swipe">${i < n - 1 ? 'التالي ←' : ''}</span>${dots}</div>`;
   const bg = BG[i] ? `<img class="bgimg" src="${BG[i]}"><div class="veil"></div>` : '';
-  return `<div class="slide ${tpl()} ${BG[i] ? 'hasimg' : ''}" style="--p:${B.colors.primary};--a:${B.colors.accent};--bg:${B.colors.bg}" data-i="${i}">${bg}<div class="in">${brand}${mid}</div></div>`;
+  return `<div class="slide ${tpl()} r-${s.role} ${BG[i] ? 'hasimg' : ''}" style="--p:${B.colors.primary};--a:${B.colors.accent};--bg:${B.colors.bg}" data-i="${i}">${bg}<div class="in">${brand}${mid}</div></div>`;
 }
 function render() {
   if (!DATA) return; $('out').hidden = false; const n = DATA.slides.length; $('cnt').textContent = `${n} شرائح`;

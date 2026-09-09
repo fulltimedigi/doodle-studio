@@ -52,6 +52,7 @@
     <h2>🧬 هوية البراند</h2>
     <div class="muted">تُملأ مرة واحدة وتُطبَّق تلقائيًا على كل ما تنتجه الأدوات: الاسم، اللهجة، النبرة، الألوان، والدعوة للفعل.</div>
     <div class="note">اختصار: اكتب وصفًا سريعًا لنشاطك (أو الصق نص صفحتك) واضغط «املأ تلقائيًا»، ثم راجع الحقول.</div>
+    <div class="row"><button class="soft fix" onclick="presetFTD()">⚡ هوية FullTimeDigi الجاهزة (الألوان + الشعار)</button></div>
     <div class="row"><textarea id="b_desc" style="min-height:64px" placeholder="مثال: متجر عطور نيش في الرياض، عملاؤنا سيدات ٢٥–٤٥، توصيل خلال ٢٤ ساعة، نبرة فاخرة وهادئة"></textarea><button class="fix" onclick="autoBrand()">✨ املأ تلقائيًا</button></div>
     <div id="b_msg" class="msg"></div>
     <div class="grid2">
@@ -115,6 +116,19 @@ function openBrand() {
   $('b_tones').innerHTML = TONES.map((t) => `<label><input type="checkbox" name="tone" value="${esc(t)}" ${(b.tones || []).includes(t) ? 'checked' : ''}>${t}</label>`).join('');
   $('logoDrop').innerHTML = (LOGO ? `<img src="${LOGO}">` : 'شعار') + '<input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">';
   $('brandDlg').showModal();
+}
+async function presetFTD() {
+  $('b_name').value = 'FullTimeDigi'; $('b_cta').value = 'جرّبه مجانًا';
+  $('b_sells').value = 'مساعد بيع ذكي بالعربي للمتاجر الإلكترونية: يفهم نية العميل ويقترح من كتالوج متجرك فقط';
+  $('b_usp').value = 'يتركّب في دقائق بدون برمجة، لا يخترع حقيقة المنتج، ويحوّل الزوّار اللي بيسألوا إلى مشترين';
+  $('b_aud').value = 'أصحاب المتاجر الإلكترونية الصغيرة والمتوسطة على سلة وزد وشوبيفاي في السعودية والخليج ومصر';
+  $('b_web').value = 'fulltimedigi.com'; $('b_tags').value = '#FullTimeDigi #مساعد_تسوق_ذكي #التجارة_الإلكترونية #متاجر_سلة #زيادة_المبيعات';
+  $('b_banned').value = 'الأرخص، يضمن مضاعفة مبيعاتك، مجاني للأبد، أفضل أداة في العالم، أرقام أو نسب نجاح غير موثّقة';
+  $('b_c1').value = '#0b3b33'; $('b_c2').value = '#00b478'; $('b_c3').value = '#ffffff';
+  const d = document.querySelector('input[name=dialect][value=gulf]'); if (d) d.checked = true;
+  document.querySelectorAll('input[name=tone]').forEach((x) => { x.checked = ['محترف', 'ودود', 'هادئ وواثق'].includes(x.value); });
+  try { const b = await (await fetch('assets/brand/fd-logo.png')).blob(); LOGO = await readFile(b); $('logoDrop').innerHTML = `<img src="${LOGO}"><input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">`; } catch {}
+  say('b_msg', '✅ الهوية جاهزة — راجع ثم اضغط «حفظ الهوية»');
 }
 async function pickLogo(f) { if (!f) return; LOGO = await readFile(f); $('logoDrop').innerHTML = `<img src="${LOGO}"><input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">`; }
 function saveBrandForm() {
