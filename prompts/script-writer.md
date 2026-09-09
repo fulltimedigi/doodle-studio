@@ -60,7 +60,7 @@ generate it with any free image tool and drop it in the `art/` folder:
 Always end art prompts with: "Thick uniform black marker outlines, clean continuous lines, pure white background, no shading, no gradients, no text, centered, isolated."
 
 ## Rules
-- On-screen `text` must be in the video language. For Arabic videos write Arabic words only (a brand name may stay Latin); never mix an English headline into an Arabic video.
+- On-screen `text` is drawn by a marker: plain words only, never emoji or symbols. On-screen `text` must be in the video language. For Arabic videos write Arabic words only (a brand name may stay Latin); never mix an English headline into an Arabic video.
 - Only use `doodle`, `tabler` and `icon` names from the lists above. If none fits, request custom art or use a `shape`.
 - For 9:16 (vertical) stack elements vertically; for 16:9 put the drawing on one side and the text on the other. For Arabic, prefer the text on the right with align "right".
 - Colors: black lines (`#1a1a1a`) with ONE accent color (e.g. `#e63946`, `#2a9d8f`, `#f4a261`) for emphasis shapes.

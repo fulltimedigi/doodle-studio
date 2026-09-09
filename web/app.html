@@ -15,7 +15,7 @@
   header h1{font-size:18px;margin:0;white-space:nowrap}
   header #title{flex:1;max-width:520px;background:var(--soft);border-color:transparent}
   main{max-width:840px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
-  @media (max-width:640px){main{padding:10px;gap:12px}header h1{display:none}}
+  @media (max-width:640px){main{padding:10px;gap:12px}header h1{display:none}#ideaCard .row>select{flex:1 1 45%}}
   button.big{width:100%;padding:14px;font-size:17px;margin-top:6px;border-radius:12px}
   .center{text-align:center;margin-top:8px}
   .steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
@@ -25,7 +25,8 @@
   .steps span.error{background:#fde8ea;color:var(--accent)}
   #studioCard{position:relative}
   body{overflow-x:hidden}
-  #previewWrap.offscreen{position:absolute;left:0;top:0;width:640px;visibility:hidden;pointer-events:none;z-index:-1;margin:0}
+  #previewWrap.offscreen{position:absolute;left:0;top:0;width:640px;height:0!important;min-height:0;overflow:hidden;opacity:0;pointer-events:none;z-index:-1;margin:0;border:0}
+  #studioCard,#advanced{overflow:hidden}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
   .card h2{margin:0 0 10px;font-size:16px;display:flex;align-items:center;gap:8px}
   .card h2 .grow{flex:1}
@@ -760,7 +761,7 @@ async function render(draft) {
     await venc.flush(); venc.close(); muxer.finalize();
     const blob = new Blob([muxer.target.buffer], { type: container === 'mp4' ? 'video/mp4' : 'video/webm' });
     const url = URL.createObjectURL(blob); const name = (SCRIPT.title || 'doodle') + (draft ? '-preview' : '') + '.' + container;
-    $('result').innerHTML = `<video src="${url}" controls autoplay></video><div class="row"><a class="fix" href="${url}" download="${esc(name)}"><button class="primary">⬇ تحميل ${esc(name)} (${(blob.size / 1e6).toFixed(1)} MB)</button></a><span class="muted">${container === 'webm' ? 'متصفحك لا يدعم ترميز H.264 فأُخرج WebM؛ Chrome/Edge على ويندوز/ماك يُخرجان MP4' : (withAudio ? '' : 'بلا تعليق صوتي: لا مفتاح Gemini')}</span></div>`;
+    $('result').innerHTML = `<video src="${url}" controls autoplay></video><div class="row"><a class="fix" href="${url}" download="${esc(name)}"><button class="primary">⬇ تحميل الفيديو (${(blob.size / 1e6).toFixed(1)} MB)</button></a><span class="muted">${container === 'webm' ? 'متصفحك لا يدعم ترميز H.264 فأُخرج WebM؛ Chrome/Edge على ويندوز/ماك يُخرجان MP4' : (withAudio ? '' : 'بلا تعليق صوتي: لا مفتاح Gemini')}</span></div>`;
     $('barFill').style.width = '100%'; say('jobMsg', `✅ الفيديو جاهز — ${COMPILED.duration.toFixed(0)} ث${draft ? ' (نسخة سريعة)' : ''}`); showResult(true); ok = true;
   } catch (e) { say('jobMsg', '❌ ' + e.message, true); log(e.stack || e.message); } finally { setBusy(false); if (DIRTY) changed(); }
   return ok;
