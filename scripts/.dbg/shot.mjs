@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const out = '/tmp/claude-0/-home-user-fulltimedigi-app/dc64386e-3636-55db-bf63-338cab5c6ded/scratchpad';
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH });
+const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+page.on('pageerror', (e) => console.log('pageerror', e.message));
+await page.goto('http://localhost:8090/index.html');
+await page.waitForFunction(() => COMPILED && !BUSY, null, { timeout: 90000 });
+await page.evaluate(() => toggleEditor(0, 0)); await page.waitForTimeout(100);
+await page.locator('#scenesCard .scene').first().screenshot({ path: `${out}/editor-art.png` });
+await page.locator('#ideaCard').screenshot({ path: `${out}/idea-card.png` });
+await browser.close();

@@ -1,0 +1,22 @@
+import { chromium } from 'playwright';
+const out = '/tmp/claude-0/-home-user-fulltimedigi-app/dc64386e-3636-55db-bf63-338cab5c6ded/scratchpad';
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH });
+const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+page.on('pageerror', (e) => console.log('pageerror', e.message));
+// fake Gemini image endpoint: returns a tiny PNG so the whole flow can be exercised offline
+const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+await page.route('https://generativelanguage.googleapis.com/**', (route) => { const body = JSON.parse(route.request().postData()); const isImg = body.generationConfig?.responseModalities?.includes('IMAGE'); route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(isImg ? { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: png } }] } }] } : {}) }); });
+await page.goto('http://localhost:8090/index.html');
+await page.waitForFunction(() => COMPILED && !BUSY, null, { timeout: 90000 });
+await page.evaluate(() => { localStorage.setItem('gemini_key', 'x'); settings.key = 'x'; SCRIPT.artRequests = [{ file: 'art/owner-happy.png', character: 'owner', prompt: 'a smiling shop owner' }, { file: 'art/owner-phone.png', character: 'owner', prompt: 'the same shop owner holding a phone' }]; SCRIPT.scenes[0].elements.push({ type: 'image', src: 'art/owner-happy.png', x: '50%', y: '10%', w: '40%', h: '80%' }); SCRIPT.scenes[1].elements.push({ type: 'image', src: 'art/owner-phone.png', x: '50%', y: '10%', w: '40%', h: '80%' }); drawScenes(); });
+console.log('button:', await page.evaluate(() => document.querySelector('#genArtBtn').textContent), await page.evaluate(() => missingArt()));
+page.on('dialog', (d) => { console.log('dialog:', d.message()); d.accept(); });
+await page.evaluate(() => generateMissingArt());
+await page.waitForFunction(() => !GEN_BUSY && missingArt().length === 0, null, { timeout: 60000 });
+console.log('after:', await page.evaluate(() => ({ msg: document.querySelector('#aiMsg').textContent, art: [...ART.keys()], chars: [...ART_CHAR.entries()] })));
+await page.reload(); await page.waitForFunction(() => COMPILED && !BUSY, null, { timeout: 90000 });
+console.log('after reload art persisted:', await page.evaluate(() => [...ART.keys()].filter((n) => n.startsWith('owner'))));
+await page.evaluate(() => toggleEditor(0, SCRIPT.scenes[0].elements.length - 1)); await page.waitForTimeout(100);
+await page.locator('#scenesCard .scene').first().screenshot({ path: `${out}/editor-art.png` });
+await page.locator('#ideaCard').screenshot({ path: `${out}/idea-card.png` });
+await browser.close();

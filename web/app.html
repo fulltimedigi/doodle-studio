@@ -67,6 +67,8 @@
   details.menu .pop button:hover,details.menu .pop label:hover{background:var(--soft)}
   .gallery{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
   .gallery img{width:64px;height:64px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px}
+  .gallery .art{position:relative;display:inline-block}
+  .gallery .art button{position:absolute;top:-6px;left:-6px;background:#fff;border:1px solid var(--line);border-radius:50%;padding:0 5px;font-size:11px}
   /* studio */
   #previewWrap{position:relative;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:120px}
   #stageHolder{position:absolute;left:0;top:0;transform-origin:0 0;direction:ltr}
@@ -120,6 +122,7 @@
     <div class="row">
       <select id="format" onchange="SCRIPT.format=this.value;changed()"><option value="16:9">يوتيوب 16:9</option><option value="9:16">ريلز / تيك توك 9:16</option><option value="1:1">مربع 1:1</option></select>
       <select id="lang"><option value="ar">عربي</option><option value="en">English</option></select>
+      <select id="artMode" onchange="localStorage.setItem('art_mode', this.value)" title="مصدر الرسومات"><option value="ai">رسومات ذكاء اصطناعي لكل مشهد (≈ ٠٫٠٧$ للرسمة)</option><option value="library">المكتبة المجانية فقط</option></select>
       <button class="primary fix" id="aiBtn" onclick="runAI()">🤖 اكتب لي السيناريو</button>
     </div>
     <div id="aiMsg" class="msg"></div>
@@ -157,6 +160,7 @@
 
   <section class="card" id="scenesCard">
     <h2><span class="step">2</span> المشاهد <span class="muted" id="sceneCount"></span><span class="grow"></span>
+      <button class="soft small" id="genArtBtn" style="display:none" onclick="generateMissingArt()">🎨 ولّد الرسومات الناقصة</button>
       <button class="soft small" onclick="addScene()">＋ مشهد</button>
       <details class="menu"><summary>⋯</summary>
         <div class="pop">
@@ -180,6 +184,7 @@
     <div class="note">مفتاح Gemini يشغّل كتابة السيناريو والصوت الطبيعي. أنشئه من <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> ثم الصقه هنا. يُحفظ في متصفحك فقط.</div>
     <label class="f">GEMINI_API_KEY</label><input id="s_key" placeholder="AIza…">
     <label class="f">نموذج السيناريو</label><input id="s_model" placeholder="gemini-3.6-flash">
+    <label class="f">نموذج الصور</label><select id="imgModel"><option value="gemini-3.1-flash-image">Nano Banana 2 — الأفضل (≈ $0.067 للرسمة)</option><option value="gemini-2.5-flash-image">Nano Banana — أرخص (≈ $0.039)</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite — الأرخص (≈ $0.034)</option></select>
     <label class="f">نموذج الصوت</label><select id="ttsModel"><option value="gemini-2.5-flash-preview-tts">Flash TTS (أرخص وأسرع)</option><option value="gemini-2.5-pro-preview-tts">Pro TTS (أدق)</option></select>
     <label class="f">أسلوب الأداء الصوتي</label><input id="voiceStyle" value="اقرأ بلهجة مصرية دافئة وواثقة كمعلّق إعلانات، بإيقاع طبيعي">
     <label class="f">جملة تجربة الصوت (عندما لا يوجد مشهد)</label><input id="ttsText" value="بتصرف على الإعلانات، والعميل بيدخل متجرك ويطلع من غير ما يشتري؟ هنا بييجي دور مساعد التسوّق الذكي.">
@@ -209,7 +214,7 @@ const ART = new Map();           // name -> url/dataURL (uploaded by the user or
 const TTS_CACHE = new Map();     // key -> AudioBuffer (memory); mirrored in IndexedDB
 const SCRIPT_MODELS = ['gemini-3.6-flash', 'gemini-3.1-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
 const TTS_MODELS = { 'gemini-2.5-flash-preview-tts': ['gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview', 'gemini-2.5-pro-preview-tts'], 'gemini-2.5-pro-preview-tts': ['gemini-2.5-pro-preview-tts', 'gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview'] };
-const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || SCRIPT_MODELS[0], tts: localStorage.getItem('tts_model') || 'gemini-2.5-flash-preview-tts', style: localStorage.getItem('voice_style') || '' };
+const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || SCRIPT_MODELS[0], tts: localStorage.getItem('tts_model') || 'gemini-2.5-flash-preview-tts', img: localStorage.getItem('img_model') || 'gemini-3.1-flash-image', style: localStorage.getItem('voice_style') || '' };
 if (settings.model === 'gemini-2.5-flash') settings.model = SCRIPT_MODELS[0];
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const pct = (v, total) => (typeof v === 'string' && v.endsWith('%') ? (parseFloat(v) / 100) * total : +v);
@@ -226,10 +231,11 @@ async function init() {
   CAT = await (await fetch('assets/catalog.json')).json();
   $('handSel').innerHTML = [...Object.keys(CAT.hands), 'none'].map((h) => `<option value="${h}">${HAND_NAMES[h] || h}</option>`).join('');
   $('voice').innerHTML = GEMINI_VOICES.map((v) => `<option>${v}</option>`).join('');
-  $('s_key').value = settings.key; $('s_model').value = settings.model; $('ttsModel').value = settings.tts; if (settings.style) $('voiceStyle').value = settings.style;
+  $('s_key').value = settings.key; $('s_model').value = settings.model; $('ttsModel').value = settings.tts; $('imgModel').value = settings.img; $('artMode').value = localStorage.getItem('art_mode') || 'ai'; if (settings.style) $('voiceStyle').value = settings.style;
   const faces = [['Patrick Hand', 'PatrickHand.ttf'], ['Aref Ruqaa', 'ArefRuqaa.ttf'], ['Cairo', 'Cairo.ttf']];
   const st = document.createElement('style'); st.textContent = faces.map(([n, f]) => `@font-face{font-family:"${n}";src:url(assets/fonts/${f});}`).join(''); document.head.appendChild(st);
   for (const n of CAT.art) ART.set(n, 'assets/art/' + n);
+  for (const [n, u] of await idbAll('art')) if (typeof u === 'string') ART.set(n, u); // drawings generated or uploaded earlier
   renderArt();
   try { await Promise.all(faces.map(([n]) => document.fonts.load(`20px "${n}"`))); } catch {}
   if (!settings.key) say('aiMsg', '🔑 ضع مفتاح Gemini في ⚙️ (أعلى الصفحة) لتشغيل كتابة السيناريو والصوت. المعاينة والرسم يعملان بدونه.');
@@ -238,7 +244,7 @@ async function init() {
 }
 function openSettings() { $('settings').showModal(); }
 function saveSettings() {
-  settings.key = $('s_key').value.trim(); settings.model = $('s_model').value.trim() || SCRIPT_MODELS[0]; settings.tts = $('ttsModel').value; settings.style = $('voiceStyle').value.trim();
+  settings.key = $('s_key').value.trim(); settings.model = $('s_model').value.trim() || SCRIPT_MODELS[0]; settings.tts = $('ttsModel').value; settings.img = $('imgModel').value; localStorage.setItem('img_model', settings.img); settings.style = $('voiceStyle').value.trim();
   localStorage.setItem('gemini_key', settings.key); localStorage.setItem('gemini_model', settings.model); localStorage.setItem('tts_model', settings.tts); localStorage.setItem('voice_style', settings.style);
   say('setMsg', '✅ حُفظ في متصفحك'); if (settings.key) say('aiMsg', '');
 }
@@ -283,7 +289,8 @@ async function runAI() {
   $('aiBtn').disabled = true; say('aiMsg', '🤖 جارٍ كتابة السيناريو…');
   try {
     const sys = await fetchText('assets/script-writer.md');
-    const user = `Brief:\n${brief}\n\nConstraints:\n- format: ${$('format').value}\n- language: ${$('lang').value}\n- available peep seeds: ${CAT.peeps.join(', ')}\n- available art files (use exactly these names with "art/" prefix if they fit, otherwise request custom art): ${[...ART.keys()].join(', ')}\nReturn ONLY the JSON.`;
+    const ai = $('artMode').value === 'ai';
+    const user = `Brief:\n${brief}\n\nConstraints:\n- format: ${$('format').value}\n- language: ${$('lang').value}\n- available peep seeds: ${CAT.peeps.join(', ')}\n- available art files (use exactly these names with "art/" prefix if they fit): ${[...ART.keys()].join(', ')}\n${ai ? '- The user has an AI illustrator. For the MAIN drawing of EVERY scene use an `image` element with a NEW descriptive file name under art/ and describe it in artRequests (one request per file; a recurring person gets the same `character` key and the identical physical description each time). Use peeps/doodles/icons only for small secondary elements.' : '- The user has no image generator: use only the available art files, peeps, doodles, tabler icons and shapes; do not request custom art.'}\nReturn ONLY the JSON.`;
     const models = [settings.model, ...SCRIPT_MODELS.filter((m) => m !== settings.model)];
     const { j, model } = await geminiAny(models, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }, (m) => say('aiMsg', m));
     if (model !== settings.model) { settings.model = model; localStorage.setItem('gemini_model', model); $('s_model').value = model; }
@@ -291,14 +298,18 @@ async function runAI() {
     const s = JSON.parse(text.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'));
     const keep = { format: $('format').value, board: SCRIPT.board, hand: SCRIPT.hand, layout: SCRIPT.layout, music: SCRIPT.music, sfx: SCRIPT.sfx, voice: SCRIPT.voice };
     setScript({ ...keep, ...s, format: s.format || keep.format, hand: keep.hand, voice: keep.voice });
-    say('aiMsg', '✅ تم. راجع المشاهد (الخطوة 2) والمعاينة، ثم اصنع الفيديو.' + (s.artRequests?.length ? ` يقترح ${s.artRequests.length} رسمة مخصّصة — البرومبتات في JSON (artRequests).` : ''));
+    say('aiMsg', '✅ تم. راجع المشاهد (الخطوة 2) والمعاينة، ثم اصنع الفيديو.');
+    $('aiBtn').disabled = false;
+    if (ai && missingArt().length) await generateMissingArt();
   } catch (e) { say('aiMsg', '❌ ' + e.message, true); }
   $('aiBtn').disabled = false;
 }
 // --- persistent voice cache (IndexedDB) so re-renders never call Google again
-function idb() { return new Promise((ok, bad) => { const r = indexedDB.open('doodle-studio', 1); r.onupgradeneeded = () => r.result.createObjectStore('tts'); r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
-async function idbGet(k) { try { const db = await idb(); return await new Promise((ok) => { const t = db.transaction('tts').objectStore('tts').get(k); t.onsuccess = () => ok(t.result); t.onerror = () => ok(null); }); } catch { return null; } }
-async function idbSet(k, v) { try { const db = await idb(); db.transaction('tts', 'readwrite').objectStore('tts').put(v, k); } catch {} }
+function idb() { return new Promise((ok, bad) => { const r = indexedDB.open('doodle-studio', 2); r.onupgradeneeded = () => { for (const st of ['tts', 'art']) if (!r.result.objectStoreNames.contains(st)) r.result.createObjectStore(st); }; r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
+async function idbGet(k, store = 'tts') { try { const db = await idb(); return await new Promise((ok) => { const t = db.transaction(store).objectStore(store).get(k); t.onsuccess = () => ok(t.result); t.onerror = () => ok(null); }); } catch { return null; } }
+async function idbSet(k, v, store = 'tts') { try { const db = await idb(); db.transaction(store, 'readwrite').objectStore(store).put(v, k); } catch {} }
+async function idbAll(store) { try { const db = await idb(); return await new Promise((ok) => { const o = db.transaction(store).objectStore(store); const ks = o.getAllKeys(), vs = o.getAll(); vs.onsuccess = () => ok(ks.result.map((k, i) => [k, vs.result[i]])); vs.onerror = () => ok([]); }); } catch { return []; } }
+async function idbDel(k, store) { try { const db = await idb(); db.transaction(store, 'readwrite').objectStore(store).delete(k); } catch {} }
 async function clearAudioCache() { TTS_CACHE.clear(); try { const db = await idb(); db.transaction('tts', 'readwrite').objectStore('tts').clear(); } catch {} say('setMsg', '🧹 مُسحت ذاكرة الصوت'); }
 function pcmToBuffer(f, rate = 24000) { const ctx = new OfflineAudioContext(1, 1, rate); const buf = ctx.createBuffer(1, f.length, rate); buf.copyToChannel(f, 0); return buf; }
 function b64ToF32(b64) { const bin = atob(b64); const n = bin.length >> 1; const f = new Float32Array(n); for (let i = 0; i < n; i++) { const v = (bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8)); f[i] = (v > 32767 ? v - 65536 : v) / 32768; } return f; }
@@ -329,9 +340,78 @@ async function previewVoice() {
   } catch (e) { say('jobMsg', '❌ ' + e.message, true); }
 }
 
+// ------------------------------------------------------------ AI illustrations (Gemini image models, same key)
+const IMG_PRICE = { 'gemini-3.1-flash-image': 0.067, 'gemini-2.5-flash-image': 0.039, 'gemini-3.1-flash-lite-image': 0.034 };
+const IMG_MODELS = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-3.1-flash-lite-image'];
+const ART_STYLE = 'Whiteboard explainer illustration in a hand-drawn doodle style, like a Doodly / VideoScribe asset. Thick uniform black marker outlines, clean continuous lines, simple friendly cartoon proportions, at most two flat accent colours (no shading, no gradients, no textures), pure white background, no scenery or ground line, no text or letters, single subject centred and isolated, full body when it is a person.';
+const ART_CHAR = new Map(); // art file -> character key (for consistent recurring characters)
+const artChar = (n) => ART_CHAR.get(n) || (SCRIPT.artRequests || []).find((r) => r.file === 'art/' + n)?.character || '';
+function missingArt() { const out = []; for (const sc of SCRIPT.scenes) for (const e of sc.elements || []) if ((e.type === 'image' || e.type === 'svg') && e.src && !e.src.startsWith('data:') && !ART.has(String(e.src).replace(/^art\//, '')) && !out.includes(e.src)) out.push(e.src); return out; }
+function ratioFor(e) { const w = pct(e.w ?? '30%', 16), h = pct(e.h ?? '30%', 9); const r = w / h; const opts = { '1:1': 1, '3:4': 0.75, '4:3': 1.333, '9:16': 0.5625, '16:9': 1.777, '2:3': 0.667, '3:2': 1.5 }; return Object.entries(opts).sort((a, b) => Math.abs(a[1] - r) - Math.abs(b[1] - r))[0][0]; }
+function findImagePart(o) { if (!o || typeof o !== 'object') return null; if (typeof o.data === 'string' && /^image\//.test(o.mimeType || o.mime_type || '')) return { data: o.data, mime: o.mimeType || o.mime_type }; for (const v of Object.values(o)) { const f = findImagePart(v); if (f) return f; } return null; }
+async function generateArt(desc, { ratio = '1:1', ref = null, onWait } = {}) {
+  const parts = [{ text: `${ART_STYLE}\n\nSubject: ${desc}` + (ref ? '\n\nKeep the SAME character as in the reference image (same face, hair, clothes and colours), only the pose and props change. Match the reference drawing style exactly.' : '') }];
+  if (ref) parts.push({ inlineData: { mimeType: ref.match(/^data:([^;]+)/)[1], data: ref.split(',')[1] } });
+  const models = [settings.img, ...IMG_MODELS.filter((m) => m !== settings.img)];
+  let last;
+  for (const m of models) {
+    for (const cfg of [{ responseModalities: ['IMAGE'], imageConfig: { aspectRatio: ratio } }, { responseModalities: ['TEXT', 'IMAGE'] }]) {
+      try {
+        const j = await gemini(m, { contents: [{ parts }], generationConfig: cfg }, onWait);
+        const im = findImagePart(j.candidates?.[0]?.content); if (im) { if (m !== settings.img) log(`ℹ️ استُخدم نموذج الصور ${m}`); return `data:${im.mime};base64,${im.data}`; }
+        last = new Error('لم يُرجع Gemini صورة (ربما رفض الوصف)');
+      } catch (e) { last = e; if (e.status !== 400 && e.status !== 404) throw e; }
+    }
+    // newer "interactions" endpoint (Google is moving image models there)
+    try {
+      const input = [{ type: 'text', text: parts[0].text }]; if (ref) input.push({ type: 'image', mime_type: parts[1].inlineData.mimeType, data: parts[1].inlineData.data });
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': settings.key }, body: JSON.stringify({ model: m, input, response_format: { type: 'image', mime_type: 'image/png', aspect_ratio: ratio } }) });
+      if (r.ok) { const im = findImagePart(await r.json()); if (im) return `data:${im.mime};base64,${im.data}`; }
+      else if (r.status === 429) throw Object.assign(new Error('تجاوزت حصة Gemini للصور — انتظر دقيقة'), { status: 429 });
+    } catch (e) { last = e; if (e.status === 429) throw e; }
+  }
+  throw last || new Error('تعذّر توليد الصورة');
+}
+let GEN_BUSY = false;
+async function generateMissingArt() {
+  if (GEN_BUSY) return; const miss = missingArt(); if (!miss.length) return;
+  if (!settings.key) return say('aiMsg', 'ضع مفتاح Gemini في الإعدادات أولًا (⚙️)', true);
+  const price = IMG_PRICE[settings.img] || 0.07;
+  if (!confirm(`سيتم توليد ${miss.length} رسمة بالذكاء الاصطناعي بتكلفة تقريبية $${(miss.length * price).toFixed(2)} من رصيد Gemini. نكمل؟`)) return;
+  GEN_BUSY = true; $('genArtBtn').disabled = true; let done = 0;
+  try {
+    for (const src of miss) {
+      const name = src.replace(/^art\//, ''); const req = (SCRIPT.artRequests || []).find((r) => r.file === src);
+      const el = SCRIPT.scenes.flatMap((sc) => sc.elements || []).find((e) => e.src === src);
+      const desc = el?.prompt || req?.prompt || name.replace(/\.(png|jpg|jpeg|svg)$/i, '').replace(/[-_]+/g, ' ');
+      const refName = req?.character ? [...ART.keys()].find((n) => ART.get(n).startsWith('data:') && artChar(n) === req.character) : null;
+      say('aiMsg', `🎨 توليد الرسمة ${done + 1}/${miss.length}: ${name}…`);
+      try {
+        const url = await generateArt(desc, { ratio: ratioFor(el || {}), ref: refName ? ART.get(refName) : null, onWait: (m) => say('aiMsg', m) });
+        ART.set(name, url); idbSet(name, url, 'art'); if (req?.character) ART_CHAR.set(name, req.character);
+        renderArt(); done++;
+      } catch (e) { log(`❌ ${name}: ${e.message}`); }
+    }
+    say('aiMsg', done === miss.length ? `✅ اكتملت ${done} رسمة (≈ $${(done * price).toFixed(2)}). المعاينة تتحدّث الآن.` : `⚠️ اكتملت ${done} من ${miss.length} رسمة — راجع السجل أسفل الاستوديو`, done !== miss.length);
+  } finally { GEN_BUSY = false; $('genArtBtn').disabled = false; drawScenes(); changed(); }
+}
+async function genArtFor(i, j) {
+  const e = SCRIPT.scenes[i].elements[j]; const desc = $(`desc-${i}-${j}`).value.trim(); if (!desc) return alert('اكتب وصف الرسمة أولًا');
+  if (!settings.key) return say('aiMsg', 'ضع مفتاح Gemini في الإعدادات أولًا (⚙️)', true);
+  e.prompt = desc; const refName = $(`ref-${i}-${j}`).value;
+  let name = String(e.src || '').replace(/^art\//, '').replace(/\.(png|jpg|jpeg|svg)$/i, '') || 'drawing'; if (ART.has(name + '.png') && !missingArt().includes(e.src)) name += '-' + Date.now().toString(36).slice(-4); name += '.png';
+  say('aiMsg', `🎨 جارٍ توليد ${name}…`);
+  try {
+    const url = await generateArt(desc, { ratio: ratioFor(e), ref: refName ? ART.get(refName) : null, onWait: (m) => say('aiMsg', m) });
+    ART.set(name, url); idbSet(name, url, 'art'); if (refName && artChar(refName)) ART_CHAR.set(name, artChar(refName));
+    renderArt(); e.src = 'art/' + name; drawScenes(); changed(); say('aiMsg', `✅ ${name} جاهزة`);
+  } catch (err) { say('aiMsg', '❌ ' + err.message, true); }
+}
+
 // ------------------------------------------------------------ scenes editor
 function drawScenes() {
   $('sceneCount').textContent = SCRIPT.scenes.length ? `${SCRIPT.scenes.length} مشهد` : '';
+  const miss = missingArt(); $('genArtBtn').style.display = miss.length ? '' : 'none'; $('genArtBtn').textContent = `🎨 ولّد ${miss.length} رسمة ناقصة (≈ $${(miss.length * IMG_PRICE[settings.img] || 0).toFixed(2)})`;
   $('scenes').innerHTML = SCRIPT.scenes.map((sc, i) => `
     <div class="scene">
       <div class="head"><b>مشهد ${i + 1}</b><span class="grow"></span><button class="ghost small" onclick="moveScene(${i},-1)" title="أعلى">▲</button><button class="ghost small" onclick="moveScene(${i},1)" title="أسفل">▼</button><button class="ghost small" onclick="delScene(${i})" title="حذف">🗑</button></div>
@@ -360,7 +440,11 @@ function editor(i, j, e) {
     extra = `<div class="row"><label>الحجم</label>${sel(['5%', '6%', '7%', '8%', '9%', '10%', '12%'], e.size || '7%', 'size')}<label>المحاذاة</label>${sel(['right', 'center', 'left'], e.align || 'right', 'align', ['يمين', 'وسط', 'يسار'])}<label>الحركة</label>${sel(['write', 'pop', 'rise'], e.anim || 'write', 'anim', ['كتابة باليد', 'قفز الكلمات', 'صعود الكلمات'])}<label><input type="checkbox" ${e.weight === 'bold' ? 'checked' : ''} onchange="setEl(${i},${j},'weight',this.checked?'bold':'')" style="width:auto"> عريض</label></div>`;
   } else if (e.type === 'image' || e.type === 'svg') {
     main = `<div class="row">${sel([...ART.keys()].map((a) => 'art/' + a), e.src, 'src')}<label class="fix" style="cursor:pointer;color:var(--accent2)">📤 رفع<input type="file" accept="image/*" style="display:none" onchange="uploadArtFor(${i},${j},this.files[0])"></label></div>`;
-    extra = `<div class="row"><label>الأسلوب</label>${sel(['color', 'line'], e.style || 'color', 'style', ['يرسم ثم يلوّن', 'خطوط فقط'])}<label>الطريقة</label>${sel(['draw', 'reveal'], e.mode || 'draw', 'mode', ['رسم باليد', 'كشف الصورة كما هي'])}</div>`;
+    const req = (SCRIPT.artRequests || []).find((r) => r.file === e.src);
+    const refs = [...ART.keys()].filter((n) => ART.get(n).startsWith('data:') && 'art/' + n !== e.src);
+    extra = `<div class="row"><label>الأسلوب</label>${sel(['color', 'line'], e.style || 'color', 'style', ['يرسم ثم يلوّن', 'خطوط فقط'])}<label>الطريقة</label>${sel(['draw', 'reveal'], e.mode || 'draw', 'mode', ['رسم باليد', 'كشف الصورة كما هي'])}</div>
+      <textarea id="desc-${i}-${j}" style="min-height:44px" placeholder="صف الرسمة المطلوبة بالعربي أو الإنجليزي (مثال: صاحب متجر مبتسم يمسك هاتفًا وبجانبه صناديق)">${esc(e.prompt || req?.prompt || '')}</textarea>
+      <div class="row"><label>نفس الشخصية في</label><select id="ref-${i}-${j}"><option value="">— بلا مرجع —</option>${refs.map((n) => `<option value="${esc(n)}" ${req?.character && artChar(n) === req.character ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select><button class="fix" onclick="genArtFor(${i},${j})">🎨 ولّد الرسمة (≈ $${(IMG_PRICE[settings.img] || 0.07).toFixed(3)})</button></div>`;
   } else if (e.type === 'doodle') main = sel(CAT.doodles, e.name, 'name');
   else if (e.type === 'peep') main = sel(CAT.peeps, e.seed, 'seed');
   else if (e.type === 'tabler') main = `<input list="tablerList" value="${esc(e.name)}" ${set('name')} placeholder="اسم الأيقونة بالإنجليزية (مثل shopping-cart)">`;
@@ -395,10 +479,11 @@ function moveScene(i, d) { const j = i + d; if (j < 0 || j >= SCRIPT.scenes.leng
 function toggleJson() { const b = $('jsonBox'); if (b.style.display === 'none') { b.value = JSON.stringify(SCRIPT, null, 2); b.style.display = ''; } else { try { setScript(JSON.parse(b.value)); b.style.display = 'none'; } catch (e) { alert('JSON غير صالح: ' + e.message); } } }
 function downloadScript() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(SCRIPT, null, 2)], { type: 'application/json' })); a.download = (SCRIPT.title || 'script') + '.json'; a.click(); }
 async function openScript(f) { if (!f) return; setScript(JSON.parse(await f.text())); }
-function renderArt() { const mine = [...ART.entries()].filter(([n, u]) => u.startsWith('data:')); $('artWrap').style.display = mine.length ? '' : 'none'; $('artGallery').innerHTML = mine.map(([n, u]) => `<img src="${u}" title="art/${n}" loading="lazy">`).join(''); }
+function renderArt() { const mine = [...ART.entries()].filter(([n, u]) => u.startsWith('data:')); $('artWrap').style.display = mine.length ? '' : 'none'; $('artGallery').innerHTML = mine.map(([n, u]) => `<span class="art"><img src="${u}" title="art/${n}" loading="lazy"><button class="ghost small" title="حذف" onclick="delArt('${esc(n)}')">✕</button></span>`).join(''); }
+function delArt(n) { if (!confirm(`حذف الرسمة ${n}؟`)) return; ART.delete(n); idbDel(n, 'art'); renderArt(); drawScenes(); changed(); }
 const readFile = (f) => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); });
-async function uploadArt(files) { for (const f of files) ART.set(f.name, await readFile(f)); renderArt(); drawScenes(); changed(); }
-async function uploadArtFor(i, j, f) { if (!f) return; ART.set(f.name, await readFile(f)); renderArt(); setEl(i, j, 'src', 'art/' + f.name); }
+async function uploadArt(files) { for (const f of files) { const u = await readFile(f); ART.set(f.name, u); idbSet(f.name, u, 'art'); } renderArt(); drawScenes(); changed(); }
+async function uploadArtFor(i, j, f) { if (!f) return; const u = await readFile(f); ART.set(f.name, u); idbSet(f.name, u, 'art'); renderArt(); setEl(i, j, 'src', 'art/' + f.name); }
 const tl = document.createElement('datalist'); tl.id = 'tablerList'; document.body.appendChild(tl);
 function fillTabler() { if (tl.childElementCount || !CAT) return; tl.innerHTML = CAT.tabler.map((n) => `<option value="${n}">`).join(''); }
 function setMusic(v) { if (v === 'file') { $('musicFile').click(); return; } SCRIPT.music = v; autosave(); }

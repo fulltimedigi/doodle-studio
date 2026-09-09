@@ -53,9 +53,10 @@ under `art/` (e.g. `art/customer-leaving.png`) AND add a top-level `"artRequests
 generate it with any free image tool and drop it in the `art/` folder:
 ```json
 "artRequests": [
-  { "file": "art/customer-leaving.png", "prompt": "Whiteboard explainer illustration, hand-drawn doodle style: a frustrated young woman holding a smartphone, shrugging, question mark above her head. Thick uniform black marker outlines, clean continuous lines, minimal flat color only on her top (teal), pure white background, no shading, no gradients, no text, centered, full body, isolated." }
+  { "file": "art/customer-leaving.png", "character": "customer", "prompt": "Whiteboard explainer illustration, hand-drawn doodle style: a frustrated young woman holding a smartphone, shrugging, question mark above her head. Thick uniform black marker outlines, clean continuous lines, minimal flat color only on her top (teal), pure white background, no shading, no gradients, no text, centered, full body, isolated." }
 ]
 ```
+`character` is an optional key: give the same key to every request that shows the same person (the illustrator reuses the first drawing as a reference), and repeat the same physical description (age, hair, clothes, colours) in each of those prompts.
 Always end art prompts with: "Thick uniform black marker outlines, clean continuous lines, pure white background, no shading, no gradients, no text, centered, isolated."
 
 ## Rules
