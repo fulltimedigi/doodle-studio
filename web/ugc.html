@@ -39,7 +39,7 @@
         <div><label class="f">عدد اللقطات (٨ ث لكل لقطة)</label><select id="count"><option>2</option><option selected>3</option><option>4</option></select></div>
       </div>
       <div class="grid2">
-        <div><label class="f">جودة التصوير</label><select id="tier" onchange="cost()"><option value="fast">Veo 3.1 Fast — 1080p (الأفضل قيمة)</option><option value="lite">Veo 3.1 Lite — 720p (الأرخص)</option><option value="standard">Veo 3.1 — أعلى جودة</option></select></div>
+        <div><label class="f">جودة التصوير</label><select id="tier" onchange="cost()"><option value="fast">Veo 3.1 Fast — 1080p (الأفضل قيمة، كل لقطة تبدأ من صورة المبدع)</option><option value="lite">Veo 3.1 Lite — 720p (الأرخص)</option><option value="standard">Veo 3.1 — أعلى جودة (صور مرجعية للمبدع والمنتج)</option></select></div>
         <div><label class="f">المكان</label><select id="place"><option value="auto">يختاره الوكيل</option><option>مطبخ منزلي مضيء</option><option>غرفة معيشة</option><option>داخل السيارة</option><option>مقهى</option><option>الشارع نهارًا</option></select></div>
       </div>
       <button class="primary big" id="go" onclick="writeScript()">✍️ اكتب سكريبت الإعلان (مجاني)</button>
@@ -69,7 +69,7 @@
 const { $, esc, say, toast, copyText, geminiJSON, generateImage, veoGenerate, VEO_PRICE, IMG_PRICE, brandContext, loadBrand, lib, needKey, chatEdit, readFile, q, sleep, pmap, settings, DIALECT_NOTE, DIALECTS } = Suite;
 Suite.mountHeader('إعلان UGC');
 const B = loadBrand();
-let DATA = null, PRODUCT = '', CREATOR = '', CLIPS = {}, ERR = {}, ID = q.get('id'), FINAL = null, FINAL_EXT = 'mp4';
+let DATA = null, PRODUCT = '', CREATOR = '', CLIPS = {}, KEYS = {}, ERR = {}, ID = q.get('id'), FINAL = null, FINAL_EXT = 'mp4';
 async function pickProduct(f) { if (!f) return; PRODUCT = await readFile(f); $('prodPrev').src = PRODUCT; $('prodPrev').hidden = false; toast('✅ صورة المنتج جاهزة'); if (DATA) save(true); }
 const FORM = ['brief', 'persona', 'count', 'tier', 'place'];
 function formSave() { try { localStorage.setItem('ugc_form', JSON.stringify(Object.fromEntries(FORM.map((k) => [k, $(k).value])))); } catch {} }
@@ -77,7 +77,7 @@ function formRestore() { try { const f = JSON.parse(localStorage.getItem('ugc_fo
 FORM.forEach((k) => $(k) && $(k).addEventListener('input', formSave));
 const res = () => ($('tier').value === 'lite' ? '720p' : '1080p');
 function clipCost() { const t = $('tier').value; return (VEO_PRICE[t] || VEO_PRICE.fast)[res()] * 8; }
-function cost() { const n = DATA ? DATA.clips.length : +$('count').value; const total = n * clipCost() + (CREATOR ? 0 : IMG_PRICE[settings.img] || 0.067); $('costLine').textContent = `التصوير ≈ $${total.toFixed(2)} (${n} لقطات × $${clipCost().toFixed(2)} + صورة المبدع)`; $('costBtn').textContent = `≈ $${total.toFixed(2)}`; return total; }
+function cost() { const n = DATA ? DATA.clips.length : +$('count').value; const img = IMG_PRICE[settings.img] || 0.067; const total = n * clipCost() + (CREATOR ? 0 : img) + ($('tier').value === 'standard' ? 0 : n * img); $('costLine').textContent = `التصوير ≈ $${total.toFixed(2)} (${n} لقطات × $${clipCost().toFixed(2)} + صورة المبدع)`; $('costBtn').textContent = `≈ $${total.toFixed(2)}`; return total; }
 async function writeScript() {
   const brief = $('brief').value.trim(); if (!brief) return say('msg', 'اكتب المنتج والفكرة أولًا', true);
   if (!needKey('msg')) return; $('go').disabled = true; say('msg', '✍️ جارٍ كتابة السكريبت…');
@@ -85,7 +85,7 @@ async function writeScript() {
     const sys = (await (await fetch('assets/prompts/ugc.md')).text()) + '\n\n' + brandContext(B);
     const user = `Brief: ${brief}\nNumber of clips: ${$('count').value}\nCreator preference: ${$('persona').value === 'auto' ? 'choose to match the audience' : $('persona').value}\nSetting preference: ${$('place').value === 'auto' ? 'choose' : $('place').value}\n${PRODUCT ? 'A real product photo is attached: describe the product in the notes exactly as it looks so the video model keeps it consistent.' : ''}\nReturn ONLY the JSON.`;
     DATA = await geminiJSON(sys, user, { onWait: (m) => say('msg', m), images: PRODUCT ? [PRODUCT] : [] });
-    ID = null; CLIPS = {}; ERR = {}; CREATOR = ''; FINAL = null; renderScript(); await save(true); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر» — محفوظ تلقائيًا، التحديث لا يضيّعه');
+    ID = null; CLIPS = {}; KEYS = {}; ERR = {}; CREATOR = ''; FINAL = null; renderScript(); await save(true); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر» — محفوظ تلقائيًا، التحديث لا يضيّعه');
     $('scriptCard').hidden = false; $('scriptCard').scrollIntoView({ behavior: 'smooth' });
   } catch (e) { say('msg', '❌ ' + e.message, true); }
   $('go').disabled = false;
@@ -102,7 +102,7 @@ function renderScript() {
 }
 function renderClips() {
   const any = Object.keys(CLIPS).length;
-  $('clips').innerHTML = DATA.clips.map((c, i) => CLIPS[i] ? `<div class="c"><video src="${URL.createObjectURL(CLIPS[i])}" controls playsinline></video><span class="n">${i + 1}</span><button class="soft small re" onclick="shootOne(${i})">🔁</button></div>` : ERR[i] ? `<div class="c err"><span>لقطة ${i + 1}<br><small>${esc(ERR[i])}</small></span><button class="soft small re" onclick="shootOne(${i})">🔁 أعد</button></div>` : `<div class="c"><span>لقطة ${i + 1}<br><small class="muted">لم تُصوَّر بعد</small></span></div>`).join('');
+  $('clips').innerHTML = DATA.clips.map((c, i) => CLIPS[i] ? `<div class="c"><video src="${URL.createObjectURL(CLIPS[i])}" controls playsinline></video><span class="n">${i + 1}</span><button class="soft small re" onclick="shootOne(${i})">🔁</button></div>` : ERR[i] ? `<div class="c err"><span>لقطة ${i + 1}<br><small>${esc(ERR[i])}</small></span><button class="soft small re" onclick="shootOne(${i})">🔁 أعد</button></div>` : KEYS[i] ? `<div class="c"><img src="${KEYS[i]}" style="width:100%;height:100%;object-fit:cover;opacity:.85"><span class="n">${i + 1}</span><span style="position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,0,0,.55);border-radius:8px;padding:4px 6px;font-size:11px">الإطار الأول جاهز — التصوير…</span></div>` : `<div class="c"><span>لقطة ${i + 1}<br><small class="muted">لم تُصوَّر بعد</small></span></div>`).join('');
   $('assembleRow').hidden = !(any && Object.keys(CLIPS).length === DATA.clips.length);
 }
 async function chat() {
@@ -119,11 +119,29 @@ async function ensureCreator() {
 function veoPrompt(c) {
   return `UGC style selfie video ad, vertical 9:16, filmed handheld on a smartphone by the creator herself/himself. Creator: ${DATA.creator}. Setting: ${DATA.setting}. Action: ${c.action}. Camera: ${c.camera}. The creator looks into the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Authentic amateur feel, real room, natural light, realistic skin, small handheld shake. ${PRODUCT ? 'The product shown must match the reference product photo exactly.' : ''} No on-screen text, no captions, no subtitles, no logos, no watermark.`;
 }
+function keyPrompt(c) {
+  return `Photorealistic vertical 9:16 smartphone selfie frame, first frame of a UGC video. The SAME person as in the first reference image (identical face, hair, skin tone, clothes). Setting: ${DATA.setting}. Action: ${c.action}. ${PRODUCT ? 'The product from the second reference image is clearly visible and identical in shape, label and colours.' : ''} Looking at the camera, mid-sentence natural expression, ${c.camera}. Real room, natural light, slight phone-camera softness. No text, no captions, no logos, no watermark.`;
+}
+async function keyframe(i) {
+  if (KEYS[i]) return KEYS[i]; await ensureCreator();
+  say('msg2', `🖼️ لقطة ${i + 1}: توليد الإطار الأول…`);
+  KEYS[i] = await generateImage(keyPrompt(DATA.clips[i]), { ratio: '9:16', refs: [CREATOR, PRODUCT].filter(Boolean), onWait: (m) => say('msg2', m) });
+  renderClips(); return KEYS[i];
+}
+function veoPromptFromFrame(c) {
+  return `Animate this selfie frame into a UGC style vertical video: the person in the image talks directly to the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Action: ${c.action}. Camera: ${c.camera}, handheld smartphone, small natural shake, real room ambience. Keep the same person, clothes and product exactly as in the image. No on-screen text, no captions, no subtitles, no logos, no watermark.`;
+}
 async function shootOne(i) {
   if (!needKey('msg2')) return; await ensureCreator();
   const c = DATA.clips[i]; say('msg2', `🎬 تصوير اللقطة ${i + 1}…`);
   delete ERR[i];
-  try { CLIPS[i] = await veoGenerate({ prompt: veoPrompt(c), refs: [CREATOR, PRODUCT].filter(Boolean), tier: $('tier').value, aspect: '9:16', resolution: res(), duration: 8, negative: 'text, captions, subtitles, watermark, logo, cartoon, blurry, distorted hands', onStatus: (m) => say('msg2', `لقطة ${i + 1}: ${m}`) }); renderClips(); say('msg2', `✅ اللقطة ${i + 1} جاهزة`); await save(true); }
+  try {
+    const tier = $('tier').value; const onStatus = (m) => say('msg2', `لقطة ${i + 1}: ${m}`);
+    const job = tier === 'standard'
+      ? { prompt: veoPrompt(c), refs: [CREATOR, PRODUCT].filter(Boolean) }            // Veo 3.1: reference images keep creator + product consistent
+      : { prompt: veoPromptFromFrame(c), image: await keyframe(i) };                  // Fast / Lite: image-to-video from a per-clip keyframe (same creator, product in shot)
+    CLIPS[i] = await veoGenerate({ ...job, tier, aspect: '9:16', resolution: res(), duration: 8, negative: 'text, captions, subtitles, watermark, logo, cartoon, blurry, distorted hands', onStatus });
+    renderClips(); say('msg2', `✅ اللقطة ${i + 1} جاهزة`); await save(true); }
   catch (e) { ERR[i] = e.message; renderClips(); say('msg2', `❌ لقطة ${i + 1}: ${e.message}`, true); }
 }
 async function shoot() {
@@ -198,11 +216,11 @@ async function assemble() {
   } catch (e) { say('msg2', '❌ ' + e.message, true); console.error(e); }
 }
 async function save(quiet) {
-  if (!DATA) return; const item = await lib.save({ id: ID || undefined, type: 'ugc', title: DATA.title || DATA.clips[0]?.say?.slice(0, 40), data: DATA, creator: CREATOR, product: PRODUCT, clips: CLIPS, video: FINAL, ext: FINAL_EXT, thumb: CREATOR || '', brief: $('brief').value }); ID = item.id;
+  if (!DATA) return; const item = await lib.save({ id: ID || undefined, type: 'ugc', title: DATA.title || DATA.clips[0]?.say?.slice(0, 40), data: DATA, creator: CREATOR, product: PRODUCT, clips: CLIPS, keys: KEYS, video: FINAL, ext: FINAL_EXT, thumb: CREATOR || '', brief: $('brief').value }); ID = item.id;
   try { localStorage.setItem('ugc_last', ID); const u = new URL(location.href); if (u.searchParams.get('id') !== ID) { u.searchParams.set('id', ID); history.replaceState(null, '', u); } } catch {}
   if (!quiet) toast('💾 حُفظ في المكتبة');
 }
-(async () => { formRestore(); cost(); if (!ID) { try { ID = localStorage.getItem('ugc_last') || null; } catch {} } if (ID) { const it = await lib.get(ID); if (!it) { ID = null; return; } if (it) { DATA = it.data; CREATOR = it.creator || ''; PRODUCT = it.product || ''; CLIPS = it.clips || {}; FINAL = it.video || null; if (it.brief) $('brief').value = it.brief; if (PRODUCT && $('prodPrev')) { $('prodPrev').src = PRODUCT; $('prodPrev').hidden = false; } $('scriptCard').hidden = false; renderScript(); say('msg', '↩️ رجّعت آخر شغلك تلقائيًا — سكريبت جديد يبدأ بزر «اكتب سكريبت الإعلان»'); if (FINAL) { const url = URL.createObjectURL(FINAL); $('final').innerHTML = `<video src="${url}" controls playsinline></video><div class="row" style="justify-content:center"><a class="fix" href="${url}" download="${esc(DATA.title || 'ugc-ad')}.mp4"><button class="primary">⬇ تحميل الإعلان</button></a></div>`; } } } })();
+(async () => { formRestore(); cost(); if (!ID) { try { ID = localStorage.getItem('ugc_last') || null; } catch {} } if (ID) { const it = await lib.get(ID); if (!it) { ID = null; return; } if (it) { DATA = it.data; CREATOR = it.creator || ''; PRODUCT = it.product || ''; CLIPS = it.clips || {}; KEYS = it.keys || {}; FINAL = it.video || null; if (it.brief) $('brief').value = it.brief; if (PRODUCT && $('prodPrev')) { $('prodPrev').src = PRODUCT; $('prodPrev').hidden = false; } $('scriptCard').hidden = false; renderScript(); say('msg', '↩️ رجّعت آخر شغلك تلقائيًا — سكريبت جديد يبدأ بزر «اكتب سكريبت الإعلان»'); if (FINAL) { const url = URL.createObjectURL(FINAL); $('final').innerHTML = `<video src="${url}" controls playsinline></video><div class="row" style="justify-content:center"><a class="fix" href="${url}" download="${esc(DATA.title || 'ugc-ad')}.mp4"><button class="primary">⬇ تحميل الإعلان</button></a></div>`; } } } })();
 </script>
 </body>
 </html>

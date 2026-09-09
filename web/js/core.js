@@ -84,33 +84,46 @@
     if (status === 400 && /location|region|country|not supported in/i.test(msg)) return `Veo غير متاح في منطقتك الجغرافية حسب Google: ${msg.slice(0, 200)}`;
     return `Veo ${status}: ${msg.slice(0, 260)}`;
   }
+  /**
+   * Veo 3.1 via the public Gemini API (predictLongRunning). Rules taken from the official docs:
+   *  - referenceImages (up to 3, "asset") exist ONLY on veo-3.1-generate-preview; Fast/Lite ignore or reject them.
+   *  - personGeneration: image-to-video / reference images → "allow_adult" only; text-to-video → "allow_all" only
+   *    (and in MENA/EU only allow_adult is accepted) → for text-to-video we send nothing and let the default apply.
+   *  - durationSeconds must be 8 with reference images or 1080p/4k. numberOfVideos is not accepted on Fast.
+   */
   async function veoGenerate({ prompt, refs = [], image = null, tier = 'fast', aspect = '9:16', resolution = '1080p', duration = 8, negative = '', onStatus }) {
     if (!settings.key) throw new Error('ضع مفتاح Gemini في الإعدادات أولًا (⚙️)');
     const model = VEO_MODELS[tier] || VEO_MODELS.fast;
+    if (refs.length && tier !== 'standard') { refs = []; if (onStatus) onStatus('ℹ️ الصور المرجعية متاحة فقط في Veo 3.1 (العادي) — أُهملت'); }
+    if (tier === 'lite' && resolution !== '720p') resolution = '720p';
     const H = { 'content-type': 'application/json', 'x-goog-api-key': settings.key };
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning`;
-    const build = ({ withRefs, withNeg }) => {
-      const inst = { prompt: withNeg || !negative ? prompt : `${prompt} Avoid: ${negative}.` }; if (image) inst.image = inline(image);
-      if (withRefs && refs.length) inst.referenceImages = refs.slice(0, 3).map((u) => ({ image: inline(u), referenceType: 'asset' }));
-      const params = { aspectRatio: aspect, resolution, durationSeconds: inst.referenceImages || resolution !== '720p' ? 8 : duration, personGeneration: 'allow_adult' };
-      if (withNeg && negative) params.negativePrompt = negative;
-      for (const k of dropped) delete params[k];
-      return JSON.stringify({ instances: [inst], parameters: params });
+    // negativePrompt is not in the current Gemini API docs for Veo 3.1 → fold it into the prompt text instead of risking a 400.
+    const state = { refs: refs.length > 0, neg: false, dropped: new Set() };
+    const build = () => {
+      const inst = { prompt: state.neg || !negative ? prompt : `${prompt} Avoid: ${negative}.` };
+      if (image) inst.image = inline(image);
+      if (state.refs) inst.referenceImages = refs.slice(0, 3).map((u) => ({ image: inline(u), referenceType: 'asset' }));
+      const params = { aspectRatio: aspect, resolution, durationSeconds: (inst.referenceImages || resolution !== '720p') ? 8 : duration };
+      if (image || inst.referenceImages) params.personGeneration = 'allow_adult';
+      if (state.neg && negative) params.negativePrompt = negative;
+      for (const k of state.dropped) delete params[k];
+      return { instances: [inst], parameters: params };
     };
-    // Retry ladder for 400s: the public Gemini API is stricter than Vertex — drop optional fields one by one.
-    const ladder = [{ withRefs: true, withNeg: true }, { withRefs: true, withNeg: false }, { withRefs: false, withNeg: false }];
-    const dropped = new Set(); let r, lastText = '', li = 0;
+    let r, lastText = '';
     for (let a = 0; a < 8; a++) {
-      r = await fetch(url, { method: 'POST', headers: H, body: build(ladder[li]) });
+      const body = build();
+      r = await fetch(url, { method: 'POST', headers: H, body: JSON.stringify(body) });
       if (r.ok) break;
       lastText = await r.text();
       if (r.status !== 400) throw new Error(veoError(r.status, lastText));
       if (/location|region|country/i.test(lastText)) throw new Error(veoError(400, lastText));
-      // "`field` isn't supported by this model" → drop that exact parameter and retry the same step
-      const m = lastText.match(/`([A-Za-z]+)`\s+isn'?t supported/);
-      if (m && !dropped.has(m[1])) { dropped.add(m[1]); if (onStatus) onStatus(`⚠️ Veo لا يدعم «${m[1]}» — أعيد المحاولة بدونه…`); continue; }
-      if (li >= ladder.length - 1) break;
-      li++; if (onStatus) onStatus('⚠️ Veo رفض بعض الخيارات — أعيد المحاولة بإعدادات أبسط…');
+      // Self-healing: if the error names one of our parameters, drop that parameter and retry the same request.
+      const named = Object.keys(body.parameters).find((k) => new RegExp(`\\b${k}\\b`).test(lastText) && !state.dropped.has(k) && k !== 'aspectRatio');
+      if (named) { state.dropped.add(named); if (onStatus) onStatus(`⚠️ Veo لا يقبل «${named}» هنا — أعيد المحاولة بدونه…`); continue; }
+      if (state.neg) { state.neg = false; if (onStatus) onStatus('⚠️ أعيد المحاولة بدون negativePrompt…'); continue; }
+      if (state.refs) { state.refs = false; if (onStatus) onStatus('⚠️ أعيد المحاولة بدون الصور المرجعية…'); continue; }
+      break;
     }
     if (!r.ok) throw new Error(veoError(r.status, lastText));
     const op = await r.json(); let name = op.name; let tries = 0;
