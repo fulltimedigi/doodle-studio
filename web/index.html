@@ -52,7 +52,7 @@
     <h2>🧬 هوية البراند</h2>
     <div class="muted">تُملأ مرة واحدة وتُطبَّق تلقائيًا على كل ما تنتجه الأدوات: الاسم، اللهجة، النبرة، الألوان، والدعوة للفعل.</div>
     <div class="note">اختصار: اكتب وصفًا سريعًا لنشاطك (أو الصق نص صفحتك) واضغط «املأ تلقائيًا»، ثم راجع الحقول.</div>
-    <div class="row"><button class="soft fix" onclick="presetFTD()">⚡ هوية FullTimeDigi الجاهزة (الألوان + الشعار)</button></div>
+    <div class="row"><button class="soft fix" onclick="presetFTD()">⚡ هوية FullTimeDigi الجاهزة (الدليل الكامل + الألوان + الشعار)</button></div>
     <div class="row"><textarea id="b_desc" style="min-height:64px" placeholder="مثال: متجر عطور نيش في الرياض، عملاؤنا سيدات ٢٥–٤٥، توصيل خلال ٢٤ ساعة، نبرة فاخرة وهادئة"></textarea><button class="fix" onclick="autoBrand()">✨ املأ تلقائيًا</button></div>
     <div id="b_msg" class="msg"></div>
     <div class="grid2">
@@ -80,6 +80,8 @@
     </div>
     <label class="f">هاشتاجات البراند</label><input id="b_tags" placeholder="#اسم_البراند #…">
     <label class="f">كلمات أو وعود ممنوعة</label><input id="b_banned" placeholder="اختياري: مثلًا الأرخص في مصر، يعالج…">
+    <label class="f">دليل الهوية (اختياري): التموضع، وجهة النظر، الرسائل الأساسية، الشخصية، محاور المحتوى</label><textarea id="b_brief" style="min-height:120px" placeholder="الصق هنا ملخص هوية البراند كما تريد أن يكتب عنه الفريق. تُطبَّق على كل الأدوات."></textarea>
+    <label class="f">أسلوب الصور (اختياري): ماذا نعرض وماذا نتجنب</label><textarea id="b_visual" style="min-height:72px" placeholder="مثال: خلفيات بيضاء، نعرض موقف العميل الحقيقي، لا روبوتات ولا شخصيات AI مستقبلية"></textarea>
     <div class="row" style="margin-top:14px"><button class="primary fix" onclick="saveBrandForm()">💾 حفظ الهوية</button><span class="grow"></span><button class="ghost fix" onclick="document.getElementById('brandDlg').close()">إغلاق</button></div>
   </div>
 </dialog>
@@ -105,12 +107,12 @@ function renderBrand() {
   if (!brandReady(b)) { $('brandView').innerHTML = `<div class="note">لم تُنشئ هوية البراند بعد. تستغرق دقيقة وتجعل كل المخرجات بصوتك ولهجتك.</div><button class="primary" onclick="openBrand()">🧬 أنشئ هوية البراند الآن</button>`; return; }
   $('brandView').innerHTML = `<div class="brandBox"><div class="logo">${b.logo ? `<img src="${b.logo}" alt="">` : esc(b.name.slice(0, 1))}</div>
     <div class="meta"><b>${esc(b.name)}</b><div class="muted">${esc(b.sells)}</div><div class="muted">${esc(b.audience || '')}</div>
-    <div class="swatches"><i style="background:${b.colors.primary}"></i><i style="background:${b.colors.accent}"></i><i style="background:${b.colors.bg}"></i> <span class="pill on">${DIALECTS[b.dialect] || 'مصري'}</span> ${(b.tones || []).map((t) => `<span class="pill">${esc(t)}</span>`).join(' ')}</div></div></div>`;
+    <div class="swatches"><i style="background:${b.colors.primary}"></i><i style="background:${b.colors.accent}"></i><i style="background:${b.colors.bg}"></i> <span class="pill on">${DIALECTS[b.dialect] || 'مصري'}</span> ${(b.tones || []).map((t) => `<span class="pill">${esc(t)}</span>`).join(' ')} ${b.brief ? '<span class="pill">📘 دليل هوية</span>' : ''} ${b.visual ? '<span class="pill">🖼️ قواعد صور</span>' : ''}</div></div></div>`;
 }
 let LOGO = '';
 function openBrand() {
   const b = loadBrand(); LOGO = b.logo || '';
-  $('b_name').value = b.name; $('b_sells').value = b.sells; $('b_usp').value = b.usp || ''; $('b_aud').value = b.audience; $('b_cta').value = b.cta; $('b_web').value = b.website || ''; $('b_phone').value = b.phone || ''; $('b_tags').value = b.hashtags || ''; $('b_banned').value = b.banned || '';
+  $('b_name').value = b.name; $('b_sells').value = b.sells; $('b_usp').value = b.usp || ''; $('b_aud').value = b.audience; $('b_cta').value = b.cta; $('b_web').value = b.website || ''; $('b_phone').value = b.phone || ''; $('b_tags').value = b.hashtags || ''; $('b_banned').value = b.banned || ''; $('b_brief').value = b.brief || ''; $('b_visual').value = b.visual || '';
   $('b_c1').value = b.colors.primary; $('b_c2').value = b.colors.accent; $('b_c3').value = b.colors.bg;
   $('b_dialect').innerHTML = Object.entries(DIALECTS).map(([k, v]) => `<label><input type="radio" name="dialect" value="${k}" ${b.dialect === k ? 'checked' : ''}>${v}</label>`).join('');
   $('b_tones').innerHTML = TONES.map((t) => `<label><input type="checkbox" name="tone" value="${esc(t)}" ${(b.tones || []).includes(t) ? 'checked' : ''}>${t}</label>`).join('');
@@ -118,21 +120,22 @@ function openBrand() {
   $('brandDlg').showModal();
 }
 async function presetFTD() {
-  $('b_name').value = 'FullTimeDigi'; $('b_cta').value = 'جرّبه مجانًا';
-  $('b_sells').value = 'مساعد بيع ذكي بالعربي للمتاجر الإلكترونية: يفهم نية العميل ويقترح من كتالوج متجرك فقط';
-  $('b_usp').value = 'يتركّب في دقائق بدون برمجة، لا يخترع حقيقة المنتج، ويحوّل الزوّار اللي بيسألوا إلى مشترين';
-  $('b_aud').value = 'أصحاب المتاجر الإلكترونية الصغيرة والمتوسطة على سلة وزد وشوبيفاي في السعودية والخليج ومصر';
-  $('b_web').value = 'fulltimedigi.com'; $('b_tags').value = '#FullTimeDigi #مساعد_تسوق_ذكي #التجارة_الإلكترونية #متاجر_سلة #زيادة_المبيعات';
-  $('b_banned').value = 'الأرخص، يضمن مضاعفة مبيعاتك، مجاني للأبد، أفضل أداة في العالم، أرقام أو نسب نجاح غير موثّقة';
-  $('b_c1').value = '#0b3b33'; $('b_c2').value = '#00b478'; $('b_c3').value = '#ffffff';
-  const d = document.querySelector('input[name=dialect][value=gulf]'); if (d) d.checked = true;
-  document.querySelectorAll('input[name=tone]').forEach((x) => { x.checked = ['محترف', 'ودود', 'هادئ وواثق'].includes(x.value); });
-  try { const b = await (await fetch('assets/brand/fd-logo.png')).blob(); LOGO = await readFile(b); $('logoDrop').innerHTML = `<img src="${LOGO}"><input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">`; } catch {}
-  say('b_msg', '✅ الهوية جاهزة — راجع ثم اضغط «حفظ الهوية»');
+  say('b_msg', '⏳ تحميل هوية FullTimeDigi…');
+  try {
+    const p = await (await fetch('assets/brand/fulltimedigi.json')).json();
+    $('b_name').value = p.name; $('b_cta').value = p.cta; $('b_sells').value = p.sells; $('b_usp').value = p.usp || ''; $('b_aud').value = p.audience || '';
+    $('b_web').value = p.website || ''; $('b_phone').value = p.phone || ''; $('b_tags').value = p.hashtags || ''; $('b_banned').value = p.banned || '';
+    $('b_brief').value = p.brief || ''; $('b_visual').value = p.visual || '';
+    $('b_c1').value = p.colors.primary; $('b_c2').value = p.colors.accent; $('b_c3').value = p.colors.bg;
+    const dl = document.querySelector(`input[name=dialect][value=${p.dialect}]`); if (dl) dl.checked = true;
+    document.querySelectorAll('input[name=tone]').forEach((x) => { x.checked = (p.tones || []).includes(x.value); });
+    try { const blob = await (await fetch('assets/brand/fd-logo.png')).blob(); LOGO = await readFile(blob); $('logoDrop').innerHTML = `<img src="${LOGO}"><input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">`; } catch {}
+    say('b_msg', '✅ الهوية الكاملة جاهزة (الدليل + أسلوب الصور + الألوان + الشعار) — راجع ثم اضغط «حفظ الهوية»');
+  } catch (e) { say('b_msg', '❌ تعذّر تحميل الهوية: ' + e.message, true); }
 }
 async function pickLogo(f) { if (!f) return; LOGO = await readFile(f); $('logoDrop').innerHTML = `<img src="${LOGO}"><input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">`; }
 function saveBrandForm() {
-  const b = { ...loadBrand(), name: $('b_name').value.trim(), sells: $('b_sells').value.trim(), usp: $('b_usp').value.trim(), audience: $('b_aud').value.trim(), cta: $('b_cta').value.trim() || 'اطلب الآن', website: $('b_web').value.trim(), phone: $('b_phone').value.trim(), hashtags: $('b_tags').value.trim(), banned: $('b_banned').value.trim(),
+  const b = { ...loadBrand(), name: $('b_name').value.trim(), sells: $('b_sells').value.trim(), usp: $('b_usp').value.trim(), audience: $('b_aud').value.trim(), cta: $('b_cta').value.trim() || 'اطلب الآن', website: $('b_web').value.trim(), phone: $('b_phone').value.trim(), hashtags: $('b_tags').value.trim(), banned: $('b_banned').value.trim(), brief: $('b_brief').value.trim(), visual: $('b_visual').value.trim(),
     dialect: document.querySelector('input[name=dialect]:checked')?.value || 'eg', tones: [...document.querySelectorAll('input[name=tone]:checked')].map((x) => x.value), colors: { primary: $('b_c1').value, accent: $('b_c2').value, bg: $('b_c3').value }, logo: LOGO };
   if (!b.name || !b.sells) return say('b_msg', 'اسم البراند وما تبيعه مطلوبان', true);
   saveBrand(b); $('brandDlg').close(); renderBrand(); toast('✅ حُفظت هوية البراند'); document.querySelector('.brandChip .n').textContent = b.name; document.querySelector('.brandChip .dot').innerHTML = b.logo ? `<img src="${b.logo}" alt="">` : esc(b.name.slice(0, 1));
@@ -144,7 +147,7 @@ async function autoBrand() {
   try {
     const sys = await (await fetch('assets/prompts/brand.md')).text();
     const out = await geminiJSON(sys, desc, { temperature: 0.3, onWait: (m) => say('b_msg', m) });
-    if (out.name) $('b_name').value = out.name; if (out.sells) $('b_sells').value = out.sells; if (out.usp) $('b_usp').value = out.usp; if (out.audience) $('b_aud').value = out.audience; if (out.cta) $('b_cta').value = out.cta; if (out.hashtags) $('b_tags').value = out.hashtags; if (out.banned) $('b_banned').value = out.banned;
+    if (out.name) $('b_name').value = out.name; if (out.sells) $('b_sells').value = out.sells; if (out.usp) $('b_usp').value = out.usp; if (out.audience) $('b_aud').value = out.audience; if (out.cta) $('b_cta').value = out.cta; if (out.hashtags) $('b_tags').value = out.hashtags; if (out.banned) $('b_banned').value = out.banned; if (out.brief) $('b_brief').value = out.brief; if (out.visual) $('b_visual').value = out.visual;
     if (out.dialect && DIALECTS[out.dialect]) document.querySelector(`input[name=dialect][value=${out.dialect}]`).checked = true;
     if (Array.isArray(out.tones)) document.querySelectorAll('input[name=tone]').forEach((x) => { x.checked = out.tones.includes(x.value); });
     say('b_msg', '✅ راجع الحقول ثم احفظ');

@@ -136,8 +136,8 @@ async function aiImage(i, quiet) {
   try {
     const v = DATA.variants[i];
     const prompt = look() === 'brand'
-      ? `Clean product / scene illustration for a social media ad on a PURE WHITE background: ${v.image}. Style: modern, photoreal-but-clean render or 3D-like illustration, soft studio light, subtle shadow, colour harmony with ${B.colors.accent} green accents, subject centred in the lower two thirds, lots of white space at the top. Absolutely no text, letters, watermarks or logos.`
-      : `Professional advertising photograph / render for a social media ad. ${v.image} Mood: ${v.mood || 'clean'}. Colour harmony with ${B.colors.primary} and ${B.colors.accent}. Leave clean, uncluttered negative space at the ${v.space || 'bottom'} of the frame for text. Absolutely no text, letters, watermarks or logos. High-end commercial quality, sharp focus, vertical composition.`;
+      ? `Clean product / scene illustration for a social media ad on a PURE WHITE background: ${v.image}. Style: modern, photoreal-but-clean render or 3D-like illustration, soft studio light, subtle shadow, colour harmony with ${B.colors.accent} green accents, subject centred in the lower two thirds, lots of white space at the top. Absolutely no text, letters, watermarks or logos.${Suite.imageStyle()}`
+      : `Professional advertising photograph / render for a social media ad. ${v.image} Mood: ${v.mood || 'clean'}. Colour harmony with ${B.colors.primary} and ${B.colors.accent}. Leave clean, uncluttered negative space at the ${v.space || 'bottom'} of the frame for text. Absolutely no text, letters, watermarks or logos. High-end commercial quality, sharp focus, vertical composition.${Suite.imageStyle()}`;
     IMG[i] = await generateImage(prompt, { ratio: '4:5', onWait: (m) => say('msg2', m) }); if (!quiet) { render(); say('msg2', '✅ تم'); }
   } catch (e) { say('msg2', '❌ ' + e.message, true); }
 }

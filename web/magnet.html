@@ -88,7 +88,7 @@ async function generate() {
     const sys = (await (await fetch('assets/prompts/magnet.md')).text()) + '\n\n' + brandContext(B);
     DATA = await geminiJSON(sys, `Topic: ${topic}\nType: ${document.querySelector('input[name=kind]:checked').value}\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
     ID = null; COVER = ''; render();
-    if ($('aiCover').checked) { say('msg', '🎨 توليد رسمة الغلاف…'); try { COVER = await generateImage(`Clean editorial illustration for an eBook cover on a PURE WHITE background: ${DATA.cover_visual || topic}. Modern flat vector style with soft depth, green accents (${B.colors.accent}), subject in the lower two thirds with white space above, no text, no letters, vertical composition.`, { ratio: '3:4', onWait: (m) => say('msg', m) }); render(); } catch (e) { say('msg2', '⚠️ الغلاف بلا رسمة: ' + e.message, true); } }
+    if ($('aiCover').checked) { say('msg', '🎨 توليد رسمة الغلاف…'); try { COVER = await generateImage(`Clean editorial illustration for an eBook cover on a PURE WHITE background: ${DATA.cover_visual || topic}. Modern flat vector style with soft depth, green accents (${B.colors.accent}), subject in the lower two thirds with white space above, no text, no letters, vertical composition.${Suite.imageStyle()}`, { ratio: '3:4', onWait: (m) => say('msg', m) }); render(); } catch (e) { say('msg2', '⚠️ الغلاف بلا رسمة: ' + e.message, true); } }
     say('msg', '✅ جاهز — راجع الصفحات ثم حمّل PDF');
   } catch (e) { say('msg', '❌ ' + e.message, true); }
   $('go').disabled = false;

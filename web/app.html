@@ -398,7 +398,7 @@ function missingArt() { const out = []; for (const sc of SCRIPT.scenes) for (con
 function ratioFor(e) { const w = pct(e.w ?? '30%', 16), h = pct(e.h ?? '30%', 9); const r = w / h; const opts = { '1:1': 1, '3:4': 0.75, '4:3': 1.333, '9:16': 0.5625, '16:9': 1.777, '2:3': 0.667, '3:2': 1.5 }; return Object.entries(opts).sort((a, b) => Math.abs(a[1] - r) - Math.abs(b[1] - r))[0][0]; }
 function findImagePart(o) { if (!o || typeof o !== 'object') return null; if (typeof o.data === 'string' && /^image\//.test(o.mimeType || o.mime_type || '')) return { data: o.data, mime: o.mimeType || o.mime_type }; for (const v of Object.values(o)) { const f = findImagePart(v); if (f) return f; } return null; }
 async function generateArt(desc, { ratio = '1:1', ref = null, onWait } = {}) {
-  const parts = [{ text: `${ART_STYLE}\n\nSubject: ${desc}` + (ref ? '\n\nKeep the SAME character as in the reference image (same face, hair, clothes and colours), only the pose and props change. Match the reference drawing style exactly.' : '') }];
+  const parts = [{ text: `${ART_STYLE}${window.Suite ? Suite.imageStyle() : ''}\n\nSubject: ${desc}` + (ref ? '\n\nKeep the SAME character as in the reference image (same face, hair, clothes and colours), only the pose and props change. Match the reference drawing style exactly.' : '') }];
   if (ref) parts.push({ inlineData: { mimeType: ref.match(/^data:([^;]+)/)[1], data: ref.split(',')[1] } });
   const models = [settings.img, ...IMG_MODELS.filter((m) => m !== settings.img)];
   let last;

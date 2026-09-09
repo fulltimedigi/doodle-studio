@@ -104,14 +104,15 @@
   async function pmap(items, n, fn) { const out = []; let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k], k); } })); return out; }
 
   // ---------- brand DNA ----------
-  const DIALECTS = { eg: 'مصري', gulf: 'خليجي', msa: 'فصحى مبسّطة' };
+  const DIALECTS = { eg: 'مصري', gulf: 'خليجي', white: 'عربية بيضاء عصرية', msa: 'فصحى مبسّطة' };
   const DIALECT_NOTE = {
     eg: 'Egyptian colloquial Arabic (مصري): natural spoken Cairo dialect as used by Egyptian marketers (دلوقتي، عايز، بيدخل، إزاي). Warm, witty, direct.',
     gulf: 'Gulf colloquial Arabic (خليجي، white dialect understood across KSA/UAE/Kuwait): الحين، أبي/أبغى، وش، شلون، ودّك. Polite, confident, premium feel.',
+    white: 'Modern "white" Arabic (عربية بيضاء عصرية): simple contemporary Arabic that reads naturally in both the Gulf and Egypt — light colloquial, short sentences, no heavy formal (فصحى) vocabulary, no strongly local words (avoid وش/شلون/إزاي/عايز; prefer ليش/كيف/تحتاج/تبي؟ → استخدم "تحتاج"). English market terms are used naturally in Latin letters when the audience uses them (AI, Catalog, Search, Conversion, eCommerce).',
     msa: 'Simple Modern Standard Arabic (فصحى مبسّطة) with short sentences; no classical vocabulary.',
   };
-  const TONES = ['ودود', 'محترف', 'حماسي', 'فاخر', 'مرح', 'هادئ وواثق'];
-  const DEFAULT_BRAND = { name: '', sells: '', audience: '', dialect: 'eg', tones: ['ودود', 'واثق'], colors: { primary: '#1d1d1d', accent: '#e63946', bg: '#ffffff' }, font: 'Cairo', logo: '', cta: 'اطلب الآن', website: '', phone: '', banned: '', usp: '', hashtags: '' };
+  const TONES = ['ودود', 'محترف', 'حماسي', 'فاخر', 'مرح', 'هادئ وواثق', 'صادق ومباشر', 'تعليمي'];
+  const DEFAULT_BRAND = { name: '', sells: '', audience: '', dialect: 'eg', tones: ['ودود', 'واثق'], colors: { primary: '#1d1d1d', accent: '#e63946', bg: '#ffffff' }, font: 'Cairo', logo: '', cta: 'اطلب الآن', website: '', phone: '', banned: '', usp: '', hashtags: '', brief: '', visual: '' };
   function loadBrand() { try { return { ...DEFAULT_BRAND, ...JSON.parse(localStorage.getItem('brand') || '{}') }; } catch { return { ...DEFAULT_BRAND }; } }
   function saveBrand(b) { localStorage.setItem('brand', JSON.stringify(b)); }
   const brandReady = (b) => !!(b.name && b.sells);
@@ -126,8 +127,12 @@
       `- Default call to action: ${b.cta || 'اطلب الآن'}`, b.website && `- Website: ${b.website}`, b.phone && `- Phone/WhatsApp: ${b.phone}`,
       b.banned && `- Never use these words/claims: ${b.banned}`, b.hashtags && `- Brand hashtags: ${b.hashtags}`,
       `- Never invent statistics, prices, awards or testimonials that are not in the brief.`,
+      b.brief && `\nBRAND GUIDE (positioning, point of view, key messages, personality — follow it closely; it overrides generic marketing habits):\n${String(b.brief).trim().slice(0, 4000)}`,
+      b.visual && `\nIMAGE / VISUAL RULES (apply to every image description or art request you write):\n${String(b.visual).trim().slice(0, 1500)}`,
     ].filter(Boolean).join('\n');
   }
+  /** Short English rule block to append to any image-generation prompt. */
+  function imageStyle(b = loadBrand()) { return b.visual ? ` Brand image rules: ${String(b.visual).trim().slice(0, 900)}` : ''; }
 
   // ---------- library (IndexedDB) ----------
   function idb() { return new Promise((ok, bad) => { const r = indexedDB.open('doodle-suite', 1); r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('library')) db.createObjectStore('library', { keyPath: 'id' }); if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets'); }; r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
@@ -187,5 +192,5 @@
   async function thumb(node, size = 320) { try { const b = await window.htmlToImage.toJpeg(node, { pixelRatio: size / Math.max(node.offsetWidth, 1), quality: 0.7 }); return b; } catch { return ''; } }
 
   window.Suite = { $, esc, sleep, settings, SCRIPT_MODELS, IMG_MODELS, IMG_PRICE, gemini, geminiAny, geminiJSON, generateImage, pmap, textOf, parseJSON,
-    VEO_MODELS, VEO_PRICE, veoGenerate, DIALECTS, DIALECT_NOTE, TONES, DEFAULT_BRAND, loadBrand, saveBrand, brandReady, brandContext, lib, toast, say, copyText, download, readFile, fonts, mountHeader, openSettings, saveSettings, needKey, chatEdit, nodeToPng, zipBlobs, q, thumb };
+    VEO_MODELS, VEO_PRICE, veoGenerate, DIALECTS, DIALECT_NOTE, TONES, DEFAULT_BRAND, loadBrand, saveBrand, brandReady, brandContext, imageStyle, lib, toast, say, copyText, download, readFile, fonts, mountHeader, openSettings, saveSettings, needKey, chatEdit, nodeToPng, zipBlobs, q, thumb };
 })();

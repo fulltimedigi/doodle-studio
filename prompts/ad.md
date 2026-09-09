@@ -8,6 +8,8 @@ Answer with ONE JSON object and nothing else.
 - CTA 1–3 words, from the brand DNA unless the brief says otherwise.
 - `image`: an English prompt for the background photo/illustration. Describe subject, setting, lighting, mood and colour harmony with the brand colours. The image must have NO text, NO letters, NO logos, and must leave clean negative space on the side named in `space` ("top", "bottom", "left" or "right") for the copy.
 - Give 3 clearly different variants: benefit-led, offer-led, and social/emotional.
+- If the brand guide says the product is not launched or "educate first": the three variants become problem-led (the shopper's real situation), insight-led (one key message of the brand), and point-of-view-led (what the brand believes). No offer badge, no results claims; the CTA is the brand's soft default (follow / learn more).
+- `image` must follow the brand's image rules when given (e.g. show the shopper's situation, never robots or futuristic AI).
 
 ## JSON format (exactly this shape)
 {

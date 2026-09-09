@@ -36,6 +36,10 @@
   .slide.hasimg .veil{background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.62) 50%,rgba(0,0,0,.22) 100%)}.slide.hasimg .in::before{display:none}.slide.hasimg .num{background:var(--a);color:#fff}.slide.hasimg .cta{background:var(--a);color:#fff}.slide.hasimg{color:#fff}.slide.hasimg h1,.slide.hasimg h2,.slide.hasimg p{color:#fff}
   /* brand template: white canvas, heavy black headline with an accent line, soft pills and cards (FullTimeDigi look) */
   .slide.t-brand{background:#fff;color:#111}
+  .slide.t-brand.hasimg{color:#111}.slide.t-brand.hasimg h1,.slide.t-brand.hasimg h2,.slide.t-brand.hasimg p{color:#111}.slide.t-brand.hasimg p{color:#333}
+  .slide.t-brand.hasimg .bgimg{top:auto;bottom:0;height:46%;object-fit:cover;object-position:center top;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22%);mask-image:linear-gradient(to bottom,transparent 0,#000 22%)}
+  .slide.t-brand.hasimg .veil{display:none}.slide.t-brand.hasimg .in::before{display:none}
+  .slide.t-brand.hasimg .mid{padding-top:20px;justify-content:flex-start}.slide.t-brand.hasimg .bot{position:relative;z-index:2}.slide.t-brand.hasimg .swipe{background:#fff;padding:8px 18px;border-radius:999px}
   .slide.t-brand .in{padding:72px 80px}
   .slide.t-brand .top{opacity:1;font-size:34px;font-weight:800;color:#111;gap:14px}
   .slide.t-brand .top img{height:74px}
@@ -166,7 +170,9 @@ function edit(k, v) { const s = DATA.slides[SEL]; if (k === 'title') s.title = v
 async function aiBg(i) {
   if (!needKey('msg2')) return; say('msg2', `🎨 توليد خلفية الشريحة ${i + 1}…`);
   try {
-    const s = DATA.slides[i]; const prompt = `Editorial social-media background illustration, ${s.visual || DATA.topic}. Style: clean modern flat illustration with soft depth, colour palette built around ${B.colors.primary} and ${B.colors.accent}, dark bottom half so white text stays readable, no text, no letters, no logos, no people faces close-up, vertical composition.`;
+    const s = DATA.slides[i]; const prompt = tpl() === 't-brand'
+      ? `Clean editorial illustration on a PURE WHITE background for a social-media carousel slide: ${s.visual || DATA.topic}. Style: modern flat vector with soft depth, near-black line work, ${B.colors.accent} green as the only accent colour, subject centred and kept in the lower half of the frame with empty white space above, no text, no letters, no logos, vertical composition.${Suite.imageStyle()}`
+      : `Editorial social-media background illustration, ${s.visual || DATA.topic}. Style: clean modern flat illustration with soft depth, colour palette built around ${B.colors.primary} and ${B.colors.accent}, dark bottom half so white text stays readable, no text, no letters, no logos, no people faces close-up, vertical composition.${Suite.imageStyle()}`;
     BG[i] = await generateImage(prompt, { ratio: '4:5', onWait: (m) => say('msg2', m) }); render(); say('msg2', '✅ تمت إضافة الخلفية');
   } catch (e) { say('msg2', '❌ ' + e.message, true); }
 }
