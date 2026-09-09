@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>كتيّب جذب عملاء — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  /* ---- A4 page design system (1240 x 1754 px @150dpi) ---- */
+  .pg{width:1240px;height:1754px;position:relative;overflow:hidden;direction:rtl;font-family:"Cairo",sans-serif;background:#fff;color:#1d1d1d;--p:#1d1d1d;--a:#e63946}
+  .pg .in{position:absolute;inset:0;padding:120px 110px;display:flex;flex-direction:column}
+  .pg .foot{position:absolute;bottom:56px;left:110px;right:110px;display:flex;justify-content:space-between;font-size:24px;color:#8a8a8a}
+  .pg .foot img{height:44px}
+  .pg h1{font-size:96px;line-height:1.15;margin:0;font-weight:900;color:var(--p)}
+  .pg h1.long{font-size:78px}
+  .pg h2{font-size:64px;line-height:1.2;margin:0 0 24px;font-weight:800;color:var(--p)}
+  .pg h3{font-size:40px;margin:36px 0 12px;font-weight:700}
+  .pg p{font-size:31px;line-height:1.75;margin:0 0 20px}
+  .pg ul{font-size:31px;line-height:1.7;margin:8px 0 0;padding:0 40px 0 0}
+  .pg li{margin-bottom:10px}
+  .pg li::marker{color:var(--a)}
+  .pg .chip{display:inline-block;background:var(--a);color:#fff;font-size:26px;font-weight:700;padding:6px 22px;border-radius:999px;margin-bottom:28px;align-self:flex-start}
+  /* cover */
+  .pg.cover{background:var(--p);color:#fff}
+  .pg.cover .in{justify-content:flex-end;padding-bottom:180px}
+  .pg.cover .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9}
+  .pg.cover .veil{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.5) 50%,rgba(0,0,0,.05) 100%)}
+  .pg.cover h1{color:#fff;position:relative}
+  .pg.cover .sub{font-size:40px;opacity:.9;position:relative;margin-top:16px}
+  .pg.cover .brand{position:absolute;top:110px;right:110px;display:flex;align-items:center;gap:20px;font-size:34px;font-weight:700}
+  .pg.cover .brand img{height:80px}
+  .pg.cover .dec{position:absolute;left:-200px;top:-200px;width:620px;height:620px;border-radius:50%;background:var(--a);opacity:.55}
+  /* toc */
+  .pg .toc{font-size:34px;line-height:2.1}
+  .pg .toc span{display:inline-block;width:64px;color:var(--a);font-weight:800}
+  /* closing */
+  .pg.close .cta{display:inline-block;background:var(--a);color:#fff;font-size:40px;font-weight:800;padding:20px 60px;border-radius:999px;margin-top:30px;align-self:flex-start}
+  .pg.close .contact{font-size:30px;color:#555;margin-top:24px}
+  /* page */
+  .frames{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  #exportBox{position:fixed;left:0;top:0;width:1240px;height:1754px;opacity:0;pointer-events:none;z-index:-1;overflow:hidden}
+  .landing{border:1px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:14px;background:#fff}
+</style>
+</head>
+<body>
+<main class="wide">
+  <div><h1 class="page">📘 كتيّب جذب عملاء</h1><p class="lead">دليل قصير عالي القيمة (٥–٧ فصول) مكتوب بلهجتك ومصمّم بألوان براندك، جاهز كملف PDF تقدّمه مقابل رقم العميل أو بريده.</p></div>
+  <div class="pane">
+    <section class="card">
+      <label class="f">موضوع الدليل</label>
+      <textarea id="topic" placeholder="مثال: دليل صاحب المتجر لتقليل العربات المتروكة في ٧ خطوات"></textarea>
+      <label class="f">النوع</label>
+      <div class="opts">
+        <label><input type="radio" name="kind" value="دليل خطوات" checked>دليل خطوات</label>
+        <label><input type="radio" name="kind" value="قائمة فحص">قائمة فحص</label>
+        <label><input type="radio" name="kind" value="أخطاء شائعة وحلولها">أخطاء وحلول</label>
+        <label><input type="radio" name="kind" value="كتيّب تعريفي بالخدمة">تعريف بالخدمة</label>
+      </div>
+      <label class="f" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="aiCover" checked style="width:auto"> غلاف برسمة مولّدة (≈ ٠٫٠٧$)</label>
+      <button class="primary big" id="go" onclick="generate()">✨ اكتب وصمّم الدليل</button>
+      <div id="msg" class="msg"></div>
+    </section>
+
+    <section class="card" id="out" hidden>
+      <h2>الصفحات <span class="muted" id="cnt"></span><span class="grow"></span><button class="soft small" onclick="exportPdf()">⬇ تحميل PDF</button><button class="small" onclick="save()">💾 حفظ</button></h2>
+      <div class="frames" id="frames"></div>
+      <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: «اختصر الفصل الثالث» أو «أضف فصلًا عن التوصيل»"><button class="fix" onclick="chat()">تعديل</button></div>
+      <div class="landing" style="margin-top:12px"><b>نص الإعلان عن التحميل</b> <button class="ghost small" onclick="copyText(landingText())">📋 نسخ</button><div id="landing"></div></div>
+      <div id="msg2" class="msg"></div>
+    </section>
+  </div>
+</main>
+<div id="exportBox"></div>
+<script src="js/html-to-image.js"></script>
+<script src="js/jspdf.umd.min.js"></script>
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, loadBrand, lib, needKey, chatEdit, nodeToPng, download, q, sleep } = Suite;
+Suite.mountHeader('كتيّب جذب عملاء');
+const B = loadBrand();
+let DATA = null, COVER = '', ID = q.get('id');
+async function generate() {
+  const topic = $('topic').value.trim(); if (!topic) return say('msg', 'اكتب الموضوع أولًا', true);
+  if (!needKey('msg')) return; $('go').disabled = true; say('msg', '✍️ جارٍ الكتابة (يستغرق نحو دقيقة)…');
+  try {
+    const sys = (await (await fetch('assets/prompts/magnet.md')).text()) + '\n\n' + brandContext(B);
+    DATA = await geminiJSON(sys, `Topic: ${topic}\nType: ${document.querySelector('input[name=kind]:checked').value}\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
+    ID = null; COVER = ''; render();
+    if ($('aiCover').checked) { say('msg', '🎨 توليد رسمة الغلاف…'); try { COVER = await generateImage(`Clean editorial illustration for an eBook cover: ${DATA.cover_visual || topic}. Flat modern vector style with soft depth, colour palette built around ${B.colors.primary} and ${B.colors.accent}, darker lower half, no text, no letters, vertical composition.`, { ratio: '3:4', onWait: (m) => say('msg', m) }); render(); } catch (e) { say('msg2', '⚠️ الغلاف بلا رسمة: ' + e.message, true); } }
+    say('msg', '✅ جاهز — راجع الصفحات ثم حمّل PDF');
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+function pages() {
+  const ch = DATA.chapters || []; const P = [];
+  const foot = (n) => `<div class="foot"><span>${esc(B.name || '')}</span><span>${n}</span></div>`;
+  P.push(`<div class="pg cover" style="--p:${B.colors.primary};--a:${B.colors.accent}">${COVER ? `<img class="bg" src="${COVER}"><div class="veil"></div>` : '<div class="dec"></div>'}<div class="brand">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div><div class="in"><h1 class="${(DATA.title || '').length > 30 ? 'long' : ''}">${esc(DATA.title)}</h1><div class="sub">${esc(DATA.subtitle || '')}</div></div></div>`);
+  P.push(`<div class="pg" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="in"><span class="chip">${esc(DATA.audience || 'لمن هذا الدليل؟')}</span><h2>ماذا ستجد في هذا الدليل</h2><p>${esc(DATA.intro || '')}</p><div class="toc">${ch.map((c, i) => `<div><span>${i + 1}</span>${esc(c.title)}</div>`).join('')}</div></div>${foot(2)}</div>`);
+  ch.forEach((c, i) => { P.push(`<div class="pg" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="in"><span class="chip">الفصل ${i + 1}</span><h2>${esc(c.title)}</h2>${(c.paragraphs || []).map((p) => `<p>${esc(p)}</p>`).join('')}${c.bullets?.length ? `<ul>${c.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}</div>${foot(i + 3)}</div>`); });
+  const cl = DATA.closing || {};
+  P.push(`<div class="pg close" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="in" style="justify-content:center"><h2>${esc(cl.title || 'الخطوة التالية')}</h2><p>${esc(cl.body || '')}</p><span class="cta">${esc(cl.cta || B.cta || 'تواصل معنا')}</span><div class="contact">${esc([B.website, B.phone].filter(Boolean).join('  ·  '))}</div></div>${foot(ch.length + 3)}</div>`);
+  return P;
+}
+function render() {
+  if (!DATA) return; $('out').hidden = false; const P = pages(); $('cnt').textContent = `${P.length} صفحات`;
+  $('frames').innerHTML = P.map((h, i) => `<div class="frame"><div class="scaler" style="aspect-ratio:1240/1754"><div class="inner">${h}</div></div><span class="n">${i + 1}</span></div>`).join('');
+  fit(); $('landing').innerHTML = esc(landingText()).replace(/\n/g, '<br>');
+}
+function landingText() { const l = DATA.landing_copy || {}; return `${l.headline || DATA.title}\n${l.sub || DATA.subtitle || ''}\n${l.cta || 'حمّل الدليل مجانًا'}`; }
+function fit() { document.querySelectorAll('.frame .scaler').forEach((sc) => { const k = sc.clientWidth / 1240; sc.querySelector('.inner').style.transform = `scale(${k})`; }); }
+window.addEventListener('resize', fit);
+async function chat() { const ins = $('chatIn').value.trim(); if (!ins || !DATA) return; if (!needKey('msg2')) return; say('msg2', '✏️ جارٍ التعديل…'); try { const out = await chatEdit(DATA, ins, 'lead magnet eBook', (m) => say('msg2', m)); if (out.chapters?.length) { DATA = out; render(); $('chatIn').value = ''; say('msg2', '✅ تم'); } } catch (e) { say('msg2', '❌ ' + e.message, true); } }
+async function exportPdf() {
+  say('msg2', '⬇ تجهيز PDF…'); const P = pages(); const { jsPDF } = window.jspdf; const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  for (let i = 0; i < P.length; i++) {
+    say('msg2', `⬇ صفحة ${i + 1}/${P.length}…`); const box = $('exportBox'); box.innerHTML = P[i]; await document.fonts.ready; await sleep(30);
+    const dataUrl = await window.htmlToImage.toJpeg(box.firstElementChild, { pixelRatio: 1, quality: 0.92 }); box.innerHTML = '';
+    if (i > 0) pdf.addPage(); pdf.addImage(dataUrl, 'JPEG', 0, 0, 210, 297);
+  }
+  pdf.save(`${(DATA.title || 'guide').slice(0, 50).replace(/[\\/:*?"<>|]/g, ' ')}.pdf`); say('msg2', '✅ نُزّل ملف PDF');
+}
+async function save() { let thumb = ''; try { const box = $('exportBox'); box.innerHTML = pages()[0]; await sleep(30); thumb = await window.htmlToImage.toJpeg(box.firstElementChild, { pixelRatio: 0.25, quality: 0.7 }); box.innerHTML = ''; } catch {} const item = await lib.save({ id: ID || undefined, type: 'magnet', title: DATA.title, data: DATA, cover: COVER, thumb }); ID = item.id; toast('💾 حُفظ في المكتبة'); }
+(async () => { if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; COVER = it.cover || ''; $('topic').value = DATA.title || ''; render(); } } })();
+</script>
+</body>
+</html>

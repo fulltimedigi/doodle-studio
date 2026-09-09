@@ -13,11 +13,12 @@ mkdirSync(join(SITE, 'assets'), { recursive: true });
 // page
 cpSync(join(ROOT, 'web/index.html'), join(SITE, 'index.html'));
 cpSync(join(ROOT, 'web/app.html'), join(SITE, 'doodle.html'));
-for (const f of ['reels.html', 'carousel.html', 'ad.html']) cpSync(join(ROOT, 'web', f), join(SITE, f));
+for (const f of ['reels.html', 'carousel.html', 'ad.html', 'ugc.html', 'magnet.html', 'logo.html']) cpSync(join(ROOT, 'web', f), join(SITE, f));
 cpSync(join(ROOT, 'web/css'), join(SITE, 'css'), { recursive: true });
 cpSync(join(ROOT, 'web/js/core.js'), join(SITE, 'js/core.js'));
 cpSync(join(ROOT, 'node_modules/html-to-image/dist/html-to-image.js'), join(SITE, 'js/html-to-image.js'));
 cpSync(join(ROOT, 'node_modules/jszip/dist/jszip.min.js'), join(SITE, 'js/jszip.min.js'));
+cpSync(join(ROOT, 'node_modules/jspdf/dist/jspdf.umd.min.js'), join(SITE, 'js/jspdf.umd.min.js'));
 mkdirSync(join(SITE, 'assets/prompts'), { recursive: true });
 for (const f of readdirSync(join(ROOT, 'prompts'))) cpSync(join(ROOT, 'prompts', f), join(SITE, 'assets/prompts', f));
 // engine + tracing (plain scripts)

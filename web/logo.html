@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شعار — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔷</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  .logos{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .lg{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;text-align:center;padding:10px}
+  .lg .im{aspect-ratio:1;background:repeating-conic-gradient(#f3f0ea 0 25%,#fff 0 50%) 0 0/24px 24px;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .lg .im img{width:100%;height:100%;object-fit:contain}
+  .lg .d{font-size:12px;color:var(--muted);margin:8px 0;min-height:32px}
+  .lg .row{justify-content:center;margin:0}
+  .lg.dark .im{background:#1d1d1d}
+</style>
+</head>
+<body>
+<main>
+  <div><h1 class="page">🔷 شعار</h1><p class="lead">أربعة اتجاهات لشعار براندك (٤ صور)، بخلفية شفافة جاهزة للاستخدام، مع إمكانية تعديل أي اتجاه بالوصف وإعادة توليده.</p></div>
+  <div class="pane">
+    <section class="card">
+      <label class="f">اسم البراند كما يظهر في الشعار</label><input id="name" placeholder="مثال: ليل">
+      <label class="f">سطر شعاري قصير (اختياري)</label><input id="tag" placeholder="مثال: عطور نيش">
+      <label class="f">الأسلوب</label>
+      <div class="opts">
+        <label><input type="radio" name="style" value="minimal wordmark, geometric, modern" checked>حديث بسيط</label>
+        <label><input type="radio" name="style" value="luxury, elegant monogram, thin lines, gold accents">فاخر</label>
+        <label><input type="radio" name="style" value="playful, rounded, friendly mascot-like icon">مرح</label>
+        <label><input type="radio" name="style" value="bold, strong, sporty">جريء</label>
+        <label><input type="radio" name="style" value="Arabic calligraphy-inspired, modern kufi lettering">خط عربي</label>
+      </div>
+      <label class="f">تفاصيل إضافية</label><textarea id="notes" style="min-height:60px" placeholder="مثال: أيقونة زجاجة عطر مجرّدة، لون كحلي وذهبي"></textarea>
+      <button class="primary big" id="go" onclick="generate()">✨ ولّد ٤ اتجاهات (≈ ٠٫٢٧$)</button>
+      <div id="msg" class="msg"></div>
+    </section>
+    <section class="card" id="out" hidden>
+      <h2>الاتجاهات</h2>
+      <div class="logos" id="logos"></div>
+      <div id="msg2" class="msg"></div>
+    </section>
+  </div>
+</main>
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, geminiJSON, generateImage, brandContext, loadBrand, saveBrand, lib, needKey, download, pmap, settings, IMG_PRICE, q } = Suite;
+Suite.mountHeader('شعار');
+const B = loadBrand(); $('name').value = B.name || ''; $('tag').value = B.sells ? '' : '';
+let CONCEPTS = [], IMGS = {}, ID = q.get('id');
+const SYS = `You are a senior brand designer. Given a brand name, style and brand DNA, propose 4 clearly different logo concepts. For each: "idea" (Arabic, one line for the client) and "prompt" (English, precise instructions for an image model: mark/icon, typography treatment for the Arabic name written EXACTLY as given, colours as hex, flat vector style, centred on a PURE WHITE background, no mockups, no shadows, no extra text). Answer with ONE JSON: { "concepts": [ { "idea": "...", "prompt": "..." } ] }`;
+async function generate() {
+  const name = $('name').value.trim(); if (!name) return say('msg', 'اكتب اسم البراند', true); if (!needKey('msg')) return;
+  $('go').disabled = true; say('msg', '🧠 تصميم الاتجاهات…');
+  try {
+    const out = await geminiJSON(SYS + '\n\n' + brandContext(B), `Brand name (use exactly): ${name}\nTagline: ${$('tag').value.trim() || 'none'}\nStyle: ${document.querySelector('input[name=style]:checked').value}\nColours: ${B.colors.primary}, ${B.colors.accent}\nNotes: ${$('notes').value.trim() || 'none'}`, { onWait: (m) => say('msg', m) });
+    CONCEPTS = (out.concepts || []).slice(0, 4); IMGS = {}; ID = null; render(); $('out').hidden = false;
+    say('msg', '🎨 توليد الصور (بالتوازي)…');
+    await pmap(CONCEPTS.map((c, i) => i), 4, (i) => make(i, true)); say('msg', '✅ جاهز');
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+async function make(i, quiet) {
+  const c = CONCEPTS[i]; if (!quiet) say('msg2', `🎨 إعادة توليد الاتجاه ${i + 1}…`);
+  try { const raw = await generateImage(`Logo design, flat vector style, centred on a pure white background (#FFFFFF), high contrast, no mockup, no shadow, no gradient noise, no extra text. ${c.prompt}`, { ratio: '1:1', onWait: (m) => say('msg2', m) }); IMGS[i] = await transparent(raw); render(); }
+  catch (e) { say('msg2', `❌ اتجاه ${i + 1}: ${e.message}`, true); }
+}
+// knock out the white background so the PNG is usable on any colour
+function transparent(url) { return new Promise((ok) => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, c.width, c.height); const p = d.data; for (let k = 0; k < p.length; k += 4) { const mn = Math.min(p[k], p[k + 1], p[k + 2]); if (mn > 235) p[k + 3] = Math.round(Math.max(0, (255 - mn) / 20) * 255 / 255 * 255); } x.putImageData(d, 0, 0); ok(c.toDataURL('image/png')); }; im.src = url; }); }
+function render() {
+  $('logos').innerHTML = CONCEPTS.map((c, i) => `<div class="lg"><div class="im">${IMGS[i] ? `<img src="${IMGS[i]}">` : '<span class="muted">⏳</span>'}</div><div class="d">${esc(c.idea)}</div>
+    <div class="row"><button class="soft small" onclick="make(${i})" title="إعادة التوليد">🔁</button><button class="soft small" onclick="dl(${i})">⬇ PNG</button><button class="small primary" onclick="useIt(${i})">✔ اعتماد</button></div></div>`).join('');
+}
+function dl(i) { if (!IMGS[i]) return; fetch(IMGS[i]).then((r) => r.blob()).then((b) => download(b, `logo-${i + 1}.png`)); }
+async function useIt(i) { if (!IMGS[i]) return; const b = loadBrand(); b.logo = IMGS[i]; if (!b.name) b.name = $('name').value.trim(); saveBrand(b); await lib.save({ id: ID || undefined, type: 'logo', title: 'شعار ' + $('name').value.trim(), data: { concepts: CONCEPTS }, imgs: IMGS, thumb: IMGS[i] }); toast('✅ اعتُمد كشعار البراند'); document.querySelector('.brandChip .dot').innerHTML = `<img src="${IMGS[i]}">`; }
+(async () => { if (ID) { const it = await lib.get(ID); if (it) { CONCEPTS = it.data.concepts || []; IMGS = it.imgs || {}; render(); $('out').hidden = false; } } })();
+</script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>إعلان UGC — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  .clip{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fcfbf8;margin:8px 0}
+  .clip .h{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:4px}
+  .clip .h b{color:var(--ink)}
+  .clip textarea{min-height:52px;font-size:14px}
+  .clip .notes{font-size:12px;color:var(--muted);margin-top:4px;direction:ltr;text-align:left}
+  .clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .clips .c{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#000;position:relative;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+  .clips .c video{width:100%;height:100%;object-fit:cover}
+  .clips .c .n{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border-radius:999px;padding:1px 8px;font-size:11px}
+  .clips .c .re{position:absolute;bottom:6px;left:6px}
+  .persona{display:flex;gap:10px;align-items:center}
+  .persona img{width:64px;height:86px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+  #final video{width:100%;max-width:360px;border-radius:12px;background:#000;display:block;margin:0 auto}
+  #outCanvas{display:none}
+  .cost{font-size:13px;color:var(--muted)}
+  .cost b{color:var(--ink)}
+</style>
+</head>
+<body>
+<main class="wide">
+  <div><h1 class="page">🎥 إعلان فيديو UGC</h1><p class="lead">مبدع/ة يتكلم للكاميرا عن منتجك بلهجتك، مصوَّر بالذكاء الاصطناعي (Veo 3.1) مع منتجك الحقيقي، ثم يُجمَّع مع الترجمة وشعارك وبطاقة ختامية. تكتب الفكرة، تراجع السكريبت مجانًا، ثم تدفع فقط عند التصوير.</p></div>
+  <div class="pane">
+    <section class="card">
+      <label class="f">المنتج / العرض وما تريد أن يقوله المبدع</label>
+      <textarea id="brief" placeholder="مثال: عطر ليل ٥٠ مل، يثبت ١٢ ساعة، توصيل خلال ٢٤ ساعة في الرياض. أريد بنت خليجية تحكي تجربتها في المطبخ الصبح"></textarea>
+      <label class="f">صورة المنتج (مهمة جدًا لثبات شكله في الفيديو)</label><input type="file" id="prodImg" accept="image/*" onchange="pickProduct(this.files[0])">
+      <div class="grid2">
+        <div><label class="f">المبدع</label><select id="persona"><option value="auto">يختاره الوكيل حسب الجمهور</option><option value="امرأة شابة ٢٥–٣٢">امرأة شابة</option><option value="رجل شاب ٢٥–٣٥">رجل شاب</option><option value="أم ثلاثينية">أم ثلاثينية</option><option value="رجل أربعيني واثق">رجل أربعيني</option></select></div>
+        <div><label class="f">عدد اللقطات (٨ ث لكل لقطة)</label><select id="count"><option>2</option><option selected>3</option><option>4</option></select></div>
+      </div>
+      <div class="grid2">
+        <div><label class="f">جودة التصوير</label><select id="tier" onchange="cost()"><option value="fast">Veo 3.1 Fast — 1080p (الأفضل قيمة)</option><option value="lite">Veo 3.1 Lite — 720p (الأرخص)</option><option value="standard">Veo 3.1 — أعلى جودة</option></select></div>
+        <div><label class="f">المكان</label><select id="place"><option value="auto">يختاره الوكيل</option><option>مطبخ منزلي مضيء</option><option>غرفة معيشة</option><option>داخل السيارة</option><option>مقهى</option><option>الشارع نهارًا</option></select></div>
+      </div>
+      <button class="primary big" id="go" onclick="writeScript()">✍️ اكتب سكريبت الإعلان (مجاني)</button>
+      <div id="msg" class="msg"></div>
+    </section>
+
+    <section class="card" id="scriptCard" hidden>
+      <h2>السكريبت <span class="grow"></span><span class="cost" id="costLine"></span></h2>
+      <div class="persona"><img id="creatorImg" alt="" hidden><div><div class="muted" id="creatorTxt"></div><div class="muted" id="settingTxt"></div></div></div>
+      <div id="clipsEd"></div>
+      <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: «خلّي اللقطة الأولى سؤال» أو «اجعل الكلام أقصر»"><button class="fix" onclick="chat()">تعديل</button></div>
+      <div class="row" style="margin-top:12px"><button class="primary fix" id="shootBtn" onclick="shoot()">🎬 صوّر اللقطات</button><span class="cost" id="costBtn"></span><span class="grow"></span><button class="soft small fix" onclick="save()">💾 حفظ</button></div>
+      <div id="msg2" class="msg"></div>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="clips" id="clips" style="margin-top:10px"></div>
+      <div class="row" id="assembleRow" hidden><button class="fix" onclick="assemble()">🧩 جمّع الإعلان النهائي (ترجمة + شعار + بطاقة ختامية)</button><label class="fix" style="font-size:13px"><input type="checkbox" id="burnCaps" checked style="width:auto"> ترجمة على الشاشة</label></div>
+      <div id="final"></div>
+      <div class="res" id="capBox" hidden><h3>الكابشن <button class="ghost small" onclick="copyText(DATA.caption + '\n\n' + (DATA.hashtags||[]).join(' '))">📋 نسخ</button></h3><div class="cap" id="cap"></div><div class="hash" id="hash"></div></div>
+    </section>
+  </div>
+</main>
+<canvas id="outCanvas"></canvas>
+<script src="js/mp4-muxer.js"></script>
+<script src="js/webm-muxer.js"></script>
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, generateImage, veoGenerate, VEO_PRICE, IMG_PRICE, brandContext, loadBrand, lib, needKey, chatEdit, readFile, q, sleep, pmap, settings, DIALECT_NOTE, DIALECTS } = Suite;
+Suite.mountHeader('إعلان UGC');
+const B = loadBrand();
+let DATA = null, PRODUCT = '', CREATOR = '', CLIPS = {}, ID = q.get('id'), FINAL = null, FINAL_EXT = 'mp4';
+async function pickProduct(f) { if (!f) return; PRODUCT = await readFile(f); toast('✅ صورة المنتج جاهزة'); }
+const res = () => ($('tier').value === 'lite' ? '720p' : '1080p');
+function clipCost() { const t = $('tier').value; return (VEO_PRICE[t] || VEO_PRICE.fast)[res()] * 8; }
+function cost() { const n = DATA ? DATA.clips.length : +$('count').value; const total = n * clipCost() + (CREATOR ? 0 : IMG_PRICE[settings.img] || 0.067); $('costLine').textContent = `التصوير ≈ $${total.toFixed(2)} (${n} لقطات × $${clipCost().toFixed(2)} + صورة المبدع)`; $('costBtn').textContent = `≈ $${total.toFixed(2)}`; return total; }
+async function writeScript() {
+  const brief = $('brief').value.trim(); if (!brief) return say('msg', 'اكتب المنتج والفكرة أولًا', true);
+  if (!needKey('msg')) return; $('go').disabled = true; say('msg', '✍️ جارٍ كتابة السكريبت…');
+  try {
+    const sys = (await (await fetch('assets/prompts/ugc.md')).text()) + '\n\n' + brandContext(B);
+    const user = `Brief: ${brief}\nNumber of clips: ${$('count').value}\nCreator preference: ${$('persona').value === 'auto' ? 'choose to match the audience' : $('persona').value}\nSetting preference: ${$('place').value === 'auto' ? 'choose' : $('place').value}\n${PRODUCT ? 'A real product photo is attached: describe the product in the notes exactly as it looks so the video model keeps it consistent.' : ''}\nReturn ONLY the JSON.`;
+    DATA = await geminiJSON(sys, user, { onWait: (m) => say('msg', m), images: PRODUCT ? [PRODUCT] : [] });
+    ID = null; CLIPS = {}; CREATOR = ''; FINAL = null; renderScript(); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر»');
+    $('scriptCard').hidden = false; $('scriptCard').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+function renderScript() {
+  $('creatorTxt').textContent = '👤 ' + (DATA.creator || ''); $('settingTxt').textContent = '📍 ' + (DATA.setting || '');
+  $('creatorImg').hidden = !CREATOR; if (CREATOR) $('creatorImg').src = CREATOR;
+  $('clipsEd').innerHTML = DATA.clips.map((c, i) => `<div class="clip"><div class="h"><b>لقطة ${i + 1}</b> · ${esc({ hook: 'الخطّاف', product: 'المنتج', cta: 'الدعوة للفعل' }[c.role] || c.role)} · ٨ ث</div>
+    <textarea oninput="DATA.clips[${i}].say=this.value">${esc(c.say)}</textarea>
+    <input value="${esc(c.caption_ar || '')}" placeholder="الترجمة على الشاشة (٢–٦ كلمات)" oninput="DATA.clips[${i}].caption_ar=this.value" style="margin-top:6px;font-size:13px">
+    <div class="notes">${esc(c.action || '')} — ${esc(c.camera || '')}</div></div>`).join('');
+  $('cap').textContent = DATA.caption || ''; $('hash').textContent = (DATA.hashtags || []).join(' '); $('capBox').hidden = false;
+  renderClips(); cost();
+}
+function renderClips() {
+  const any = Object.keys(CLIPS).length;
+  $('clips').innerHTML = DATA.clips.map((c, i) => CLIPS[i] ? `<div class="c"><video src="${URL.createObjectURL(CLIPS[i])}" controls playsinline></video><span class="n">${i + 1}</span><button class="soft small re" onclick="shootOne(${i})">🔁</button></div>` : `<div class="c"><span>لقطة ${i + 1}<br><small class="muted">لم تُصوَّر بعد</small></span></div>`).join('');
+  $('assembleRow').hidden = !(any && Object.keys(CLIPS).length === DATA.clips.length);
+}
+async function chat() {
+  const ins = $('chatIn').value.trim(); if (!ins || !DATA) return; if (!needKey('msg2')) return; say('msg2', '✏️ جارٍ التعديل…');
+  try { const out = await chatEdit(DATA, ins, 'UGC video ad script', (m) => say('msg2', m)); if (out.clips?.length) { DATA = out; renderScript(); $('chatIn').value = ''; say('msg2', '✅ تم'); } } catch (e) { say('msg2', '❌ ' + e.message, true); }
+}
+const dialectName = () => ({ eg: 'Egyptian', gulf: 'Gulf (Saudi/Khaleeji)', msa: 'Modern Standard' }[B.dialect] || 'Egyptian');
+async function ensureCreator() {
+  if (CREATOR) return CREATOR;
+  say('msg2', '👤 توليد صورة المبدع (للثبات بين اللقطات)…');
+  CREATOR = await generateImage(`Photorealistic vertical phone selfie of ${DATA.creator}. ${DATA.setting}. Looking at the camera with a friendly natural smile, casual and modest, realistic skin texture, natural window light, slight phone-camera softness, no text, no logos, no watermark.`, { ratio: '9:16', onWait: (m) => say('msg2', m) });
+  $('creatorImg').src = CREATOR; $('creatorImg').hidden = false; cost(); return CREATOR;
+}
+function veoPrompt(c) {
+  return `UGC style selfie video ad, vertical 9:16, filmed handheld on a smartphone by the creator herself/himself. Creator: ${DATA.creator}. Setting: ${DATA.setting}. Action: ${c.action}. Camera: ${c.camera}. The creator looks into the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Authentic amateur feel, real room, natural light, realistic skin, small handheld shake. ${PRODUCT ? 'The product shown must match the reference product photo exactly.' : ''} No on-screen text, no captions, no subtitles, no logos, no watermark.`;
+}
+async function shootOne(i) {
+  if (!needKey('msg2')) return; await ensureCreator();
+  const c = DATA.clips[i]; say('msg2', `🎬 تصوير اللقطة ${i + 1}…`);
+  try { CLIPS[i] = await veoGenerate({ prompt: veoPrompt(c), refs: [CREATOR, PRODUCT].filter(Boolean), tier: $('tier').value, aspect: '9:16', resolution: res(), duration: 8, negative: 'text, captions, subtitles, watermark, logo, cartoon, blurry, distorted hands', onStatus: (m) => say('msg2', `لقطة ${i + 1}: ${m}`) }); renderClips(); say('msg2', `✅ اللقطة ${i + 1} جاهزة`); await save(true); }
+  catch (e) { say('msg2', `❌ لقطة ${i + 1}: ${e.message}`, true); }
+}
+async function shoot() {
+  if (!DATA) return; if (!needKey('msg2')) return;
+  const total = cost(); if (!confirm(`سيتم تصوير ${DATA.clips.length} لقطات بـ Veo 3.1 بتكلفة تقريبية $${total.toFixed(2)} من رصيد Gemini. كل لقطة تستغرق ١–٣ دقائق. نكمل؟`)) return;
+  $('shootBtn').disabled = true;
+  try {
+    await ensureCreator(); let done = 0; $('bar').style.width = '5%';
+    await pmap(DATA.clips.map((c, i) => i), 4, async (i) => { await shootOne(i); done++; $('bar').style.width = Math.round(done / DATA.clips.length * 100) + '%'; });
+    say('msg2', Object.keys(CLIPS).length === DATA.clips.length ? '✅ كل اللقطات جاهزة — اضغط «جمّع الإعلان النهائي»' : '⚠️ بعض اللقطات فشلت — أعد تصويرها بزر 🔁', Object.keys(CLIPS).length !== DATA.clips.length);
+  } finally { $('shootBtn').disabled = false; }
+}
+// ---------- assembly: clips + burned captions + logo + end card -> one MP4 (WebCodecs) ----------
+const W = 1080, H = 1920, FPS = 30, SR = 48000;
+function loadVideo(blob) { return new Promise((ok, bad) => { const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob); v.onloadedmetadata = () => ok(v); v.onerror = () => bad(new Error('تعذّر قراءة اللقطة (تأكد أن المتصفح Chrome أو Edge)')); }); }
+const seekTo = (v, t) => new Promise((ok) => { if (Math.abs(v.currentTime - t) < 0.001) return ok(); v.onseeked = () => ok(); v.currentTime = t; });
+function drawCover(ctx, v) { const vw = v.videoWidth, vh = v.videoHeight; const s = Math.max(W / vw, H / vh); const dw = vw * s, dh = vh * s; ctx.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh); }
+function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function drawCaption(ctx, text, alpha) {
+  if (!text) return; ctx.save(); ctx.globalAlpha = alpha; ctx.font = '800 60px Cairo, Tajawal, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'rtl';
+  const pad = 34; const tw = Math.min(W - 120, ctx.measureText(text).width + pad * 2); const x = (W - tw) / 2, y = H * 0.72; ctx.fillStyle = 'rgba(0,0,0,.62)'; roundRect(ctx, x, y - 52, tw, 104, 26); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillText(text, W / 2, y); ctx.restore();
+}
+function drawBrand(ctx, logo) { ctx.save(); ctx.globalAlpha = .92; if (logo) ctx.drawImage(logo, 48, 64, 120, 120); ctx.font = '700 40px Cairo, sans-serif'; ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 12; ctx.textAlign = 'left'; ctx.direction = 'rtl'; ctx.fillText(B.name || '', logo ? 190 : 48, 132); ctx.restore(); }
+function drawEndCard(ctx, logo, p) {
+  const e = DATA.end_card || {}; ctx.fillStyle = B.colors.primary; ctx.fillRect(0, 0, W, H); ctx.save(); ctx.globalAlpha = Math.min(1, p * 3); ctx.textAlign = 'center'; ctx.direction = 'rtl';
+  if (logo) ctx.drawImage(logo, W / 2 - 140, H * 0.28, 280, 280);
+  ctx.fillStyle = '#fff'; ctx.font = '900 84px Cairo, sans-serif'; ctx.fillText(e.line || B.name || '', W / 2, H * 0.52);
+  ctx.fillStyle = B.colors.accent; roundRect(ctx, W / 2 - 300, H * 0.58, 600, 130, 65); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = '800 56px Cairo, sans-serif'; ctx.fillText(e.cta || B.cta || 'اطلب الآن', W / 2, H * 0.58 + 66);
+  ctx.font = '500 40px Cairo, sans-serif'; ctx.globalAlpha *= .85; ctx.fillText([B.website, B.phone].filter(Boolean).join('  ·  '), W / 2, H * 0.70); ctx.restore();
+}
+async function assemble() {
+  if (!('VideoEncoder' in window)) return say('msg2', '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge', true);
+  say('msg2', '🧩 تجهيز اللقطات…'); $('final').innerHTML = ''; $('bar').style.width = '0%';
+  try {
+    const order = DATA.clips.map((c, i) => i); const vids = []; const ac = new AudioContext();
+    for (const i of order) { const v = await loadVideo(CLIPS[i]); let ab = null; try { ab = await ac.decodeAudioData(await CLIPS[i].arrayBuffer()); } catch {} vids.push({ v, ab, dur: Math.min(v.duration || 8, 8.5), i }); }
+    const END = 2.6; const total = vids.reduce((a, x) => a + x.dur, 0) + END; const frames = Math.ceil(total * FPS);
+    const logo = B.logo ? await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = B.logo; }) : null;
+    await document.fonts.load('800 60px Cairo'); await document.fonts.load('900 84px Cairo');
+    let container = 'mp4', vcfg = { codec: 'avc1.640028', width: W, height: H, bitrate: 10_000_000, framerate: FPS, avc: { format: 'avc' }, hardwareAcceleration: 'prefer-hardware' };
+    if (!(await VideoEncoder.isConfigSupported(vcfg)).supported) delete vcfg.hardwareAcceleration;
+    if (!(await VideoEncoder.isConfigSupported(vcfg)).supported) { container = 'webm'; vcfg = { codec: 'vp09.00.10.08', width: W, height: H, bitrate: 10_000_000, framerate: FPS }; }
+    let acodec = container === 'mp4' ? 'mp4a.40.2' : 'opus'; if (!(await AudioEncoder.isConfigSupported({ codec: acodec, sampleRate: SR, numberOfChannels: 1, bitrate: 128000 })).supported) acodec = 'opus';
+    const muxer = container === 'mp4'
+      ? new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: { codec: acodec === 'opus' ? 'opus' : 'aac', numberOfChannels: 1, sampleRate: SR }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })
+      : new WebMMuxer.Muxer({ target: new WebMMuxer.ArrayBufferTarget(), video: { codec: 'V_VP9', width: W, height: H }, audio: { codec: 'A_OPUS', numberOfChannels: 1, sampleRate: SR }, firstTimestampBehavior: 'offset' });
+    const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => console.error(e) });
+    venc.configure(vcfg);
+    // audio: native clip audio back to back, then a soft fade under the end card
+    const octx = new OfflineAudioContext(1, Math.ceil(total * SR), SR); let at = 0;
+    for (const x of vids) { if (x.ab) { const s = octx.createBufferSource(); s.buffer = x.ab; const g = octx.createGain(); g.gain.setValueAtTime(1, at); g.gain.setValueAtTime(1, at + x.dur - 0.15); g.gain.linearRampToValueAtTime(0, at + x.dur); s.connect(g); g.connect(octx.destination); s.start(at); s.stop(at + x.dur); } at += x.dur; }
+    const mixed = await octx.startRendering();
+    const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: (e) => console.error(e) }); aenc.configure({ codec: acodec, sampleRate: SR, numberOfChannels: 1, bitrate: 128000 });
+    const data = mixed.getChannelData(0); for (let i = 0; i < data.length; i += SR) { const n = Math.min(SR, data.length - i); const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: 1, timestamp: Math.round(i / SR * 1e6), data: data.slice(i, i + n) }); aenc.encode(ad); ad.close(); }
+    await aenc.flush(); aenc.close();
+    const canvas = $('outCanvas'); canvas.width = W; canvas.height = H; const ctx = canvas.getContext('2d');
+    const burn = $('burnCaps').checked; const t0 = performance.now();
+    for (let f = 0; f < frames; f++) {
+      const t = f / FPS; let acc = 0, cur = null, local = 0;
+      for (const x of vids) { if (t < acc + x.dur) { cur = x; local = t - acc; break; } acc += x.dur; }
+      if (cur) { await seekTo(cur.v, Math.min(local, cur.dur - 0.04)); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); drawCover(ctx, cur.v); if (burn) drawCaption(ctx, DATA.clips[cur.i].caption_ar, Math.min(1, local / 0.3, (cur.dur - local) / 0.3)); drawBrand(ctx, logo); }
+      else drawEndCard(ctx, logo, (t - (total - END)) / END);
+      const frame = new VideoFrame(canvas, { timestamp: Math.round(f * 1e6 / FPS), duration: Math.round(1e6 / FPS) }); venc.encode(frame, { keyFrame: f % (FPS * 2) === 0 }); frame.close();
+      while (venc.encodeQueueSize > 6) await sleep(4);
+      if (f % 10 === 0) { const p = Math.round(f / frames * 100); $('bar').style.width = p + '%'; say('msg2', `🧩 تجميع الإعلان ${p}% — باقي ≈ ${Math.ceil((performance.now() - t0) / 1000 / (f + 1) * (frames - f))} ث`); }
+    }
+    await venc.flush(); venc.close(); muxer.finalize();
+    FINAL = new Blob([muxer.target.buffer], { type: container === 'mp4' ? 'video/mp4' : 'video/webm' }); FINAL_EXT = container; const url = URL.createObjectURL(FINAL);
+    $('final').innerHTML = `<video src="${url}" controls playsinline></video><div class="row" style="justify-content:center"><a class="fix" href="${url}" download="${esc((DATA.title || 'ugc-ad'))}.${container}"><button class="primary">⬇ تحميل الإعلان (${(FINAL.size / 1e6).toFixed(1)} MB)</button></a></div>`;
+    $('bar').style.width = '100%'; say('msg2', `✅ الإعلان جاهز — ${total.toFixed(0)} ث`); await save(true);
+  } catch (e) { say('msg2', '❌ ' + e.message, true); console.error(e); }
+}
+async function save(quiet) {
+  if (!DATA) return; const item = await lib.save({ id: ID || undefined, type: 'ugc', title: DATA.title || DATA.clips[0]?.say?.slice(0, 40), data: DATA, creator: CREATOR, product: PRODUCT, clips: CLIPS, video: FINAL, ext: FINAL_EXT, thumb: CREATOR || '' }); ID = item.id; if (!quiet) toast('💾 حُفظ في المكتبة');
+}
+(async () => { if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; CREATOR = it.creator || ''; PRODUCT = it.product || ''; CLIPS = it.clips || {}; FINAL = it.video || null; $('scriptCard').hidden = false; renderScript(); if (FINAL) { const url = URL.createObjectURL(FINAL); $('final').innerHTML = `<video src="${url}" controls playsinline></video><div class="row" style="justify-content:center"><a class="fix" href="${url}" download="${esc(DATA.title || 'ugc-ad')}.mp4"><button class="primary">⬇ تحميل الإعلان</button></a></div>`; } } } })();
+</script>
+</body>
+</html>

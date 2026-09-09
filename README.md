@@ -173,3 +173,10 @@ node src/cli.mjs ai brief.txt -o script.json --format 16:9 --lang ar     # Ollam
 
 الطبقة المشتركة في `web/js/core.js` (عميل Gemini، هوية البراند، مكتبة IndexedDB، التعديل بالدردشة) و`web/css/suite.css`.
 التصدير للصور عبر `html-to-image` (MIT) و`jszip` (MIT)؛ الخطوط Cairo وTajawal (OFL).
+
+### المرحلة الثانية
+| الوحدة | الملف | ما تنتجه |
+|---|---|---|
+| إعلان فيديو UGC | `ugc.html` | سكريبت ← صورة مبدع ثابتة ← لقطات Veo 3.1 (مع صورة المنتج كمرجع) ← تجميع مع ترجمة وشعار وبطاقة ختامية (WebCodecs) |
+| كتيّب جذب عملاء | `magnet.html` | دليل PDF بصفحات A4 (jsPDF + html-to-image) |
+| شعار | `logo.html` | ٤ اتجاهات بخلفية شفافة، اعتماد مباشر في هوية البراند |

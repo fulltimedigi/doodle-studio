@@ -72,6 +72,35 @@
     }
     throw last || new Error('تعذّر توليد الصورة');
   }
+  // ---------- Veo (video generation, long-running) ----------
+  const VEO_MODELS = { fast: 'veo-3.1-fast-generate-preview', standard: 'veo-3.1-generate-preview', lite: 'veo-3.1-lite-generate-preview' };
+  const VEO_PRICE = { fast: { '720p': 0.10, '1080p': 0.12 }, standard: { '720p': 0.40, '1080p': 0.40 }, lite: { '720p': 0.05, '1080p': 0.08 } }; // per second
+  const inline = (u) => ({ inlineData: { mimeType: u.match(/^data:([^;]+)/)[1], data: u.split(',')[1] } });
+  async function veoGenerate({ prompt, refs = [], image = null, tier = 'fast', aspect = '9:16', resolution = '1080p', duration = 8, negative = '', onStatus }) {
+    if (!settings.key) throw new Error('ضع مفتاح Gemini في الإعدادات أولًا (⚙️)');
+    const model = VEO_MODELS[tier] || VEO_MODELS.fast;
+    const inst = { prompt }; if (image) inst.image = inline(image); if (refs.length) inst.referenceImages = refs.slice(0, 3).map((u) => ({ image: inline(u), referenceType: 'asset' }));
+    const params = { aspectRatio: aspect, resolution, durationSeconds: duration, personGeneration: 'allow_adult', numberOfVideos: 1 }; if (negative) params.negativePrompt = negative;
+    const H = { 'content-type': 'application/json', 'x-goog-api-key': settings.key };
+    let r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning`, { method: 'POST', headers: H, body: JSON.stringify({ instances: [inst], parameters: params }) });
+    if (r.status === 400 && inst.referenceImages) { delete inst.referenceImages; r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning`, { method: 'POST', headers: H, body: JSON.stringify({ instances: [inst], parameters: params }) }); }
+    if (!r.ok) { const t = await r.text(); throw new Error(r.status === 429 ? 'تجاوزت حصة Veo — انتظر دقيقة' : `Veo ${r.status}: ${t.slice(0, 240)}`); }
+    const op = await r.json(); let name = op.name; let tries = 0;
+    while (true) {
+      await sleep(8000); tries++; if (onStatus) onStatus(`⏳ Veo يُصوّر… ${tries * 8} ث`);
+      const p = await fetch(`https://generativelanguage.googleapis.com/v1beta/${name}`, { headers: { 'x-goog-api-key': settings.key } });
+      if (!p.ok) throw new Error(`Veo poll ${p.status}`);
+      const j = await p.json();
+      if (j.error) throw new Error('Veo: ' + (j.error.message || 'فشل التوليد'));
+      if (j.done) {
+        const s = j.response?.generateVideoResponse?.generatedSamples?.[0] || j.response?.generatedVideos?.[0];
+        const uri = s?.video?.uri; if (!uri) throw new Error('Veo لم يُرجع فيديو (ربما رفض الوصف أو الصورة)');
+        const v = await fetch(uri, { headers: { 'x-goog-api-key': settings.key } }); if (!v.ok) throw new Error(`تعذّر تنزيل الفيديو (${v.status})`);
+        return await v.blob();
+      }
+      if (tries > 90) throw new Error('Veo تأخر أكثر من ١٢ دقيقة');
+    }
+  }
   async function pmap(items, n, fn) { const out = []; let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k], k); } })); return out; }
 
   // ---------- brand DNA ----------
@@ -158,5 +187,5 @@
   async function thumb(node, size = 320) { try { const b = await window.htmlToImage.toJpeg(node, { pixelRatio: size / Math.max(node.offsetWidth, 1), quality: 0.7 }); return b; } catch { return ''; } }
 
   window.Suite = { $, esc, sleep, settings, SCRIPT_MODELS, IMG_MODELS, IMG_PRICE, gemini, geminiAny, geminiJSON, generateImage, pmap, textOf, parseJSON,
-    DIALECTS, DIALECT_NOTE, TONES, DEFAULT_BRAND, loadBrand, saveBrand, brandReady, brandContext, lib, toast, say, copyText, download, readFile, fonts, mountHeader, openSettings, saveSettings, needKey, chatEdit, nodeToPng, zipBlobs, q, thumb };
+    VEO_MODELS, VEO_PRICE, veoGenerate, DIALECTS, DIALECT_NOTE, TONES, DEFAULT_BRAND, loadBrand, saveBrand, brandReady, brandContext, lib, toast, say, copyText, download, readFile, fonts, mountHeader, openSettings, saveSettings, needKey, chatEdit, nodeToPng, zipBlobs, q, thumb };
 })();

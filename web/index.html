@@ -93,9 +93,9 @@ const TOOLS = [
   { href: 'carousel.html', ic: '🖼️', t: 'كاروسيل إنستجرام', d: '٧ شرائح مصمّمة بألوان براندك، جاهزة للرفع', cost: 'مجاني · +٠٫٠٧$ للخلفية' },
   { href: 'ad.html', ic: '📣', t: 'إعلان ثابت', d: 'صورة إعلانية بثلاثة اتجاهات ومقاسات المنصات', cost: '≈ ٠٫٠٧$ للصورة' },
   { href: 'doodle.html?mode=motion', ic: '💬', t: 'موشن نصي', d: 'ريلز كلمات متحركة على إيقاع موسيقى بلون براندك', cost: 'مجاني' },
-  { href: '#', ic: '🎥', t: 'إعلان فيديو واقعي', d: 'مقاطع Veo مولّدة من وصفك (المرحلة الثانية)', cost: 'قريبًا', soon: true },
-  { href: '#', ic: '📘', t: 'كتيّب جذب عملاء', d: 'دليل PDF مصمّم (المرحلة الثانية)', cost: 'قريبًا', soon: true },
-  { href: '#', ic: '🔷', t: 'شعار', d: 'اقتراحات شعار (المرحلة الثانية)', cost: 'قريبًا', soon: true },
+  { href: 'ugc.html', ic: '🎥', t: 'إعلان فيديو UGC', d: 'مبدع يتكلم للكاميرا عن منتجك بلهجتك (Veo 3.1) مع ترجمة وبطاقة ختامية', cost: '≈ ١–٣$ للإعلان' },
+  { href: 'magnet.html', ic: '📘', t: 'كتيّب جذب عملاء', d: 'دليل PDF من ٥–٧ فصول بألوان براندك', cost: 'مجاني · +٠٫٠٧$ للغلاف' },
+  { href: 'logo.html', ic: '🔷', t: 'شعار', d: '٤ اتجاهات لشعارك بخلفية شفافة', cost: '≈ ٠٫٢٧$' },
 ];
 $('tiles').innerHTML = TOOLS.map((t) => `<a class="tile ${t.soon ? 'soon' : ''}" href="${t.href}"><div class="ic">${t.ic}</div><b>${t.t}</b><span>${t.d}</span><br><span class="cost">${t.cost}</span></a>`).join('');
 
@@ -136,7 +136,7 @@ async function autoBrand() {
     say('b_msg', '✅ راجع الحقول ثم احفظ');
   } catch (e) { say('b_msg', '❌ ' + e.message, true); }
 }
-const KIND = { reel: ['🎬', 'ريلز', 'reels.html'], carousel: ['🖼️', 'كاروسيل', 'carousel.html'], ad: ['📣', 'إعلان', 'ad.html'], doodle: ['✍️', 'Doodle', 'doodle.html'], motion: ['💬', 'موشن', 'doodle.html?mode=motion'] };
+const KIND = { reel: ['🎬', 'ريلز', 'reels.html'], carousel: ['🖼️', 'كاروسيل', 'carousel.html'], ad: ['📣', 'إعلان', 'ad.html'], doodle: ['✍️', 'Doodle', 'doodle.html'], motion: ['💬', 'موشن', 'doodle.html?mode=motion'], ugc: ['🎥', 'UGC', 'ugc.html'], magnet: ['📘', 'كتيّب', 'magnet.html'], logo: ['🔷', 'شعار', 'logo.html'] };
 async function renderLib() {
   const items = await lib.list();
   $('libCount').textContent = items.length ? `${items.length} عنصر` : ''; $('libEmpty').style.display = items.length ? 'none' : '';
