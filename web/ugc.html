@@ -33,7 +33,7 @@
     <section class="card">
       <label class="f">المنتج / العرض وما تريد أن يقوله المبدع</label>
       <textarea id="brief" placeholder="مثال: عطر ليل ٥٠ مل، يثبت ١٢ ساعة، توصيل خلال ٢٤ ساعة في الرياض. أريد بنت خليجية تحكي تجربتها في المطبخ الصبح"></textarea>
-      <label class="f">صورة المنتج (مهمة جدًا لثبات شكله في الفيديو)</label><input type="file" id="prodImg" accept="image/*" onchange="pickProduct(this.files[0])">
+      <label class="f">صورة المنتج (مهمة جدًا لثبات شكله في الفيديو)</label><input type="file" id="prodImg" accept="image/*" onchange="pickProduct(this.files[0])"><img id="prodPrev" hidden alt="" style="height:64px;border-radius:10px;margin-top:6px;border:1px solid var(--line)">
       <div class="grid2">
         <div><label class="f">المبدع</label><select id="persona"><option value="auto">يختاره الوكيل حسب الجمهور</option><option value="امرأة شابة ٢٥–٣٢">امرأة شابة</option><option value="رجل شاب ٢٥–٣٥">رجل شاب</option><option value="أم ثلاثينية">أم ثلاثينية</option><option value="رجل أربعيني واثق">رجل أربعيني</option></select></div>
         <div><label class="f">عدد اللقطات (٨ ث لكل لقطة)</label><select id="count"><option>2</option><option selected>3</option><option>4</option></select></div>
@@ -70,7 +70,11 @@ const { $, esc, say, toast, copyText, geminiJSON, generateImage, veoGenerate, VE
 Suite.mountHeader('إعلان UGC');
 const B = loadBrand();
 let DATA = null, PRODUCT = '', CREATOR = '', CLIPS = {}, ERR = {}, ID = q.get('id'), FINAL = null, FINAL_EXT = 'mp4';
-async function pickProduct(f) { if (!f) return; PRODUCT = await readFile(f); toast('✅ صورة المنتج جاهزة'); }
+async function pickProduct(f) { if (!f) return; PRODUCT = await readFile(f); $('prodPrev').src = PRODUCT; $('prodPrev').hidden = false; toast('✅ صورة المنتج جاهزة'); if (DATA) save(true); }
+const FORM = ['brief', 'persona', 'count', 'tier', 'place'];
+function formSave() { try { localStorage.setItem('ugc_form', JSON.stringify(Object.fromEntries(FORM.map((k) => [k, $(k).value])))); } catch {} }
+function formRestore() { try { const f = JSON.parse(localStorage.getItem('ugc_form') || '{}'); for (const k of FORM) if (f[k] != null && $(k)) $(k).value = f[k]; } catch {} }
+FORM.forEach((k) => $(k) && $(k).addEventListener('input', formSave));
 const res = () => ($('tier').value === 'lite' ? '720p' : '1080p');
 function clipCost() { const t = $('tier').value; return (VEO_PRICE[t] || VEO_PRICE.fast)[res()] * 8; }
 function cost() { const n = DATA ? DATA.clips.length : +$('count').value; const total = n * clipCost() + (CREATOR ? 0 : IMG_PRICE[settings.img] || 0.067); $('costLine').textContent = `التصوير ≈ $${total.toFixed(2)} (${n} لقطات × $${clipCost().toFixed(2)} + صورة المبدع)`; $('costBtn').textContent = `≈ $${total.toFixed(2)}`; return total; }
@@ -81,7 +85,7 @@ async function writeScript() {
     const sys = (await (await fetch('assets/prompts/ugc.md')).text()) + '\n\n' + brandContext(B);
     const user = `Brief: ${brief}\nNumber of clips: ${$('count').value}\nCreator preference: ${$('persona').value === 'auto' ? 'choose to match the audience' : $('persona').value}\nSetting preference: ${$('place').value === 'auto' ? 'choose' : $('place').value}\n${PRODUCT ? 'A real product photo is attached: describe the product in the notes exactly as it looks so the video model keeps it consistent.' : ''}\nReturn ONLY the JSON.`;
     DATA = await geminiJSON(sys, user, { onWait: (m) => say('msg', m), images: PRODUCT ? [PRODUCT] : [] });
-    ID = null; CLIPS = {}; CREATOR = ''; FINAL = null; renderScript(); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر»');
+    ID = null; CLIPS = {}; ERR = {}; CREATOR = ''; FINAL = null; renderScript(); await save(true); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر» — محفوظ تلقائيًا، التحديث لا يضيّعه');
     $('scriptCard').hidden = false; $('scriptCard').scrollIntoView({ behavior: 'smooth' });
   } catch (e) { say('msg', '❌ ' + e.message, true); }
   $('go').disabled = false;
@@ -194,9 +198,11 @@ async function assemble() {
   } catch (e) { say('msg2', '❌ ' + e.message, true); console.error(e); }
 }
 async function save(quiet) {
-  if (!DATA) return; const item = await lib.save({ id: ID || undefined, type: 'ugc', title: DATA.title || DATA.clips[0]?.say?.slice(0, 40), data: DATA, creator: CREATOR, product: PRODUCT, clips: CLIPS, video: FINAL, ext: FINAL_EXT, thumb: CREATOR || '' }); ID = item.id; if (!quiet) toast('💾 حُفظ في المكتبة');
+  if (!DATA) return; const item = await lib.save({ id: ID || undefined, type: 'ugc', title: DATA.title || DATA.clips[0]?.say?.slice(0, 40), data: DATA, creator: CREATOR, product: PRODUCT, clips: CLIPS, video: FINAL, ext: FINAL_EXT, thumb: CREATOR || '', brief: $('brief').value }); ID = item.id;
+  try { localStorage.setItem('ugc_last', ID); const u = new URL(location.href); if (u.searchParams.get('id') !== ID) { u.searchParams.set('id', ID); history.replaceState(null, '', u); } } catch {}
+  if (!quiet) toast('💾 حُفظ في المكتبة');
 }
-(async () => { if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; CREATOR = it.creator || ''; PRODUCT = it.product || ''; CLIPS = it.clips || {}; FINAL = it.video || null; $('scriptCard').hidden = false; renderScript(); if (FINAL) { const url = URL.createObjectURL(FINAL); $('final').innerHTML = `<video src="${url}" controls playsinline></video><div class="row" style="justify-content:center"><a class="fix" href="${url}" download="${esc(DATA.title || 'ugc-ad')}.mp4"><button class="primary">⬇ تحميل الإعلان</button></a></div>`; } } } })();
+(async () => { formRestore(); cost(); if (!ID) { try { ID = localStorage.getItem('ugc_last') || null; } catch {} } if (ID) { const it = await lib.get(ID); if (!it) { ID = null; return; } if (it) { DATA = it.data; CREATOR = it.creator || ''; PRODUCT = it.product || ''; CLIPS = it.clips || {}; FINAL = it.video || null; if (it.brief) $('brief').value = it.brief; if (PRODUCT && $('prodPrev')) { $('prodPrev').src = PRODUCT; $('prodPrev').hidden = false; } $('scriptCard').hidden = false; renderScript(); say('msg', '↩️ رجّعت آخر شغلك تلقائيًا — سكريبت جديد يبدأ بزر «اكتب سكريبت الإعلان»'); if (FINAL) { const url = URL.createObjectURL(FINAL); $('final').innerHTML = `<video src="${url}" controls playsinline></video><div class="row" style="justify-content:center"><a class="fix" href="${url}" download="${esc(DATA.title || 'ugc-ad')}.mp4"><button class="primary">⬇ تحميل الإعلان</button></a></div>`; } } } })();
 </script>
 </body>
 </html>
