@@ -707,5 +707,24 @@
     return { duration: P.duration, pen, pans };
   }
 
-  window.doodle = { build, seek, paint, svgToStrokes, timeline, handState: () => lastHand, duration: () => (P ? P.duration : 0) };
+  // sampled pen activity for the sound design: how fast the pen tip moves at every instant, and on what
+  // (0 = pen off the board, 1 = drawing an outline, 2 = hand-writing, 3 = colouring). Between strokes
+  // the tip jumps, which reads as "lifted" and stays silent, so the sound follows the real motion.
+  function penCurve(step = 0.01) {
+    if (!P) return { step, speed: new Float32Array(0), kind: new Uint8Array(0) };
+    const n = Math.ceil(P.duration / step) + 1; const speed = new Float32Array(n); const kind = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i * step; let act = null;
+      for (const s of state.scenes) { if (t < s.sc.start || t >= s.sc.end) continue; for (const r of s.els) { const e = r.e; if (t >= e.start && t < e.start + e.draw && !(e.until != null && t >= e.until) && (!act || e.start > act.e.start)) act = r; } }
+      if (!act || (act.kind === 'text' && act.anim !== 'write') || act.kind === 'photo') continue;
+      const e = act.e; const p = (t - e.start) / e.draw, p2 = Math.min(1, (t + step - e.start) / e.draw);
+      const a = pointAt(act, p), b = pointAt(act, p2); if (!a || !b) continue;
+      const d = Math.hypot(b.x - a.x, b.y - a.y); const lifted = d > Math.max(45, 900 * step * 60) * 0.5; // a jump = the pen moved to another stroke
+      if (lifted) continue;
+      speed[i] = d / step; kind[i] = act.kind === 'text' ? 2 : (act.scrib && p >= OUTLINE_SHARE ? 3 : 1);
+    }
+    return { step, speed, kind };
+  }
+
+  window.doodle = { build, seek, paint, svgToStrokes, timeline, penCurve, handState: () => lastHand, duration: () => (P ? P.duration : 0) };
 })();

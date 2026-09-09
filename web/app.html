@@ -14,9 +14,18 @@
   header .logo{font-size:24px}
   header h1{font-size:18px;margin:0;white-space:nowrap}
   header #title{flex:1;max-width:520px;background:var(--soft);border-color:transparent}
-  main{max-width:1280px;margin:0 auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;grid-template-areas:"idea studio" "scenes studio";align-items:start}
-  #ideaCard{grid-area:idea}#scenesCard{grid-area:scenes}#studioCard{grid-area:studio;position:sticky;top:66px}
-  @media (max-width:980px){main{grid-template-columns:1fr;grid-template-areas:"idea" "studio" "scenes";padding:10px;gap:12px}#studioCard{position:static}header h1{display:none}}
+  main{max-width:840px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+  @media (max-width:640px){main{padding:10px;gap:12px}header h1{display:none}}
+  button.big{width:100%;padding:14px;font-size:17px;margin-top:6px;border-radius:12px}
+  .center{text-align:center;margin-top:8px}
+  .steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .steps span{flex:1;text-align:center;padding:6px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:13px;white-space:nowrap}
+  .steps span.active{background:#fff3cd;color:#7a5a00}
+  .steps span.done{background:#e6f5f1;color:var(--accent2)}
+  .steps span.error{background:#fde8ea;color:var(--accent)}
+  #studioCard{position:relative}
+  body{overflow-x:hidden}
+  #previewWrap.offscreen{position:absolute;left:0;top:0;width:640px;visibility:hidden;pointer-events:none;z-index:-1;margin:0}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
   .card h2{margin:0 0 10px;font-size:16px;display:flex;align-items:center;gap:8px}
   .card h2 .grow{flex:1}
@@ -70,7 +79,7 @@
   .gallery .art{position:relative;display:inline-block}
   .gallery .art button{position:absolute;top:-6px;left:-6px;background:#fff;border:1px solid var(--line);border-radius:50%;padding:0 5px;font-size:11px}
   /* studio */
-  #previewWrap{position:relative;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:120px}
+  #previewWrap{position:relative;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:120px;margin-top:8px}
   #stageHolder{position:absolute;left:0;top:0;transform-origin:0 0;direction:ltr}
   #stage{position:relative;overflow:hidden;background:#fff}
   #hand{position:absolute;left:0;top:0;z-index:1000;pointer-events:none;transform-origin:0 0;will-change:transform;opacity:0}
@@ -117,25 +126,40 @@
 </header>
 <main>
   <section class="card" id="ideaCard">
-    <h2><span class="step">1</span> الفكرة <span class="grow"></span><button class="ghost small" onclick="loadExample()">مثال جاهز</button><button class="ghost small" onclick="newScript()">جديد</button></h2>
-    <textarea id="brief" placeholder="اكتب فكرة الفيديو: المنتج، الجمهور، المشكلة، الفائدة، الدعوة للفعل…"></textarea>
+    <h2>اكتب فكرة الفيديو <span class="grow"></span><button class="ghost small" onclick="loadExample()">مثال جاهز</button></h2>
+    <textarea id="brief" placeholder="المنتج أو الخدمة، لمين، المشكلة اللي بيحلها، الفائدة، والدعوة للفعل… (سطرين كفاية)"></textarea>
     <div class="row">
       <select id="format" onchange="SCRIPT.format=this.value;changed()"><option value="16:9">يوتيوب 16:9</option><option value="9:16">ريلز / تيك توك 9:16</option><option value="1:1">مربع 1:1</option></select>
       <select id="lang"><option value="ar">عربي</option><option value="en">English</option></select>
-      <select id="artMode" onchange="localStorage.setItem('art_mode', this.value)" title="مصدر الرسومات"><option value="ai">رسومات ذكاء اصطناعي لكل مشهد (≈ ٠٫٠٧$ للرسمة)</option><option value="library">المكتبة المجانية فقط</option></select>
-      <button class="primary fix" id="aiBtn" onclick="runAI()">🤖 اكتب لي السيناريو</button>
+      <select id="artMode" onchange="localStorage.setItem('art_mode', this.value)" title="مصدر الرسومات"><option value="ai">رسومات ذكاء اصطناعي</option><option value="library">المكتبة المجانية</option></select>
     </div>
+    <button class="primary big" id="makeBtn" onclick="makeVideo()">🎬 اصنع الفيديو</button>
+    <div class="muted center">سيناريو ← رسومات ← صوت ← فيديو 1080p جاهز للتحميل. تكلفة تقريبية ٠٫٥$ من رصيد Gemini، وحوالي ٣ دقائق.</div>
     <div id="aiMsg" class="msg"></div>
   </section>
 
-  <section class="card" id="studioCard">
-    <h2><span class="step">3</span> المعاينة والفيديو <span class="grow"></span><span class="muted" id="durMsg"></span></h2>
-    <div id="previewWrap"><div id="stageHolder"><div id="stage"></div><img id="hand" alt=""></div><div id="overlay">اكتب الفكرة أو حمّل المثال لتظهر المعاينة</div></div>
-    <div class="transport">
+  <section class="card" id="studioCard" hidden>
+    <div class="steps"><span data-step="script">١ السيناريو</span><span data-step="art">٢ الرسومات</span><span data-step="voice">٣ الصوت</span><span data-step="video">٤ الفيديو</span></div>
+    <div class="bar"><i id="barFill"></i></div>
+    <div id="jobMsg" class="msg"></div>
+    <div id="previewWrap"><div id="stageHolder"><div id="stage"></div><img id="hand" alt=""></div><div id="overlay">جارٍ التجهيز…</div></div>
+    <div class="transport" id="transport">
       <button class="soft small fix" id="playBtn" onclick="playPreview()">▶</button>
       <input type="range" id="scrub" min="0" max="60" step="0.1" value="3" oninput="scrubTo(+this.value)">
-      <span id="scrubVal">3.0 ث</span>
+      <span id="scrubVal">3.0 ث</span><span class="muted" id="durMsg"></span>
     </div>
+    <div id="result"></div>
+    <div class="row" id="actions">
+      <button class="soft fix" onclick="toggleAdvanced()" id="advBtn">✏️ تعديل المشاهد والمظهر</button>
+      <span class="grow"></span>
+      <button class="soft fix" onclick="render(true)">⚡ نسخة سريعة</button>
+      <button class="fix" onclick="render(false)">🔁 أعد تصدير 1080p</button>
+    </div>
+    <canvas id="outCanvas"></canvas>
+  </section>
+
+  <section class="card" id="advanced" hidden>
+    <h2>المظهر</h2>
     <div class="look">
       <label>السبورة<select id="board" onchange="SCRIPT.board=this.value;changed()"><option value="white">بيضاء</option><option value="paper">ورق كريمي</option><option value="chalk">سبورة طباشير</option><option value="glass">زجاج داكن</option></select></label>
       <label>اليد<select id="handSel" onchange="SCRIPT.hand=this.value;changed()"></select></label>
@@ -145,21 +169,8 @@
       <label class="toggle"><input type="checkbox" id="sfx" checked onchange="SCRIPT.sfx=this.checked;autosave()"> صوت القلم أثناء الرسم</label>
     </div>
     <input type="file" id="musicFile" accept="audio/*" style="display:none" onchange="musicFromFile(this.files[0])">
-    <div class="row">
-      <button class="soft fix" onclick="previewVoice()">🔊 جرّب الصوت</button>
-      <span class="grow"></span>
-      <button class="fix" onclick="render(true)">⚡ فيديو سريع</button>
-      <button class="primary fix" onclick="render(false)">🎬 فيديو نهائي 1080p</button>
-    </div>
-    <div class="bar"><i id="barFill"></i></div>
-    <div id="jobMsg" class="msg"></div>
-    <canvas id="outCanvas"></canvas>
-    <div id="result"></div>
-    <div class="log" id="log"></div>
-  </section>
-
-  <section class="card" id="scenesCard">
-    <h2><span class="step">2</span> المشاهد <span class="muted" id="sceneCount"></span><span class="grow"></span>
+    <div class="row"><button class="soft fix" onclick="previewVoice()">🔊 جرّب الصوت</button></div>
+    <h2 style="margin-top:16px">المشاهد <span class="muted" id="sceneCount"></span><span class="grow"></span>
       <button class="soft small" id="genArtBtn" style="display:none" onclick="generateMissingArt()">🎨 ولّد الرسومات الناقصة</button>
       <button class="soft small" onclick="addScene()">＋ مشهد</button>
       <details class="menu"><summary>⋯</summary>
@@ -168,6 +179,7 @@
           <button onclick="toggleJson()">{ } تحرير JSON</button>
           <button onclick="downloadScript()">⬇ حفظ السيناريو</button>
           <label>📂 فتح سيناريو<input type="file" accept=".json" style="display:none" onchange="openScript(this.files[0])"></label>
+          <button onclick="newScript()">🧹 سيناريو جديد فارغ</button>
         </div>
       </details>
     </h2>
@@ -175,6 +187,7 @@
     <textarea id="jsonBox" style="display:none;min-height:260px;direction:ltr;font-family:ui-monospace,monospace;font-size:12px"></textarea>
     <div id="scenes"></div>
     <div id="artWrap" style="display:none"><div class="muted">رسوماتك (استخدمها من عنصر «رسمة»):</div><div class="gallery" id="artGallery"></div></div>
+    <div class="log" id="log"></div>
   </section>
 </main>
 
@@ -240,7 +253,7 @@ async function init() {
   try { await Promise.all(faces.map(([n]) => document.fonts.load(`20px "${n}"`))); } catch {}
   if (!settings.key) say('aiMsg', '🔑 ضع مفتاح Gemini في ⚙️ (أعلى الصفحة) لتشغيل كتابة السيناريو والصوت. المعاينة والرسم يعملان بدونه.');
   const saved = localStorage.getItem('doodle_script');
-  if (saved) { try { setScript(JSON.parse(saved)); } catch { await loadExample(); } } else await loadExample();
+  if (saved) { try { const sc = JSON.parse(saved); if (sc.scenes?.length) { $('studioCard').hidden = false; setScript(sc); } } catch {} }
 }
 function openSettings() { $('settings').showModal(); }
 function saveSettings() {
@@ -259,10 +272,19 @@ function setScript(s) {
   OPEN = null; drawScenes(); changed();
 }
 function newScript() { if (SCRIPT.scenes.length && !confirm('تبدأ سيناريو جديدًا فارغًا؟')) return; setScript({ scenes: [{ narration: '', elements: [] }] }); $('brief').value = ''; }
-async function loadExample() { setScript(await (await fetch('assets/demo-ar.json')).json()); }
+function toggleAdvanced() { const a = $('advanced'); a.hidden = !a.hidden; $('advBtn').textContent = a.hidden ? '✏️ تعديل المشاهد والمظهر' : '▲ إخفاء التعديل'; if (!a.hidden) { showResult(false); a.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }
+// after a render the finished video takes the stage's place; the live stage stays laid out off-screen so it can still be measured/rebuilt
+function showResult(on) { $('previewWrap').classList.toggle('offscreen', on); $('transport').style.display = on ? 'none' : ''; if (!on) { $('result').innerHTML = ''; if (COMPILED) fitPreview(COMPILED.width, COMPILED.height); } }
+const STEPS = ['script', 'art', 'voice', 'video'];
+function setStep(name, st) { document.querySelectorAll('.steps span').forEach((x) => { if (x.dataset.step === name) x.className = st || ''; }); }
+function resetSteps() { STEPS.forEach((n) => setStep(n, '')); }
+async function idle() { clearTimeout(prepTimer); while (BUSY) await sleep(100); }
+async function pmap(items, n, fn) { const out = []; let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k], k); } })); return out; }
+async function loadExample() { $('studioCard').hidden = false; showResult(false); setScript(await (await fetch('assets/demo-ar.json')).json()); $('studioCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 // anything that changes the picture: save, then re-prepare the preview after a short pause
 let prepTimer = null;
-function changed() { COMPILED = null; autosave(); clearTimeout(prepTimer); prepTimer = setTimeout(() => prepare(true).catch(() => {}), 700); }
+let DIRTY = false;
+function changed() { DIRTY = true; autosave(); clearTimeout(prepTimer); prepTimer = setTimeout(() => prepare(true).catch(() => {}), 700); }
 
 // ------------------------------------------------------------ Gemini: script agent + TTS
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -285,24 +307,21 @@ async function geminiAny(models, body, onWait) {
   throw last;
 }
 async function runAI() {
-  const brief = $('brief').value.trim(); if (!brief) return say('aiMsg', 'اكتب الفكرة أولًا', true);
-  $('aiBtn').disabled = true; say('aiMsg', '🤖 جارٍ كتابة السيناريو…');
+  const brief = $('brief').value.trim(); if (!brief) { say('aiMsg', 'اكتب الفكرة أولًا', true); return false; }
+  say('jobMsg', '🤖 جارٍ كتابة السيناريو…');
   try {
     const sys = await fetchText('assets/script-writer.md');
     const ai = $('artMode').value === 'ai';
     const user = `Brief:\n${brief}\n\nConstraints:\n- format: ${$('format').value}\n- language: ${$('lang').value}\n- available peep seeds: ${CAT.peeps.join(', ')}\n- available art files (use exactly these names with "art/" prefix if they fit): ${[...ART.keys()].join(', ')}\n${ai ? '- The user has an AI illustrator. For the MAIN drawing of EVERY scene use an `image` element with a NEW descriptive file name under art/ and describe it in artRequests (one request per file; a recurring person gets the same `character` key and the identical physical description each time). Use peeps/doodles/icons only for small secondary elements.' : '- The user has no image generator: use only the available art files, peeps, doodles, tabler icons and shapes; do not request custom art.'}\nReturn ONLY the JSON.`;
     const models = [settings.model, ...SCRIPT_MODELS.filter((m) => m !== settings.model)];
-    const { j, model } = await geminiAny(models, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }, (m) => say('aiMsg', m));
+    const { j, model } = await geminiAny(models, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }, (m) => say('jobMsg', m));
     if (model !== settings.model) { settings.model = model; localStorage.setItem('gemini_model', model); $('s_model').value = model; }
     const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
     const s = JSON.parse(text.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'));
     const keep = { format: $('format').value, board: SCRIPT.board, hand: SCRIPT.hand, layout: SCRIPT.layout, music: SCRIPT.music, sfx: SCRIPT.sfx, voice: SCRIPT.voice };
     setScript({ ...keep, ...s, format: s.format || keep.format, hand: keep.hand, voice: keep.voice });
-    say('aiMsg', '✅ تم. راجع المشاهد (الخطوة 2) والمعاينة، ثم اصنع الفيديو.');
-    $('aiBtn').disabled = false;
-    if (ai && missingArt().length) await generateMissingArt();
-  } catch (e) { say('aiMsg', '❌ ' + e.message, true); }
-  $('aiBtn').disabled = false;
+    return true;
+  } catch (e) { say('jobMsg', '❌ ' + e.message, true); return false; }
 }
 // --- persistent voice cache (IndexedDB) so re-renders never call Google again
 function idb() { return new Promise((ok, bad) => { const r = indexedDB.open('doodle-studio', 2); r.onupgradeneeded = () => { for (const st of ['tts', 'art']) if (!r.result.objectStoreNames.contains(st)) r.result.createObjectStore(st); }; r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
@@ -373,39 +392,67 @@ async function generateArt(desc, { ratio = '1:1', ref = null, onWait } = {}) {
   throw last || new Error('تعذّر توليد الصورة');
 }
 let GEN_BUSY = false;
-async function generateMissingArt() {
+async function generateMissingArt({ quiet = false } = {}) {
   if (GEN_BUSY) return; const miss = missingArt(); if (!miss.length) return;
-  if (!settings.key) return say('aiMsg', 'ضع مفتاح Gemini في الإعدادات أولًا (⚙️)', true);
+  if (!settings.key) return say('jobMsg', 'ضع مفتاح Gemini في الإعدادات أولًا (⚙️)', true);
   const price = IMG_PRICE[settings.img] || 0.07;
-  if (!confirm(`سيتم توليد ${miss.length} رسمة بالذكاء الاصطناعي بتكلفة تقريبية $${(miss.length * price).toFixed(2)} من رصيد Gemini. نكمل؟`)) return;
+  if (!quiet && !confirm(`سيتم توليد ${miss.length} رسمة بالذكاء الاصطناعي بتكلفة تقريبية $${(miss.length * price).toFixed(2)} من رصيد Gemini. نكمل؟`)) return;
   GEN_BUSY = true; $('genArtBtn').disabled = true; let done = 0;
+  const reqOf = (src) => (SCRIPT.artRequests || []).find((r) => r.file === src);
+  const one = async (src) => {
+    const name = src.replace(/^art\//, ''); const req = reqOf(src);
+    const el = SCRIPT.scenes.flatMap((sc) => sc.elements || []).find((e) => e.src === src);
+    const desc = el?.prompt || req?.prompt || name.replace(/\.(png|jpg|jpeg|svg)$/i, '').replace(/[-_]+/g, ' ');
+    const refName = req?.character ? [...ART.keys()].find((n) => ART.get(n).startsWith('data:') && artChar(n) === req.character) : null;
+    try {
+      const url = await generateArt(desc, { ratio: ratioFor(el || {}), ref: refName ? ART.get(refName) : null, onWait: (m) => say('jobMsg', m) });
+      ART.set(name, url); idbSet(name, url, 'art'); if (req?.character) ART_CHAR.set(name, req.character);
+      renderArt(); done++; say('jobMsg', `🎨 الرسومات ${done}/${miss.length}…`);
+    } catch (e) { log(`❌ ${name}: ${e.message}`); }
+  };
   try {
-    for (const src of miss) {
-      const name = src.replace(/^art\//, ''); const req = (SCRIPT.artRequests || []).find((r) => r.file === src);
-      const el = SCRIPT.scenes.flatMap((sc) => sc.elements || []).find((e) => e.src === src);
-      const desc = el?.prompt || req?.prompt || name.replace(/\.(png|jpg|jpeg|svg)$/i, '').replace(/[-_]+/g, ' ');
-      const refName = req?.character ? [...ART.keys()].find((n) => ART.get(n).startsWith('data:') && artChar(n) === req.character) : null;
-      say('aiMsg', `🎨 توليد الرسمة ${done + 1}/${miss.length}: ${name}…`);
-      try {
-        const url = await generateArt(desc, { ratio: ratioFor(el || {}), ref: refName ? ART.get(refName) : null, onWait: (m) => say('aiMsg', m) });
-        ART.set(name, url); idbSet(name, url, 'art'); if (req?.character) ART_CHAR.set(name, req.character);
-        renderArt(); done++;
-      } catch (e) { log(`❌ ${name}: ${e.message}`); }
-    }
-    say('aiMsg', done === miss.length ? `✅ اكتملت ${done} رسمة (≈ $${(done * price).toFixed(2)}). المعاينة تتحدّث الآن.` : `⚠️ اكتملت ${done} من ${miss.length} رسمة — راجع السجل أسفل الاستوديو`, done !== miss.length);
+    say('jobMsg', `🎨 توليد ${miss.length} رسمة (بالتوازي)…`);
+    // the first drawing of each recurring character comes first (it is the reference for the others), then everything else in parallel
+    const seen = new Set(); const firsts = [], rest = [];
+    for (const src of miss) { const c = reqOf(src)?.character; if (c && seen.has(c)) rest.push(src); else { if (c) seen.add(c); firsts.push(src); } }
+    await pmap(firsts, 3, one); await pmap(rest, 3, one);
+    say('jobMsg', done === miss.length ? `✅ اكتملت ${done} رسمة (≈ $${(done * price).toFixed(2)})` : `⚠️ اكتملت ${done} من ${miss.length} رسمة — راجع السجل في قسم التعديل`, done !== miss.length);
   } finally { GEN_BUSY = false; $('genArtBtn').disabled = false; drawScenes(); changed(); }
+}
+// voice for every scene at once (cached for the render that follows)
+async function prefetchVoice() {
+  const scs = SCRIPT.scenes.filter((sc) => sc.narration && sc.narration.trim()); let done = 0;
+  await pmap(scs, 3, async (sc) => { try { await tts(sc.narration, { voice: sc.voice || SCRIPT.voice || $('voice').value, style: SCRIPT.voiceStyle || $('voiceStyle').value }, (m) => say('jobMsg', m)); } catch (e) { log('🎙️ ' + e.message); } done++; say('jobMsg', `🎙️ الصوت ${done}/${scs.length}…`); });
+}
+// the one-button flow: idea -> script -> drawings + voice (in parallel) -> 1080p video
+async function makeVideo() {
+  if (!settings.key) { openSettings(); say('setMsg', 'ضع مفتاح Gemini ثم احفظ، وارجع اضغط «اصنع الفيديو»', true); return; }
+  if (!$('brief').value.trim()) return say('aiMsg', 'اكتب الفكرة أولًا', true);
+  say('aiMsg', ''); $('makeBtn').disabled = true; $('studioCard').hidden = false; $('advanced').hidden = true; $('advBtn').textContent = '✏️ تعديل المشاهد والمظهر';
+  showResult(false); resetSteps(); $('barFill').style.width = '0%'; $('studioCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try {
+    setStep('script', 'active');
+    if (!(await runAI())) { setStep('script', 'error'); return; }
+    setStep('script', 'done');
+    const ai = $('artMode').value === 'ai';
+    setStep('art', ai && missingArt().length ? 'active' : 'done'); setStep('voice', 'active');
+    await Promise.all([ai ? generateMissingArt({ quiet: true }) : Promise.resolve(), prefetchVoice()]);
+    setStep('art', 'done'); setStep('voice', 'done');
+    setStep('video', 'active');
+    setStep('video', (await render(false)) ? 'done' : 'error');
+  } finally { $('makeBtn').disabled = false; }
 }
 async function genArtFor(i, j) {
   const e = SCRIPT.scenes[i].elements[j]; const desc = $(`desc-${i}-${j}`).value.trim(); if (!desc) return alert('اكتب وصف الرسمة أولًا');
-  if (!settings.key) return say('aiMsg', 'ضع مفتاح Gemini في الإعدادات أولًا (⚙️)', true);
+  if (!settings.key) return say('jobMsg', 'ضع مفتاح Gemini في الإعدادات أولًا (⚙️)', true);
   e.prompt = desc; const refName = $(`ref-${i}-${j}`).value;
   let name = String(e.src || '').replace(/^art\//, '').replace(/\.(png|jpg|jpeg|svg)$/i, '') || 'drawing'; if (ART.has(name + '.png') && !missingArt().includes(e.src)) name += '-' + Date.now().toString(36).slice(-4); name += '.png';
-  say('aiMsg', `🎨 جارٍ توليد ${name}…`);
+  say('jobMsg', `🎨 جارٍ توليد ${name}…`);
   try {
-    const url = await generateArt(desc, { ratio: ratioFor(e), ref: refName ? ART.get(refName) : null, onWait: (m) => say('aiMsg', m) });
+    const url = await generateArt(desc, { ratio: ratioFor(e), ref: refName ? ART.get(refName) : null, onWait: (m) => say('jobMsg', m) });
     ART.set(name, url); idbSet(name, url, 'art'); if (refName && artChar(refName)) ART_CHAR.set(name, artChar(refName));
-    renderArt(); e.src = 'art/' + name; drawScenes(); changed(); say('aiMsg', `✅ ${name} جاهزة`);
-  } catch (err) { say('aiMsg', '❌ ' + err.message, true); }
+    renderArt(); e.src = 'art/' + name; drawScenes(); changed(); say('jobMsg', `✅ ${name} جاهزة`);
+  } catch (err) { say('jobMsg', '❌ ' + err.message, true); }
 }
 
 // ------------------------------------------------------------ scenes editor
@@ -566,16 +613,16 @@ async function compileEl(e, W, H, seed, defaults) {
 // ------------------------------------------------------------ preview
 let previewScale = 1, BUSY = false;
 window.doodleProgress = (done, total) => { say('jobMsg', `✏️ تجهيز الرسومات ${done}/${total}…`); };
-function setBusy(b) { BUSY = b; document.querySelectorAll('#studioCard button, #aiBtn').forEach((x) => { x.disabled = b; }); document.body.style.cursor = b ? 'progress' : ''; }
+function setBusy(b) { BUSY = b; document.querySelectorAll('#actions button, #playBtn').forEach((x) => { x.disabled = b; }); document.body.style.cursor = b ? 'progress' : ''; }
 async function buildStage() { const { audio, ...rest } = COMPILED; await window.doodle.build(structuredClone(rest)); }
 function fitPreview(W, H) { const wrap = $('previewWrap'); const w = wrap.clientWidth; previewScale = w / W; wrap.style.height = Math.round(H * previewScale) + 'px'; $('stageHolder').style.transform = `scale(${previewScale})`; }
 window.addEventListener('resize', () => { if (COMPILED) fitPreview(COMPILED.width, COMPILED.height); });
 async function prepare(showFrame) {
-  if (BUSY) { changed(); return; }
+  if (BUSY) { clearTimeout(prepTimer); prepTimer = setTimeout(() => prepare(true).catch(() => {}), 700); return; }
   if (!SCRIPT.scenes.length) { $('overlay').style.display = ''; return; }
-  say('jobMsg', '⏳ تجهيز المشاهد…'); setBusy(true);
+  $('studioCard').hidden = false; say('jobMsg', '⏳ تجهيز المشاهد…'); setBusy(true);
   try {
-    COMPILED = await compileClient(SCRIPT, { withAudio: false });
+    DIRTY = false; COMPILED = await compileClient(SCRIPT, { withAudio: false });
     fitPreview(COMPILED.width, COMPILED.height);
     await buildStage();
     $('scrub').max = Math.max(1, COMPILED.duration.toFixed(1));
@@ -600,29 +647,27 @@ const SR = 48000;
 function noiseBuffer(ctx, seconds) { const b = ctx.createBuffer(1, Math.ceil(seconds * SR), SR); const d = b.getChannelData(0); let s = 22222; for (let i = 0; i < d.length; i++) { s = (s * 1664525 + 1013904223) >>> 0; d[i] = (s / 4294967296) * 2 - 1; } return b; }
 // marker on a whiteboard: band-passed noise whose loudness follows the pen; a softer, higher squeak for hand-writing
 function addPenSound(ctx, dest, tl) {
-  const src = ctx.createBufferSource(); src.buffer = noiseBuffer(ctx, 4); src.loop = true;
-  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1900; bp.Q.value = 0.9;
-  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
-  const g = ctx.createGain(); g.gain.value = 0;
-  src.connect(hp); hp.connect(bp); bp.connect(g); g.connect(dest);
-  const step = 0.02; const n = Math.ceil(tl.duration / step) + 1; const curve = new Float32Array(n);
-  let s = 777; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-  for (const seg of tl.pen) {
-    const base = seg.kind === 'write' ? 0.05 : seg.kind === 'shape' ? 0.07 : 0.085;
-    for (let i = Math.max(0, Math.floor(seg.start / step)); i < Math.min(n, Math.ceil(seg.end / step)); i++) {
-      const t = i * step; const fillPhase = seg.fillFrom != null && t >= seg.fillFrom;
-      const wob = 0.55 + 0.45 * Math.abs(Math.sin(t * (fillPhase ? 9 : 14) + seg.start)) * (0.6 + 0.4 * rnd());
-      curve[i] = Math.max(curve[i], base * (fillPhase ? 1.25 : 1) * wob);
-    }
+  // the loudness follows the real pen: sampled tip speed every 10 ms from the engine; silent while the pen is lifted between strokes
+  const pc = window.doodle.penCurve(0.01); const n = pc.speed.length; if (!n) return;
+  const noise = noiseBuffer(ctx, 3);
+  const chain = (freq, q, hp) => { const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true; const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = hp; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q; const g = ctx.createGain(); g.gain.value = 0; src.connect(h); h.connect(bp); bp.connect(g); g.connect(dest); src.start(0); src.stop(tl.duration + 0.5); return g; };
+  const gDraw = chain(2700, 0.8, 1000), gFill = chain(1400, 0.7, 500);
+  const cd = new Float32Array(n), cf = new Float32Array(n); let ed = 0, ef = 0;
+  for (let i = 0; i < n; i++) {
+    const k = pc.kind[i]; const amp = k ? Math.pow(Math.min(1, pc.speed[i] / 1500), 0.6) : 0;
+    const td = k === 1 ? amp * 0.05 : k === 2 ? amp * 0.032 : 0, tf = k === 3 ? amp * 0.06 : 0;
+    ed += (td - ed) * (td > ed ? 0.45 : 0.22); ef += (tf - ef) * (tf > ef ? 0.45 : 0.22); // ~20 ms attack, ~45 ms release: no clicks, no smear
+    cd[i] = ed; cf[i] = ef;
   }
-  for (let i = 1; i < n - 1; i++) curve[i] = (curve[i - 1] + curve[i] * 2 + curve[i + 1]) / 4; // soften edges
-  g.gain.setValueCurveAtTime(curve, 0, tl.duration + 0.01); src.start(0); src.stop(tl.duration + 0.5);
-  // whoosh while the camera travels to the next scene
+  gDraw.gain.setValueCurveAtTime(cd, 0, n * pc.step); gFill.gain.setValueCurveAtTime(cf, 0, n * pc.step);
+  // a soft tap when the marker lands on the board at the start of each element
+  for (const seg of tl.pen) { const t = ctx.createBufferSource(); t.buffer = noise; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; const tg = ctx.createGain(); tg.gain.setValueAtTime(0.05, seg.start); tg.gain.exponentialRampToValueAtTime(0.001, seg.start + 0.05); t.connect(lp); lp.connect(tg); tg.connect(dest); t.start(seg.start); t.stop(seg.start + 0.06); }
+  // a quiet air movement while the camera travels to the next scene
   for (const p of tl.pans) {
-    const w = ctx.createBufferSource(); w.buffer = src.buffer; w.loop = true; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.2;
+    const w = ctx.createBufferSource(); w.buffer = noise; w.loop = true; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.8;
     const wg = ctx.createGain(); w.connect(lp); lp.connect(wg); wg.connect(dest);
-    const d = p.end - p.start; lp.frequency.setValueAtTime(300, p.start); lp.frequency.exponentialRampToValueAtTime(2600, p.start + d * 0.5); lp.frequency.exponentialRampToValueAtTime(400, p.end);
-    wg.gain.setValueAtTime(0, p.start); wg.gain.linearRampToValueAtTime(0.11, p.start + d * 0.45); wg.gain.linearRampToValueAtTime(0, p.end); w.start(p.start); w.stop(p.end + 0.05);
+    const d = p.end - p.start; lp.frequency.setValueAtTime(250, p.start); lp.frequency.exponentialRampToValueAtTime(1600, p.start + d * 0.5); lp.frequency.exponentialRampToValueAtTime(300, p.end);
+    wg.gain.setValueAtTime(0, p.start); wg.gain.linearRampToValueAtTime(0.035, p.start + d * 0.45); wg.gain.linearRampToValueAtTime(0, p.end); w.start(p.start); w.stop(p.end + 0.05);
   }
 }
 // a light plucked-string bed (Karplus–Strong) in C major, 96 bpm — pleasant, royalty-free, generated on the spot
@@ -670,19 +715,20 @@ async function mixAudio(compiled) {
 // ------------------------------------------------------------ render: WebCodecs + mp4/webm muxer
 async function snapshot(ctx, W, H, scale) { window.doodle.paint(ctx, scale, COMPILED.hand.hidden ? null : HAND_IMG); }
 async function render(draft) {
-  if (BUSY) return; $('result').innerHTML = ''; $('barFill').style.width = '0%'; playing = false; $('playBtn').textContent = '▶';
-  if (!('VideoEncoder' in window)) return say('jobMsg', '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge حديثًا', true);
-  setBusy(true);
+  await idle(); showResult(false); $('barFill').style.width = '0%'; playing = false; $('playBtn').textContent = '▶';
+  if (!('VideoEncoder' in window)) { say('jobMsg', '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge حديثًا', true); return false; }
+  setBusy(true); let ok = false;
   try {
     const withAudio = !!settings.key && !SCRIPT.mute;
     if (!withAudio) say('jobMsg', 'ℹ️ بلا تعليق صوتي (لا مفتاح Gemini) — الرسم والموسيقى فقط');
-    COMPILED = await compileClient(SCRIPT, { withAudio, onWait: (m) => say('jobMsg', m) });
+    DIRTY = false; COMPILED = await compileClient(SCRIPT, { withAudio, onWait: (m) => say('jobMsg', m) });
     fitPreview(COMPILED.width, COMPILED.height);
     say('jobMsg', '✏️ تجهيز الرسومات…'); await buildStage();
     const fps = draft ? 15 : 30, scale = draft ? 0.5 : 1;
     const W = Math.round(COMPILED.width * scale / 2) * 2, H = Math.round(COMPILED.height * scale / 2) * 2;
     const frames = Math.ceil(COMPILED.duration * fps);
-    let container = 'mp4', vcfg = { codec: 'avc1.640028', width: W, height: H, bitrate: draft ? 2_500_000 : 9_000_000, framerate: fps, avc: { format: 'avc' } };
+    let container = 'mp4', vcfg = { codec: 'avc1.640028', width: W, height: H, bitrate: draft ? 2_500_000 : 9_000_000, framerate: fps, avc: { format: 'avc' }, hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality' };
+    if (!(await VideoEncoder.isConfigSupported(vcfg)).supported) { delete vcfg.hardwareAcceleration; }
     if (!(await VideoEncoder.isConfigSupported(vcfg)).supported) { container = 'webm'; vcfg = { codec: 'vp09.00.10.08', width: W, height: H, bitrate: draft ? 2_500_000 : 9_000_000, framerate: fps }; }
     const wantAudio = (COMPILED.audio.length > 0 || COMPILED.sfx || COMPILED.music !== 'none') && 'AudioEncoder' in window;
     let acfg = null;
@@ -709,14 +755,15 @@ async function render(draft) {
       const frame = new VideoFrame(canvas, { timestamp: Math.round(f * 1e6 / fps), duration: Math.round(1e6 / fps) });
       venc.encode(frame, { keyFrame: f % (fps * 2) === 0 }); frame.close();
       while (venc.encodeQueueSize > 6) await sleep(5);
-      if (f % 5 === 0) { const p = Math.round((f + 1) / frames * 100); $('barFill').style.width = p + '%'; say('jobMsg', `🎬 ${p}% — ${f + 1}/${frames} إطار (${((performance.now() - t0) / 1000).toFixed(0)} ث)`); $('scrub').value = t; $('scrubVal').textContent = t.toFixed(1) + ' ث'; }
+      if (f % 5 === 0) { const p = Math.round((f + 1) / frames * 100); const el = (performance.now() - t0) / 1000; const eta = Math.max(0, el / (f + 1) * (frames - f - 1)); $('barFill').style.width = p + '%'; say('jobMsg', `🎬 تصدير الفيديو ${p}% — باقي حوالي ${Math.ceil(eta)} ث`); $('scrub').value = t; $('scrubVal').textContent = t.toFixed(1) + ' ث'; }
     }
     await venc.flush(); venc.close(); muxer.finalize();
     const blob = new Blob([muxer.target.buffer], { type: container === 'mp4' ? 'video/mp4' : 'video/webm' });
     const url = URL.createObjectURL(blob); const name = (SCRIPT.title || 'doodle') + (draft ? '-preview' : '') + '.' + container;
     $('result').innerHTML = `<video src="${url}" controls autoplay></video><div class="row"><a class="fix" href="${url}" download="${esc(name)}"><button class="primary">⬇ تحميل ${esc(name)} (${(blob.size / 1e6).toFixed(1)} MB)</button></a><span class="muted">${container === 'webm' ? 'متصفحك لا يدعم ترميز H.264 فأُخرج WebM؛ Chrome/Edge على ويندوز/ماك يُخرجان MP4' : (withAudio ? '' : 'بلا تعليق صوتي: لا مفتاح Gemini')}</span></div>`;
-    $('barFill').style.width = '100%'; say('jobMsg', `✅ اكتمل — ${COMPILED.duration.toFixed(1)} ث`);
-  } catch (e) { say('jobMsg', '❌ ' + e.message, true); log(e.stack || e.message); } finally { setBusy(false); }
+    $('barFill').style.width = '100%'; say('jobMsg', `✅ الفيديو جاهز — ${COMPILED.duration.toFixed(0)} ث${draft ? ' (نسخة سريعة)' : ''}`); showResult(true); ok = true;
+  } catch (e) { say('jobMsg', '❌ ' + e.message, true); log(e.stack || e.message); } finally { setBusy(false); if (DIRTY) changed(); }
+  return ok;
 }
 init().catch((e) => { say('aiMsg', '❌ تعذّر تحميل الأداة: ' + e.message, true); });
 </script>
