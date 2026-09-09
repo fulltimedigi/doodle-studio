@@ -33,6 +33,26 @@
   .ad.solid .in::before{content:"";position:absolute;right:-220px;top:-220px;width:640px;height:640px;border-radius:50%;background:var(--a);opacity:.35}
   .ad.solid .in::after{content:"";position:absolute;left:-260px;bottom:-300px;width:760px;height:760px;border-radius:50%;background:#fff;opacity:.06}
   .ad.solid .copy{margin:auto 0;max-width:100%}
+  /* brand template: white canvas, black headline + accent line, soft pill badge, image in the lower half (FullTimeDigi look) */
+  .ad.brand{background:#fff;color:#111}
+  .ad.brand .veil{display:none}
+  .ad.brand .bgimg{top:auto;bottom:0;height:56%;object-fit:cover;-webkit-mask-image:linear-gradient(to top,#000 70%,transparent);mask-image:linear-gradient(to top,#000 70%,transparent)}
+  .ad.brand.s916 .bgimg{height:50%}
+  .ad.brand .in{padding:72px 80px}
+  .ad.brand .top{color:#111;font-size:34px;font-weight:800}
+  .ad.brand .top img{height:74px}
+  .ad.brand .copy{margin-top:48px;align-items:center;text-align:center;max-width:100%}
+  .ad.brand.noimg .copy{margin:auto 0}
+  .ad.brand .badge{align-self:center;background:color-mix(in srgb,var(--a) 14%,#fff);color:var(--p);font-size:34px}
+  .ad.brand h1{color:#111;text-shadow:none;font-size:112px}
+  .ad.brand h1.long{font-size:92px}.ad.brand h1.xlong{font-size:76px}
+  .ad.brand h1 em{font-style:normal;color:var(--a)}
+  .ad.brand .sub{color:#333;font-weight:600;max-width:900px}
+  .ad.brand .cta{align-self:center;background:linear-gradient(135deg,var(--p),var(--a));color:#fff;box-shadow:0 12px 30px rgba(0,0,0,.12)}
+  .ad.brand .contact{color:#555}
+  .ad.brand .foot{position:absolute;bottom:56px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;font-size:28px;color:#555}
+  .ad.brand .foot span{background:color-mix(in srgb,var(--a) 12%,#fff);color:#0f3d2e;padding:10px 26px;border-radius:999px;font-weight:700}
+  .ad.brand.noimg .in::before{content:"";position:absolute;left:-260px;bottom:-320px;width:820px;height:820px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--a) 28%,#fff),transparent 70%)}
   /* page */
   .frames{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
   .frame .tools{display:flex;gap:4px;padding:6px;border-top:1px solid var(--line);flex-wrap:wrap}
@@ -54,10 +74,15 @@
         <label><input type="checkbox" name="size" value="s45" checked>منشور 4:5</label>
         <label><input type="checkbox" name="size" value="s916">ستوري 9:16</label>
       </div>
-      <label class="f">الخلفية</label>
+      <label class="f">الأسلوب</label>
+      <div class="opts">
+        <label><input type="radio" name="look" value="brand" checked>هوية البراند (أبيض + أخضر)</label>
+        <label><input type="radio" name="look" value="photo">صورة كاملة داكنة</label>
+      </div>
+      <label class="f">الصورة</label>
       <div class="opts">
         <label><input type="radio" name="bgmode" value="ai" checked>صورة مولّدة لكل اتجاه (≈ ٠٫٢$)</label>
-        <label><input type="radio" name="bgmode" value="solid">ألوان البراند فقط (مجاني)</label>
+        <label><input type="radio" name="bgmode" value="solid">بلا صورة (مجاني)</label>
       </div>
       <label class="f">أو صورة منتجك</label><input type="file" id="ownImg" accept="image/*" onchange="ownImage(this.files[0])">
       <button class="primary big" id="go" onclick="generate()">✨ اكتب وصمّم الإعلانات</button>
@@ -110,13 +135,25 @@ async function aiImage(i, quiet) {
   if (!needKey('msg2')) return; if (!quiet) say('msg2', `🎨 توليد صورة الاتجاه ${i + 1}…`);
   try {
     const v = DATA.variants[i];
-    const prompt = `Professional advertising photograph / render for a social media ad. ${v.image} Mood: ${v.mood || 'clean'}. Colour harmony with ${B.colors.primary} and ${B.colors.accent}. Leave clean, uncluttered negative space at the ${v.space || 'bottom'} of the frame for text. Absolutely no text, letters, watermarks or logos. High-end commercial quality, sharp focus, vertical composition.`;
+    const prompt = look() === 'brand'
+      ? `Clean product / scene illustration for a social media ad on a PURE WHITE background: ${v.image}. Style: modern, photoreal-but-clean render or 3D-like illustration, soft studio light, subtle shadow, colour harmony with ${B.colors.accent} green accents, subject centred in the lower two thirds, lots of white space at the top. Absolutely no text, letters, watermarks or logos.`
+      : `Professional advertising photograph / render for a social media ad. ${v.image} Mood: ${v.mood || 'clean'}. Colour harmony with ${B.colors.primary} and ${B.colors.accent}. Leave clean, uncluttered negative space at the ${v.space || 'bottom'} of the frame for text. Absolutely no text, letters, watermarks or logos. High-end commercial quality, sharp focus, vertical composition.`;
     IMG[i] = await generateImage(prompt, { ratio: '4:5', onWait: (m) => say('msg2', m) }); if (!quiet) { render(); say('msg2', '✅ تم'); }
   } catch (e) { say('msg2', '❌ ' + e.message, true); }
 }
+const look = () => document.querySelector('input[name=look]:checked')?.value || 'brand';
+document.querySelectorAll('input[name=look]').forEach((x) => x.addEventListener('change', () => DATA && render()));
+// headline: the last 2 words get the accent colour in the brand template (the "punch")
+function punch(h) { const w = String(h || '').split(' '); if (w.length < 3) return esc(h); const k = w.length > 5 ? 2 : 1; return esc(w.slice(0, -k).join(' ')) + ' <em>' + esc(w.slice(-k).join(' ')) + '</em>'; }
 function adHTML(v, i, size) {
   const long = (v.headline || '').length; const cls = long > 34 ? 'xlong' : long > 20 ? 'long' : '';
   const img = IMG[i];
+  if (look() === 'brand') return `<div class="ad ${size} brand ${img ? '' : 'noimg'}" style="--p:${B.colors.primary};--a:${B.colors.accent}">
+    ${img ? `<img class="bgimg" src="${img}">` : ''}
+    <div class="in"><div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div>
+      <div class="copy">${v.badge ? `<span class="badge">${esc(v.badge)}</span>` : ''}<h1 class="${cls}">${punch(v.headline)}</h1><div class="sub">${esc(v.sub || '')}</div><span class="cta">${esc(v.cta || B.cta || 'اطلب الآن')}</span></div>
+      <div class="foot"><span>${esc(B.website || (B.hashtags || '').split(/\s+/)[0] || '')}</span><span>${esc(B.phone || 'اسحب ←')}</span></div>
+    </div></div>`;
   return `<div class="ad ${size} ${img ? 'space-' + (v.space || 'bottom') : 'solid'}" style="--p:${B.colors.primary};--a:${B.colors.accent};--bg:${B.colors.primary}">
     ${img ? `<img class="bgimg" src="${img}"><div class="veil"></div>` : ''}
     <div class="in"><div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div>

@@ -22,15 +22,16 @@
   .pg li::marker{color:var(--a)}
   .pg .chip{display:inline-block;background:var(--a);color:#fff;font-size:26px;font-weight:700;padding:6px 22px;border-radius:999px;margin-bottom:28px;align-self:flex-start}
   /* cover */
-  .pg.cover{background:var(--p);color:#fff}
-  .pg.cover .in{justify-content:flex-end;padding-bottom:180px}
-  .pg.cover .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9}
-  .pg.cover .veil{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.5) 50%,rgba(0,0,0,.05) 100%)}
-  .pg.cover h1{color:#fff;position:relative}
-  .pg.cover .sub{font-size:40px;opacity:.9;position:relative;margin-top:16px}
-  .pg.cover .brand{position:absolute;top:110px;right:110px;display:flex;align-items:center;gap:20px;font-size:34px;font-weight:700}
+  .pg.cover{background:#fff;color:#111}
+  .pg.cover .in{justify-content:flex-start;padding-top:300px;align-items:center;text-align:center}
+  .pg.cover .bg{position:absolute;left:0;right:0;bottom:0;width:100%;height:50%;object-fit:cover;-webkit-mask-image:linear-gradient(to top,#000 70%,transparent);mask-image:linear-gradient(to top,#000 70%,transparent)}
+  .pg.cover .veil{display:none}
+  .pg.cover h1{color:#111;position:relative;text-align:center}
+  .pg.cover h1 em{font-style:normal;color:var(--a)}
+  .pg.cover .sub{font-size:40px;color:#333;font-weight:600;position:relative;margin-top:16px;background:color-mix(in srgb,var(--a) 12%,#fff);padding:12px 40px;border-radius:999px}
+  .pg.cover .brand{position:absolute;top:110px;right:110px;display:flex;align-items:center;gap:20px;font-size:34px;font-weight:700;color:#111}
   .pg.cover .brand img{height:80px}
-  .pg.cover .dec{position:absolute;left:-200px;top:-200px;width:620px;height:620px;border-radius:50%;background:var(--a);opacity:.55}
+  .pg.cover .dec{position:absolute;left:-260px;bottom:-320px;width:820px;height:820px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--a) 26%,#fff),transparent 70%)}
   /* toc */
   .pg .toc{font-size:34px;line-height:2.1}
   .pg .toc span{display:inline-block;width:64px;color:var(--a);font-weight:800}
@@ -87,7 +88,7 @@ async function generate() {
     const sys = (await (await fetch('assets/prompts/magnet.md')).text()) + '\n\n' + brandContext(B);
     DATA = await geminiJSON(sys, `Topic: ${topic}\nType: ${document.querySelector('input[name=kind]:checked').value}\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
     ID = null; COVER = ''; render();
-    if ($('aiCover').checked) { say('msg', '🎨 توليد رسمة الغلاف…'); try { COVER = await generateImage(`Clean editorial illustration for an eBook cover: ${DATA.cover_visual || topic}. Flat modern vector style with soft depth, colour palette built around ${B.colors.primary} and ${B.colors.accent}, darker lower half, no text, no letters, vertical composition.`, { ratio: '3:4', onWait: (m) => say('msg', m) }); render(); } catch (e) { say('msg2', '⚠️ الغلاف بلا رسمة: ' + e.message, true); } }
+    if ($('aiCover').checked) { say('msg', '🎨 توليد رسمة الغلاف…'); try { COVER = await generateImage(`Clean editorial illustration for an eBook cover on a PURE WHITE background: ${DATA.cover_visual || topic}. Modern flat vector style with soft depth, green accents (${B.colors.accent}), subject in the lower two thirds with white space above, no text, no letters, vertical composition.`, { ratio: '3:4', onWait: (m) => say('msg', m) }); render(); } catch (e) { say('msg2', '⚠️ الغلاف بلا رسمة: ' + e.message, true); } }
     say('msg', '✅ جاهز — راجع الصفحات ثم حمّل PDF');
   } catch (e) { say('msg', '❌ ' + e.message, true); }
   $('go').disabled = false;
@@ -95,7 +96,8 @@ async function generate() {
 function pages() {
   const ch = DATA.chapters || []; const P = [];
   const foot = (n) => `<div class="foot"><span>${esc(B.name || '')}</span><span>${n}</span></div>`;
-  P.push(`<div class="pg cover" style="--p:${B.colors.primary};--a:${B.colors.accent}">${COVER ? `<img class="bg" src="${COVER}"><div class="veil"></div>` : '<div class="dec"></div>'}<div class="brand">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div><div class="in"><h1 class="${(DATA.title || '').length > 30 ? 'long' : ''}">${esc(DATA.title)}</h1><div class="sub">${esc(DATA.subtitle || '')}</div></div></div>`);
+  const punch = (h) => { const w = String(h || '').split(' '); if (w.length < 3) return esc(h); const k = w.length > 5 ? 2 : 1; return esc(w.slice(0, -k).join(' ')) + ' <em>' + esc(w.slice(-k).join(' ')) + '</em>'; };
+  P.push(`<div class="pg cover" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="dec"></div>${COVER ? `<img class="bg" src="${COVER}">` : ''}<div class="brand">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div><div class="in"><h1 class="${(DATA.title || '').length > 30 ? 'long' : ''}">${punch(DATA.title)}</h1><div class="sub">${esc(DATA.subtitle || '')}</div></div></div>`);
   P.push(`<div class="pg" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="in"><span class="chip">${esc(DATA.audience || 'لمن هذا الدليل؟')}</span><h2>ماذا ستجد في هذا الدليل</h2><p>${esc(DATA.intro || '')}</p><div class="toc">${ch.map((c, i) => `<div><span>${i + 1}</span>${esc(c.title)}</div>`).join('')}</div></div>${foot(2)}</div>`);
   ch.forEach((c, i) => { P.push(`<div class="pg" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="in"><span class="chip">الفصل ${i + 1}</span><h2>${esc(c.title)}</h2>${(c.paragraphs || []).map((p) => `<p>${esc(p)}</p>`).join('')}${c.bullets?.length ? `<ul>${c.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}</div>${foot(i + 3)}</div>`); });
   const cl = DATA.closing || {};

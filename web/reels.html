@@ -17,6 +17,21 @@
   .beat .s b{display:block;color:var(--ink);font-weight:600}
   @media (max-width:640px){.beat{grid-template-columns:44px 1fr}.beat .s{grid-column:2}}
   .src a{font-size:12px;margin-inline-end:8px}
+  .cover{width:1080px;height:1920px;position:relative;overflow:hidden;background:#fff;color:#111;font-family:"Cairo",sans-serif;direction:rtl}
+  .cover .in{position:absolute;inset:0;padding:120px 90px;display:flex;flex-direction:column}
+  .cover .top{display:flex;align-items:center;gap:16px;font-size:36px;font-weight:800}
+  .cover .top img{height:80px}
+  .cover .mid{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:34px}
+  .cover .tag{background:color-mix(in srgb,var(--a) 14%,#fff);color:var(--p);font-size:38px;font-weight:700;padding:12px 40px;border-radius:999px}
+  .cover h1{font-size:128px;line-height:1.15;margin:0;font-weight:900}
+  .cover h1.long{font-size:100px}.cover h1.xlong{font-size:82px}
+  .cover h1 em{font-style:normal;color:var(--a)}
+  .cover .sub{font-size:46px;color:#333;font-weight:600;max-width:880px}
+  .cover .play{width:180px;height:180px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--a));display:flex;align-items:center;justify-content:center;color:#fff;font-size:80px;box-shadow:0 20px 50px rgba(0,180,120,.25)}
+  .cover .in::before{content:"";position:absolute;left:-260px;bottom:-300px;width:820px;height:820px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--a) 26%,#fff),transparent 70%)}
+  .cover .foot{display:flex;justify-content:space-between;font-size:30px;color:#555}
+  .cover .foot span{background:color-mix(in srgb,var(--a) 12%,#fff);color:#0f3d2e;padding:10px 28px;border-radius:999px;font-weight:700}
+  #exportBox{position:fixed;left:0;top:0;width:1080px;height:1920px;opacity:0;pointer-events:none;z-index:-1;overflow:hidden}
 </style>
 </head>
 <body>
@@ -48,6 +63,7 @@
       <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: مثلًا «خلّي الخطّاف أقوى» أو «قصّر الجمل»"><button class="fix" onclick="chat()">تعديل</button></div>
       <div class="row" style="margin-top:12px">
         <button class="soft fix" onclick="copyAll()">📋 نسخ السيناريو كاملًا</button>
+        <button class="soft fix" onclick="coverPng()">🖼️ غلاف الريل (PNG)</button>
         <button class="soft fix" onclick="toDoodle()">✍️ حوّله لفيديو Doodle</button>
         <button class="soft fix" onclick="toMotion()">💬 حوّله لموشن نصي</button>
         <span class="grow"></span>
@@ -57,6 +73,8 @@
     </section>
   </div>
 </main>
+<div id="exportBox"></div>
+<script src="js/html-to-image.js"></script>
 <script src="js/core.js"></script>
 <script>
 const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, chatEdit, q } = Suite;
@@ -97,6 +115,10 @@ async function chat() {
   try { const one = { ...DATA, ideas: [DATA.ideas[CUR]] }; const out = await chatEdit(one, ins, 'reel script', (m) => say('msg2', m)); if (out.ideas?.[0]) DATA.ideas[CUR] = out.ideas[0]; render(); $('chatIn').value = ''; say('msg2', '✅ تم التعديل'); }
   catch (e) { say('msg2', '❌ ' + e.message, true); }
 }
+function punch(h) { const w = String(h || '').split(' '); if (w.length < 3) return esc(h); const k = w.length > 5 ? 2 : 1; return esc(w.slice(0, -k).join(' ')) + ' <em>' + esc(w.slice(-k).join(' ')) + '</em>'; }
+function coverHTML(it) { const B = loadBrand(); const h = (it.beats?.[0]?.screen && it.beats[0].screen.length > 8 ? it.beats[0].screen : it.hook) || ''; const cls = h.length > 40 ? 'xlong' : h.length > 24 ? 'long' : '';
+  return `<div class="cover" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="in"><div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div><div class="mid"><span class="tag">${esc(DATA.topic || 'ريلز')}</span><h1 class="${cls}">${punch(h)}</h1><div class="sub">${esc(it.why || it.cta || '')}</div><div class="play">▶</div></div><div class="foot"><span>${esc((B.hashtags || '').split(/\s+/)[0] || '')}</span><span>شاهد الريل</span></div></div></div>`; }
+async function coverPng() { const it = DATA.ideas[CUR]; const box = $('exportBox'); box.innerHTML = coverHTML(it); await document.fonts.ready; await Suite.sleep(30); const blob = await Suite.nodeToPng(box.firstElementChild, 1); box.innerHTML = ''; Suite.download(blob, `reel-cover-${CUR + 1}.png`); toast('⬇ نُزّل غلاف الريل'); }
 function scriptText(it) { return [`🪝 ${it.hook}`, ...(it.beats || []).map((b) => `[${b.t}] ${b.say}${b.screen ? `  (على الشاشة: ${b.screen})` : ''}${b.show ? `  (الصورة: ${b.show})` : ''}`), `ختام: ${it.cta || ''}`, '', it.caption || '', (it.hashtags || []).join(' ')].join('\n'); }
 function copyAll() { copyText(scriptText(DATA.ideas[CUR])); }
 async function save() { const it = DATA.ideas[CUR]; const item = await lib.save({ id: ID || undefined, type: 'reel', title: it.title || DATA.topic, data: DATA, cur: CUR }); ID = item.id; toast('💾 حُفظ في المكتبة'); }

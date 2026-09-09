@@ -154,7 +154,7 @@
     fonts();
     const b = loadBrand();
     const h = document.createElement('header'); h.className = 'top';
-    h.innerHTML = `<a class="logo" href="index.html">🎨 <span>Doodle Studio</span></a>${crumb ? `<span class="crumb">/ ${esc(crumb)}</span>` : ''}<span class="grow"></span>
+    h.innerHTML = `<a class="logo" href="index.html"><img src="assets/brand/fd-logo.png" alt=""><span>FullTime<em>Digi</em> Studio</span></a>${crumb ? `<span class="crumb">/ ${esc(crumb)}</span>` : ''}<span class="grow"></span>
       <a class="brandChip" href="index.html#brand" title="هوية البراند"><span class="dot">${b.logo ? `<img src="${b.logo}" alt="">` : esc((b.name || '؟').slice(0, 1))}</span><span class="n">${esc(b.name || 'أنشئ هوية البراند')}</span></a>
       <button class="soft small" onclick="Suite.openSettings()" title="الإعدادات">⚙️</button>`;
     document.body.prepend(h);

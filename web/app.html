@@ -6,7 +6,7 @@
 <title>Doodle Studio</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
 <style>
-  :root{--bg:#f4f2ec;--card:#fff;--ink:#1d1d1d;--muted:#727272;--accent:#e63946;--accent2:#2a9d8f;--line:#e5e0d6;--soft:#f3f0ea;--radius:14px}
+  :root{--bg:#f5f7f6;--card:#fff;--ink:#111;--muted:#6b7370;--accent:#00b478;--accent2:#0b3b33;--line:#e3e8e5;--soft:#f0f4f2;--radius:16px}
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahoma,"Noto Sans Arabic",system-ui,sans-serif;font-size:15px;line-height:1.5}
@@ -22,7 +22,7 @@
   .steps span{flex:1;text-align:center;padding:6px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:13px;white-space:nowrap}
   .steps span.active{background:#fff3cd;color:#7a5a00}
   .steps span.done{background:#e6f5f1;color:var(--accent2)}
-  .steps span.error{background:#fde8ea;color:var(--accent)}
+  .steps span.error{background:#fde8ea;color:#d23b3b}
   #studioCard{position:relative}
   body{overflow-x:hidden}
   #previewWrap.offscreen{position:absolute;left:0;top:0;width:640px;height:0!important;min-height:0;overflow:hidden;opacity:0;pointer-events:none;z-index:-1;margin:0;border:0}
@@ -39,14 +39,14 @@
   .row>.fix{flex:0 0 auto}
   .grow{flex:1}
   button{padding:9px 14px;border:0;border-radius:10px;background:var(--ink);color:#fff;font:inherit;cursor:pointer;white-space:nowrap}
-  button.primary{background:var(--accent)}
+  button.primary{background:linear-gradient(135deg,var(--accent2),var(--accent))}
   button.soft{background:var(--soft);color:var(--ink)}
   button.ghost{background:transparent;color:var(--muted);padding:6px 8px}
   button.small{padding:5px 9px;font-size:13px}
   button:disabled{opacity:.45;cursor:default}
   .muted{color:var(--muted);font-size:13px}
   .msg{min-height:20px;font-size:13px;color:var(--muted);margin-top:6px}
-  .msg.err{color:var(--accent)}
+  .msg.err{color:#d23b3b}
   .note{background:#fff8e6;border:1px solid #ffe3a6;border-radius:10px;padding:8px 10px;font-size:13px;margin:8px 0}
   /* scenes */
   .scene{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;background:#fcfbf8}
@@ -121,7 +121,7 @@
 </head>
 <body>
 <header>
-  <div class="logo">🎨</div>
+  <a href="index.html" class="logo" style="text-decoration:none"><img src="assets/brand/fd-logo.png" alt="" style="height:34px;vertical-align:middle"></a>
   <a href="index.html" style="text-decoration:none;color:inherit" title="الاستوديو الرئيسي"><h1 id="appTitle">Doodle Studio</h1></a>
   <input id="title" placeholder="اسم الفيديو" oninput="SCRIPT.title=this.value;autosave()">
   <button class="soft small" onclick="openSettings()" title="الإعدادات">⚙️</button>

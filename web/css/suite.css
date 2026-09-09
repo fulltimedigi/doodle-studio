@@ -1,11 +1,13 @@
 /* Doodle Studio suite — shared design system (RTL first) */
-:root{--bg:#f4f2ec;--card:#fff;--ink:#1d1d1d;--muted:#727272;--accent:#e63946;--accent2:#2a9d8f;--line:#e5e0d6;--soft:#f3f0ea;--radius:14px;--shadow:0 1px 2px rgba(0,0,0,.03)}
+:root{--bg:#f5f7f6;--card:#fff;--ink:#111;--muted:#6b7370;--accent:#00b478;--accent2:#0b3b33;--line:#e3e8e5;--soft:#f0f4f2;--radius:16px;--shadow:0 1px 2px rgba(0,0,0,.03)}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"Cairo","Segoe UI",Tahoma,"Noto Sans Arabic",system-ui,sans-serif;font-size:15px;line-height:1.55;overflow-x:hidden}
 a{color:var(--accent2)}
 header.top{display:flex;align-items:center;gap:12px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
-header.top .logo{font-size:22px;text-decoration:none;color:var(--ink);font-weight:800;display:flex;align-items:center;gap:8px;white-space:nowrap}
+header.top .logo{font-size:20px;text-decoration:none;color:var(--ink);font-weight:800;display:flex;align-items:center;gap:8px;white-space:nowrap}
+  header.top .logo img{height:34px;width:auto}
+  header.top .logo em{font-style:normal;color:var(--accent);font-weight:800}
 header.top .crumb{color:var(--muted);font-size:14px;white-space:nowrap}
 header.top .grow{flex:1}
 header.top .brandChip{display:inline-flex;align-items:center;gap:8px;background:var(--soft);border-radius:999px;padding:4px 12px 4px 4px;font-size:13px;cursor:pointer;border:1px solid transparent;max-width:240px;text-decoration:none;color:var(--ink)}
@@ -33,7 +35,7 @@ label.f{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 @media (max-width:640px){.grid2,.grid3{grid-template-columns:1fr}}
 button{padding:9px 14px;border:0;border-radius:10px;background:var(--ink);color:#fff;font:inherit;cursor:pointer;white-space:nowrap}
-button.primary{background:var(--accent)}
+button.primary{background:linear-gradient(135deg,var(--accent2),var(--accent));box-shadow:0 6px 18px rgba(0,180,120,.18)}
 button.soft{background:var(--soft);color:var(--ink)}
 button.ghost{background:transparent;color:var(--muted);padding:6px 8px}
 button.small{padding:5px 9px;font-size:13px}
@@ -41,15 +43,15 @@ button.big{width:100%;padding:14px;font-size:17px;margin-top:6px;border-radius:1
 button:disabled{opacity:.45;cursor:default}
 .muted{color:var(--muted);font-size:13px}
 .msg{min-height:20px;font-size:13px;color:var(--muted);margin-top:6px}
-.msg.err{color:var(--accent)}
-.note{background:#fff8e6;border:1px solid #ffe3a6;border-radius:10px;padding:8px 10px;font-size:13px;margin:8px 0}
+.msg.err{color:#d23b3b}
+.note{background:#eefaf4;border:1px solid #bfeedb;border-radius:10px;padding:8px 10px;font-size:13px;margin:8px 0}
 .center{text-align:center}
 .pill{display:inline-block;padding:2px 10px;border-radius:999px;background:var(--soft);font-size:12px;color:var(--muted)}
-.pill.on{background:#e6f5f1;color:var(--accent2)}
+.pill.on{background:#e3f6ee;color:#0b3b33}
 /* hub tiles */
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
 .tile{display:block;text-decoration:none;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);transition:transform .12s,border-color .12s}
-.tile:hover{transform:translateY(-2px);border-color:#cfc8ba}
+.tile:hover{transform:translateY(-2px);border-color:var(--accent)}
 .tile .ic{font-size:30px;margin-bottom:6px}
 .tile b{display:block;font-size:16px;margin-bottom:2px}
 .tile span{color:var(--muted);font-size:13px}
@@ -76,7 +78,7 @@ button:disabled{opacity:.45;cursor:default}
 .steps span{flex:1;text-align:center;padding:6px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:13px;white-space:nowrap}
 .steps span.active{background:#fff3cd;color:#7a5a00}
 .steps span.done{background:#e6f5f1;color:var(--accent2)}
-.steps span.error{background:#fde8ea;color:var(--accent)}
+.steps span.error{background:#fde8ea;color:#d23b3b}
 .bar{height:8px;background:#eee;border-radius:6px;overflow:hidden;margin-top:10px}
 .bar i{display:block;height:100%;background:var(--accent2);width:0;transition:width .3s}
 /* swatches */
