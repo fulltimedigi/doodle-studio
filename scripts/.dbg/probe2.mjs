@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH });
+const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+page.on('pageerror', (e) => console.log('pageerror', e.message));
+await page.goto('http://localhost:8090/index.html');
+await page.waitForFunction(() => COMPILED && !BUSY, null, { timeout: 90000 });
+await page.evaluate(() => { SCRIPT.board = 'chalk'; changed(); });
+await page.waitForFunction(() => COMPILED && !BUSY, null, { timeout: 90000 });
+console.log(await page.evaluate(() => { const b = document.querySelector('#stage .board'); const cs = getComputedStyle(b); return { inline: b.style.background.slice(0, 120) + '…' + b.style.background.slice(-40), bgColor: cs.backgroundColor, img: cs.backgroundImage.slice(0, 80), stageBg: getComputedStyle(document.getElementById('stage')).backgroundColor, board: COMPILED.board, w: b.style.width, left: b.style.left }; }));
+await browser.close();

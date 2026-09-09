@@ -6,54 +6,95 @@
 <title>Doodle Studio</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
 <style>
-  :root{--bg:#f6f4ef;--card:#fff;--ink:#1d1d1d;--muted:#6b6b6b;--accent:#e63946;--accent2:#2a9d8f;--line:#e6e1d8}
+  :root{--bg:#f4f2ec;--card:#fff;--ink:#1d1d1d;--muted:#727272;--accent:#e63946;--accent2:#2a9d8f;--line:#e5e0d6;--soft:#f3f0ea;--radius:14px}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahoma,"Noto Sans Arabic",system-ui,sans-serif;font-size:15px}
-  header{display:flex;align-items:center;gap:14px;padding:12px 22px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-  header h1{font-size:20px;margin:0}
-  header .sub{color:var(--muted);font-size:13px}
-  main{max-width:1240px;margin:0 auto;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media (max-width:980px){main{grid-template-columns:1fr;padding:10px;gap:12px}.el input,.el select{min-width:80px}.el input[style]{max-width:52px!important}}
-  #previewWrap{min-height:120px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
-  .card h2{margin:0 0 10px;font-size:17px;display:flex;align-items:center;gap:8px}
-  .step{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;align-items:center;justify-content:center;font-size:13px}
-  textarea,input,select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff}
-  textarea{min-height:110px;resize:vertical}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahoma,"Noto Sans Arabic",system-ui,sans-serif;font-size:15px;line-height:1.5}
+  header{display:flex;align-items:center;gap:12px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  header .logo{font-size:24px}
+  header h1{font-size:18px;margin:0;white-space:nowrap}
+  header #title{flex:1;max-width:520px;background:var(--soft);border-color:transparent}
+  main{max-width:1280px;margin:0 auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;grid-template-areas:"idea studio" "scenes studio";align-items:start}
+  #ideaCard{grid-area:idea}#scenesCard{grid-area:scenes}#studioCard{grid-area:studio;position:sticky;top:66px}
+  @media (max-width:980px){main{grid-template-columns:1fr;grid-template-areas:"idea" "studio" "scenes";padding:10px;gap:12px}#studioCard{position:static}header h1{display:none}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .card h2{margin:0 0 10px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card h2 .grow{flex:1}
+  .step{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;align-items:center;justify-content:center;font-size:12px;flex:none}
+  textarea,input,select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:var(--ink)}
+  textarea{min-height:100px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:2px solid #cfe7e3;border-color:var(--accent2)}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
-  .row > *{flex:1}
-  .row > .fix{flex:0 0 auto}
-  button{padding:9px 14px;border:0;border-radius:9px;background:var(--ink);color:#fff;font:inherit;cursor:pointer}
+  .row>*{flex:1;min-width:0}
+  .row>.fix{flex:0 0 auto}
+  .grow{flex:1}
+  button{padding:9px 14px;border:0;border-radius:10px;background:var(--ink);color:#fff;font:inherit;cursor:pointer;white-space:nowrap}
   button.primary{background:var(--accent)}
-  button.soft{background:#eee;color:var(--ink)}
+  button.soft{background:var(--soft);color:var(--ink)}
+  button.ghost{background:transparent;color:var(--muted);padding:6px 8px}
   button.small{padding:5px 9px;font-size:13px}
-  button:disabled{opacity:.5;cursor:default}
+  button:disabled{opacity:.45;cursor:default}
   .muted{color:var(--muted);font-size:13px}
-  .scene{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:#fcfbf8}
-  .scene .head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
-  .scene textarea{min-height:60px}
-  .el{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:13px;flex-wrap:wrap}
-  .el .tag{background:#eee;border-radius:6px;padding:2px 7px}
-  .el input,.el select{flex:1;min-width:110px;padding:5px 8px;font-size:13px}
-  .bar{height:10px;background:#eee;border-radius:6px;overflow:hidden}
-  .bar i{display:block;height:100%;background:var(--accent2);width:0;transition:width .3s}
-  .gallery{display:flex;gap:8px;flex-wrap:wrap}
-  .gallery img{width:70px;height:70px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px;cursor:pointer}
-  details summary{cursor:pointer;color:var(--muted)}
-  .wide{grid-column:1 / -1}
-  .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7f5;color:var(--accent2);font-size:12px}
-  .warn{background:#fff6e5;border:1px solid #ffe0a8;border-radius:9px;padding:8px 10px;font-size:13px}
-  .ok{background:#eef7f5;border:1px solid #bfe3db;border-radius:9px;padding:8px 10px;font-size:13px}
-  #previewWrap{position:relative;width:100%;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .msg{min-height:20px;font-size:13px;color:var(--muted);margin-top:6px}
+  .msg.err{color:var(--accent)}
+  .note{background:#fff8e6;border:1px solid #ffe3a6;border-radius:10px;padding:8px 10px;font-size:13px;margin:8px 0}
+  /* scenes */
+  .scene{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;background:#fcfbf8}
+  .scene .head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .scene .head b{font-size:14px}
+  .scene textarea{min-height:56px;font-size:14px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 6px;font-size:13px;cursor:pointer;max-width:100%}
+  .chip:hover{border-color:#bbb}
+  .chip.open{border-color:var(--accent2);background:#eef7f5}
+  .chip .ico{font-size:14px}
+  .chip .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+  select.add{width:auto;border-style:dashed;color:var(--muted);border-radius:999px;padding:4px 10px;font-size:13px;background:#fff}
+  .editor{background:#fff;border:1px solid #cfe7e3;border-radius:12px;padding:10px;margin:6px 0 8px;font-size:13px}
+  .editor .row{margin:6px 0}
+  .editor .row>input,.editor .row>select{flex:1 1 90px}
+  .editor .row>button{flex:0 0 auto}
+  .editor label{color:var(--muted);font-size:12px;white-space:nowrap}
+  .editor .pos{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0}
+  .editor .pos label{display:flex;flex-direction:column;gap:2px}
+  .editor input,.editor select,.editor textarea{padding:6px 8px;font-size:13px}
+  .editor input[type=color]{padding:2px;height:34px;width:46px;flex:0 0 auto}
+  details.menu{position:relative}
+  details.menu summary{list-style:none;cursor:pointer;padding:5px 10px;border-radius:10px;background:var(--soft);font-size:14px}
+  details.menu summary::-webkit-details-marker{display:none}
+  details.menu .pop{position:absolute;left:0;top:100%;z-index:10;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08);padding:6px;min-width:230px;display:flex;flex-direction:column;gap:2px;font-weight:normal;font-size:14px}
+  details.menu .pop button,details.menu .pop label{background:transparent;color:var(--ink);text-align:right;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+  details.menu .pop button:hover,details.menu .pop label:hover{background:var(--soft)}
+  .gallery{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .gallery img{width:64px;height:64px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px}
+  /* studio */
+  #previewWrap{position:relative;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:120px}
   #stageHolder{position:absolute;left:0;top:0;transform-origin:0 0;direction:ltr}
   #stage{position:relative;overflow:hidden;background:#fff}
   #hand{position:absolute;left:0;top:0;z-index:1000;pointer-events:none;transform-origin:0 0;will-change:transform;opacity:0}
+  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.7);font-size:14px;color:var(--muted);pointer-events:none;text-align:center;padding:12px}
+  .transport{display:flex;gap:8px;align-items:center;margin:10px 0 4px}
+  .transport input[type=range]{flex:1;padding:0}
+  .transport #scrubVal{min-width:48px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
+  .look{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+  .look label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+  .look select{padding:7px 9px;font-size:13px}
+  .look .toggle{flex-direction:row;align-items:center;gap:8px;font-size:13px;color:var(--ink);padding-top:16px}
+  .look .toggle input{width:auto}
+  .bar{height:8px;background:#eee;border-radius:6px;overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;background:var(--accent2);width:0;transition:width .3s}
   #outCanvas{display:none}
-  #result video{width:100%;border-radius:10px;margin-top:10px}
-  .log{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:90px;overflow:auto;direction:ltr;text-align:left}
+  #result video{width:100%;border-radius:10px;margin-top:10px;background:#000}
+  .log{font-family:ui-monospace,monospace;font-size:11px;color:#999;white-space:pre-wrap;max-height:60px;overflow:auto;direction:ltr;text-align:left;margin-top:6px}
+  dialog{border:0;border-radius:16px;padding:0;max-width:560px;width:calc(100% - 24px);box-shadow:0 20px 60px rgba(0,0,0,.2)}
+  dialog::backdrop{background:rgba(0,0,0,.35)}
+  dialog .body{padding:18px}
+  dialog h2{margin:0 0 10px;font-size:17px}
+  dialog label.f{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
 </style>
 <style id="engineCss">
-  #stage .scene{position:absolute;inset:0;overflow:hidden;background-size:cover;background-position:center;border:0;border-radius:0;padding:0;margin:0}
+  #stage .board{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+  #stage .scene{position:absolute;overflow:hidden;background-size:cover;background-position:center;border:0;border-radius:0;padding:0;margin:0}
   #stage .cam{position:absolute;inset:0;transform-origin:50% 50%}
   #stage .el{position:absolute;display:block;margin:0;font-size:inherit}
   #stage .el svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
@@ -61,89 +102,91 @@
   #stage .el .strokes path{fill:none;stroke-linecap:round;stroke-linejoin:round}
   #stage .el .text{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;white-space:pre;line-height:1.35}
   #stage .el .text .line{display:inline-block;max-width:100%}
+  #stage .el .text .w{display:inline-block;transform-origin:50% 60%}
   #stage .el img.photo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 </style>
 </head>
 <body>
 <header>
-  <div style="font-size:26px">🎨</div>
-  <div><h1>Doodle Studio</h1><div class="sub">فيديوهات Doodle بيد حقيقية — كل شيء يعمل داخل متصفحك، بلا تثبيت</div></div>
-  <div style="flex:1"></div>
-  <button class="soft small" onclick="openSettings()">⚙️ الإعدادات</button>
+  <div class="logo">🎨</div>
+  <h1>Doodle Studio</h1>
+  <input id="title" placeholder="اسم الفيديو" oninput="SCRIPT.title=this.value;autosave()">
+  <button class="soft small" onclick="openSettings()" title="الإعدادات">⚙️</button>
 </header>
 <main>
-  <section class="card">
-    <h2><span class="step">1</span> الفكرة</h2>
-    <textarea id="brief" placeholder="اكتب فكرة الفيديو: المنتج، الجمهور، المشكلة، الفائدة، الدعوة للفعل، والمدة المطلوبة…"></textarea>
+  <section class="card" id="ideaCard">
+    <h2><span class="step">1</span> الفكرة <span class="grow"></span><button class="ghost small" onclick="loadExample()">مثال جاهز</button><button class="ghost small" onclick="newScript()">جديد</button></h2>
+    <textarea id="brief" placeholder="اكتب فكرة الفيديو: المنتج، الجمهور، المشكلة، الفائدة، الدعوة للفعل…"></textarea>
     <div class="row">
-      <select id="format"><option value="16:9">يوتيوب 16:9</option><option value="9:16">ريلز / تيك توك 9:16</option><option value="1:1">مربع 1:1</option></select>
+      <select id="format" onchange="SCRIPT.format=this.value;changed()"><option value="16:9">يوتيوب 16:9</option><option value="9:16">ريلز / تيك توك 9:16</option><option value="1:1">مربع 1:1</option></select>
       <select id="lang"><option value="ar">عربي</option><option value="en">English</option></select>
       <button class="primary fix" id="aiBtn" onclick="runAI()">🤖 اكتب لي السيناريو</button>
-      <button class="soft fix" onclick="loadExample()">مثال جاهز</button>
     </div>
-    <div id="aiMsg" class="muted">يحتاج مفتاح Gemini المجاني (الإعدادات). أو الصق سيناريو JSON في الخطوة 2.</div>
+    <div id="aiMsg" class="msg"></div>
   </section>
 
-  <section class="card">
-    <h2><span class="step">3</span> الصوت (Gemini)</h2>
-    <div class="row">
-      <select id="voice"></select>
-      <select id="ttsModel"><option value="gemini-2.5-flash-preview-tts">Flash TTS (أسرع)</option><option value="gemini-2.5-pro-preview-tts">Pro TTS (أدق)</option></select>
+  <section class="card" id="studioCard">
+    <h2><span class="step">3</span> المعاينة والفيديو <span class="grow"></span><span class="muted" id="durMsg"></span></h2>
+    <div id="previewWrap"><div id="stageHolder"><div id="stage"></div><img id="hand" alt=""></div><div id="overlay">اكتب الفكرة أو حمّل المثال لتظهر المعاينة</div></div>
+    <div class="transport">
+      <button class="soft small fix" id="playBtn" onclick="playPreview()">▶</button>
+      <input type="range" id="scrub" min="0" max="60" step="0.1" value="3" oninput="scrubTo(+this.value)">
+      <span id="scrubVal">3.0 ث</span>
     </div>
-    <div class="row"><input id="voiceStyle" value="اقرأ بلهجة مصرية دافئة وواثقة كمعلّق إعلانات، بإيقاع طبيعي"></div>
-    <div class="row">
-      <input id="ttsText" value="بتصرف على الإعلانات، والعميل بيدخل متجرك ويطلع من غير ما يشتري؟ هنا بييجي دور مساعد التسوّق الذكي.">
-      <button class="fix" onclick="previewVoice()">▶ جرّب الصوت</button>
+    <div class="look">
+      <label>السبورة<select id="board" onchange="SCRIPT.board=this.value;changed()"><option value="white">بيضاء</option><option value="paper">ورق كريمي</option><option value="chalk">سبورة طباشير</option><option value="glass">زجاج داكن</option></select></label>
+      <label>اليد<select id="handSel" onchange="SCRIPT.hand=this.value;changed()"></select></label>
+      <label>الانتقال بين المشاهد<select id="layout" onchange="SCRIPT.layout=this.value;changed()"><option value="pan">سبورة واحدة والكاميرا تتحرك</option><option value="fade">تلاشٍ</option><option value="slide">انزلاق</option></select></label>
+      <label>الموسيقى<select id="music" onchange="setMusic(this.value)"><option value="auto">خلفية هادئة (تلقائي)</option><option value="none">بدون</option><option value="file">ملف من جهازي…</option></select></label>
+      <label>صوت المعلّق<select id="voice" onchange="SCRIPT.voice=this.value;autosave()"></select></label>
+      <label class="toggle"><input type="checkbox" id="sfx" checked onchange="SCRIPT.sfx=this.checked;autosave()"> صوت القلم أثناء الرسم</label>
     </div>
-    <audio id="voiceAudio" controls style="width:100%;display:none"></audio>
-    <div id="voiceMsg" class="muted"></div>
-  </section>
-
-  <section class="card wide">
-    <h2><span class="step">2</span> المشاهد <span class="pill" id="sceneCount"></span></h2>
+    <input type="file" id="musicFile" accept="audio/*" style="display:none" onchange="musicFromFile(this.files[0])">
     <div class="row">
-      <select id="hand"></select>
-      <input id="title" placeholder="اسم الفيديو">
-      <button class="soft fix" onclick="addScene()">＋ مشهد</button>
-      <button class="soft fix" onclick="toggleJson()">{ } تحرير JSON</button>
-      <button class="soft fix" onclick="downloadScript()">⬇ حفظ السيناريو</button>
-      <label class="soft fix" style="padding:9px 14px;border-radius:9px;background:#eee;cursor:pointer">📂 فتح<input type="file" accept=".json" style="display:none" onchange="openScript(this.files[0])"></label>
-    </div>
-    <div id="scenes"></div>
-    <textarea id="jsonBox" style="display:none;min-height:260px;direction:ltr;font-family:ui-monospace,monospace;font-size:12px"></textarea>
-    <details open><summary>🖼️ الرسومات الخاصة (art/) — ارفع PNG/JPG/SVG من جهازك ثم استخدمها كعنصر «رسمة»</summary>
-      <div class="row"><input type="file" id="artFile" accept="image/*" multiple onchange="uploadArt(this.files)"></div>
-      <div class="muted">لتوليد رسمة جديدة مجانًا استخدم Microsoft Designer أو Gemini بهذا البرومبت: <i>Whiteboard explainer illustration, hand-drawn doodle style like Doodly: [صف المشهد]. Thick uniform black marker outlines, pure white background, no shading, no text, centered, isolated.</i></div>
-      <div class="gallery" id="artGallery"></div>
-    </details>
-  </section>
-
-  <section class="card wide">
-    <h2><span class="step">4</span> المعاينة والتصيير</h2>
-    <div class="row">
-      <input type="range" id="scrub" min="0" max="60" step="0.25" value="3" oninput="scrubTo(+this.value)">
-      <span class="fix" id="scrubVal">3 ث</span>
-      <button class="fix" onclick="prepare(true)">📷 معاينة</button>
-      <button class="fix" onclick="playPreview()">▶ تشغيل</button>
-      <button class="fix" onclick="render(true)">⚡ فيديو سريع 540p</button>
+      <button class="soft fix" onclick="previewVoice()">🔊 جرّب الصوت</button>
+      <span class="grow"></span>
+      <button class="fix" onclick="render(true)">⚡ فيديو سريع</button>
       <button class="primary fix" onclick="render(false)">🎬 فيديو نهائي 1080p</button>
     </div>
     <div class="bar"><i id="barFill"></i></div>
-    <div id="jobMsg" class="muted"></div>
-    <div id="previewWrap"><div id="stageHolder"><div id="stage"></div><img id="hand" alt=""></div></div>
+    <div id="jobMsg" class="msg"></div>
     <canvas id="outCanvas"></canvas>
     <div id="result"></div>
     <div class="log" id="log"></div>
   </section>
 
-  <section class="card wide" id="settings" style="display:none">
-    <h2>⚙️ الإعدادات</h2>
-    <div class="warn">مفتاح Gemini المجاني يشغّل كتابة السيناريو والصوت الطبيعي. أنشئه من <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> ثم الصقه هنا. يُحفظ في متصفحك فقط ولا يُرسل لأي مكان غير Google.</div>
-    <div class="row"><label class="fix">GEMINI_API_KEY</label><input id="s_key" placeholder="AIza…"></div>
-    <div class="row"><label class="fix">نموذج السيناريو</label><input id="s_model" value="gemini-3.6-flash" placeholder="gemini-3.6-flash"></div>
-    <div class="row"><button class="fix" onclick="saveSettings()">حفظ</button><button class="soft fix" onclick="document.getElementById('settings').style.display='none'">إغلاق</button><span id="setMsg" class="muted"></span></div>
+  <section class="card" id="scenesCard">
+    <h2><span class="step">2</span> المشاهد <span class="muted" id="sceneCount"></span><span class="grow"></span>
+      <button class="soft small" onclick="addScene()">＋ مشهد</button>
+      <details class="menu"><summary>⋯</summary>
+        <div class="pop">
+          <label>🖼️ رفع رسومات (PNG/JPG/SVG)<input type="file" id="artFile" accept="image/*" multiple style="display:none" onchange="uploadArt(this.files)"></label>
+          <button onclick="toggleJson()">{ } تحرير JSON</button>
+          <button onclick="downloadScript()">⬇ حفظ السيناريو</button>
+          <label>📂 فتح سيناريو<input type="file" accept=".json" style="display:none" onchange="openScript(this.files[0])"></label>
+        </div>
+      </details>
+    </h2>
+    <div class="muted" style="margin-bottom:6px">اضغط على أي عنصر لتعديله — المعاينة تتحدّث تلقائيًا.</div>
+    <textarea id="jsonBox" style="display:none;min-height:260px;direction:ltr;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+    <div id="scenes"></div>
+    <div id="artWrap" style="display:none"><div class="muted">رسوماتك (استخدمها من عنصر «رسمة»):</div><div class="gallery" id="artGallery"></div></div>
   </section>
 </main>
+
+<dialog id="settings">
+  <div class="body">
+    <h2>⚙️ الإعدادات</h2>
+    <div class="note">مفتاح Gemini يشغّل كتابة السيناريو والصوت الطبيعي. أنشئه من <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> ثم الصقه هنا. يُحفظ في متصفحك فقط.</div>
+    <label class="f">GEMINI_API_KEY</label><input id="s_key" placeholder="AIza…">
+    <label class="f">نموذج السيناريو</label><input id="s_model" placeholder="gemini-3.6-flash">
+    <label class="f">نموذج الصوت</label><select id="ttsModel"><option value="gemini-2.5-flash-preview-tts">Flash TTS (أرخص وأسرع)</option><option value="gemini-2.5-pro-preview-tts">Pro TTS (أدق)</option></select>
+    <label class="f">أسلوب الأداء الصوتي</label><input id="voiceStyle" value="اقرأ بلهجة مصرية دافئة وواثقة كمعلّق إعلانات، بإيقاع طبيعي">
+    <label class="f">جملة تجربة الصوت (عندما لا يوجد مشهد)</label><input id="ttsText" value="بتصرف على الإعلانات، والعميل بيدخل متجرك ويطلع من غير ما يشتري؟ هنا بييجي دور مساعد التسوّق الذكي.">
+    <div class="row" style="margin-top:14px"><button class="fix" onclick="saveSettings()">حفظ</button><button class="soft fix" onclick="clearAudioCache()">🧹 مسح ذاكرة الصوت</button><span class="grow"></span><button class="ghost fix" onclick="$('settings').close()">إغلاق</button></div>
+    <div id="setMsg" class="msg"></div>
+  </div>
+</dialog>
 
 <script src="js/trace_skeleton.js"></script>
 <script src="js/strokes-core.js"></script>
@@ -157,86 +200,117 @@
 const $ = (id) => document.getElementById(id);
 const FORMATS = { '16:9': [1920, 1080], '9:16': [1080, 1920], '1:1': [1080, 1080], '4:5': [1080, 1350] };
 const GEMINI_VOICES = ['Charon', 'Kore', 'Puck', 'Zephyr', 'Fenrir', 'Leda', 'Orus', 'Aoede', 'Enceladus', 'Iapetus', 'Algieba', 'Despina', 'Sadaltager', 'Sulafat', 'Achird', 'Schedar'];
-let CAT = null, SCRIPT = { title: '', format: '16:9', hand: 'marker-a', scenes: [] };
-let COMPILED = null, HAND_IMG = null, FONT_CSS = '';
-const ART = new Map();           // name -> dataURL (uploaded by the user)
-const TTS_CACHE = new Map();     // key -> AudioBuffer
+const BOARDS = { white: { ink: '#1d1d1d', text: '#1d1d1d', dark: false }, paper: { ink: '#23201b', text: '#23201b', dark: false }, chalk: { ink: '#f3f1e8', text: '#f7f5ee', dark: true }, glass: { ink: '#ffffff', text: '#ffffff', dark: true } };
+const HAND_NAMES = { 'marker-a': 'يد حقيقية A', 'marker-b': 'يد حقيقية B', cartoon: 'يد كرتونية', none: 'بدون يد' };
+const TYPE_META = { text: ['✍️', 'نص'], image: ['🖼️', 'رسمة'], doodle: ['🏃', 'شخصية دودل'], peep: ['🙂', 'شخصية'], tabler: ['◎', 'أيقونة'], icon: ['★', 'أيقونة ماركر'], shape: ['〰️', 'شكل'], svg: ['🖼️', 'SVG'] };
+let CAT = null, SCRIPT = blankScript();
+let COMPILED = null, HAND_IMG = null, OPEN = null, MUSIC_FILE = null;
+const ART = new Map();           // name -> url/dataURL (uploaded by the user or bundled)
+const TTS_CACHE = new Map();     // key -> AudioBuffer (memory); mirrored in IndexedDB
 const SCRIPT_MODELS = ['gemini-3.6-flash', 'gemini-3.1-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
 const TTS_MODELS = { 'gemini-2.5-flash-preview-tts': ['gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview', 'gemini-2.5-pro-preview-tts'], 'gemini-2.5-pro-preview-tts': ['gemini-2.5-pro-preview-tts', 'gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview'] };
-const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || SCRIPT_MODELS[0] };
-if (settings.model === 'gemini-2.5-flash') settings.model = SCRIPT_MODELS[0]; // retired by Google for new users
+const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || SCRIPT_MODELS[0], tts: localStorage.getItem('tts_model') || 'gemini-2.5-flash-preview-tts', style: localStorage.getItem('voice_style') || '' };
+if (settings.model === 'gemini-2.5-flash') settings.model = SCRIPT_MODELS[0];
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const pct = (v, total) => (typeof v === 'string' && v.endsWith('%') ? (parseFloat(v) / 100) * total : +v);
-const log = (m) => { const l = $('log'); l.textContent = (l.textContent + '\n' + m).split('\n').slice(-5).join('\n'); };
+const log = (m) => { const l = $('log'); l.textContent = (l.textContent + '\n' + m).split('\n').slice(-4).join('\n'); };
+const say = (id, m, err) => { const el = $(id); el.textContent = m; el.classList.toggle('err', !!err); };
+function blankScript() { return { title: '', format: '16:9', hand: 'marker-a', board: 'white', layout: 'pan', music: 'auto', sfx: true, voice: 'Charon', scenes: [] }; }
 
 async function fetchText(u) { const r = await fetch(u); if (!r.ok) throw new Error('missing ' + u); return r.text(); }
 async function fetchDataUrl(u) { const r = await fetch(u); if (!r.ok) throw new Error('missing ' + u); const b = await r.blob(); return new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); }); }
 function loadImg(src) { return new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; }); }
 
-// ------------------------------------------------------------ init / settings
+// ------------------------------------------------------------ init / settings / persistence
 async function init() {
   CAT = await (await fetch('assets/catalog.json')).json();
-  $('hand').innerHTML = Object.keys(CAT.hands).map((h) => `<option value="${h}">${h === 'marker-a' ? 'يد حقيقية — ماركر (A)' : h === 'marker-b' ? 'يد حقيقية — ماركر (B)' : 'يد كرتونية'}</option>`).join('');
+  $('handSel').innerHTML = [...Object.keys(CAT.hands), 'none'].map((h) => `<option value="${h}">${HAND_NAMES[h] || h}</option>`).join('');
   $('voice').innerHTML = GEMINI_VOICES.map((v) => `<option>${v}</option>`).join('');
-  $('s_key').value = settings.key; $('s_model').value = settings.model;
+  $('s_key').value = settings.key; $('s_model').value = settings.model; $('ttsModel').value = settings.tts; if (settings.style) $('voiceStyle').value = settings.style;
   const faces = [['Patrick Hand', 'PatrickHand.ttf'], ['Aref Ruqaa', 'ArefRuqaa.ttf'], ['Cairo', 'Cairo.ttf']];
   const st = document.createElement('style'); st.textContent = faces.map(([n, f]) => `@font-face{font-family:"${n}";src:url(assets/fonts/${f});}`).join(''); document.head.appendChild(st);
-  for (const n of CAT.art) ART.set(n, 'assets/art/' + n); // loaded lazily; converted to data URLs when first used
+  for (const n of CAT.art) ART.set(n, 'assets/art/' + n);
   renderArt();
   try { await Promise.all(faces.map(([n]) => document.fonts.load(`20px "${n}"`))); } catch {}
-  if (!settings.key) $('aiMsg').innerHTML = '🔑 ضع مفتاح Gemini المجاني في <b>⚙️ الإعدادات</b> (أعلى الصفحة) لتشغيل السيناريو والصوت. المعاينة والرسم يعملان بدونه.';
-  await loadExample();
+  if (!settings.key) say('aiMsg', '🔑 ضع مفتاح Gemini في ⚙️ (أعلى الصفحة) لتشغيل كتابة السيناريو والصوت. المعاينة والرسم يعملان بدونه.');
+  const saved = localStorage.getItem('doodle_script');
+  if (saved) { try { setScript(JSON.parse(saved)); } catch { await loadExample(); } } else await loadExample();
 }
-function openSettings() { $('settings').style.display = ''; $('settings').scrollIntoView({ behavior: 'smooth' }); }
-function saveSettings() { settings.key = $('s_key').value.trim(); settings.model = $('s_model').value.trim() || 'gemini-2.5-flash'; localStorage.setItem('gemini_key', settings.key); localStorage.setItem('gemini_model', settings.model); $('setMsg').textContent = '✅ حُفظ في متصفحك'; }
+function openSettings() { $('settings').showModal(); }
+function saveSettings() {
+  settings.key = $('s_key').value.trim(); settings.model = $('s_model').value.trim() || SCRIPT_MODELS[0]; settings.tts = $('ttsModel').value; settings.style = $('voiceStyle').value.trim();
+  localStorage.setItem('gemini_key', settings.key); localStorage.setItem('gemini_model', settings.model); localStorage.setItem('tts_model', settings.tts); localStorage.setItem('voice_style', settings.style);
+  say('setMsg', '✅ حُفظ في متصفحك'); if (settings.key) say('aiMsg', '');
+}
+let saveTimer = null;
+function autosave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem('doodle_script', JSON.stringify(SCRIPT)); } catch {} }, 300); }
+function setScript(s) {
+  SCRIPT = { ...blankScript(), ...s }; if (typeof SCRIPT.hand !== 'string') SCRIPT.hand = SCRIPT.hand?.preset || 'marker-a';
+  $('title').value = SCRIPT.title || ''; $('format').value = FORMATS[SCRIPT.format] ? SCRIPT.format : '16:9'; $('board').value = BOARDS[SCRIPT.board] ? SCRIPT.board : 'white';
+  $('handSel').value = HAND_NAMES[SCRIPT.hand] ? SCRIPT.hand : 'marker-a'; $('layout').value = ['pan', 'fade', 'slide'].includes(SCRIPT.layout) ? SCRIPT.layout : 'pan';
+  if (SCRIPT.music === 'file' && !MUSIC_FILE) SCRIPT.music = 'auto'; $('music').value = SCRIPT.music === 'none' ? 'none' : SCRIPT.music === 'file' ? 'file' : 'auto';
+  $('voice').value = GEMINI_VOICES.includes(SCRIPT.voice) ? SCRIPT.voice : 'Charon'; SCRIPT.voice = $('voice').value; $('sfx').checked = SCRIPT.sfx !== false;
+  OPEN = null; drawScenes(); changed();
+}
+function newScript() { if (SCRIPT.scenes.length && !confirm('تبدأ سيناريو جديدًا فارغًا؟')) return; setScript({ scenes: [{ narration: '', elements: [] }] }); $('brief').value = ''; }
+async function loadExample() { setScript(await (await fetch('assets/demo-ar.json')).json()); }
+// anything that changes the picture: save, then re-prepare the preview after a short pause
+let prepTimer = null;
+function changed() { COMPILED = null; autosave(); clearTimeout(prepTimer); prepTimer = setTimeout(() => prepare(true).catch(() => {}), 700); }
 
 // ------------------------------------------------------------ Gemini: script agent + TTS
-async function gemini(model, body) {
-  if (!settings.key) throw new Error('ضع مفتاح Gemini في الإعدادات أولًا');
-  for (let attempt = 0; attempt < 4; attempt++) {
+const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+async function gemini(model, body, onWait) {
+  if (!settings.key) throw new Error('ضع مفتاح Gemini في الإعدادات أولًا (⚙️)');
+  const waits = [12, 22, 32, 45, 60];
+  for (let attempt = 0; ; attempt++) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': settings.key }, body: JSON.stringify(body) });
-    if (r.status === 429 || r.status === 503) { const wait = 8000 * (attempt + 1); log(`⏳ حصة Google ممتلئة مؤقتًا، انتظار ${wait / 1000} ث…`); await new Promise((ok) => setTimeout(ok, wait)); continue; }
-    if (!r.ok) { const err = new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 300)}`); err.status = r.status; throw err; }
+    if ((r.status === 429 || r.status === 503) && attempt < waits.length) {
+      for (let s = waits[attempt]; s > 0; s--) { (onWait || log)(`⏳ حصة Google ممتلئة مؤقتًا (الخطة المجانية ≈ ٣ طلبات صوت في الدقيقة) — إعادة المحاولة خلال ${s} ث`); await sleep(1000); }
+      continue;
+    }
+    if (!r.ok) { const err = new Error(r.status === 429 ? 'تجاوزت حصة Gemini — انتظر دقيقة ثم أعد المحاولة، أو فعّل الدفع حسب الاستخدام' : `Gemini ${r.status}: ${(await r.text()).slice(0, 300)}`); err.status = r.status; throw err; }
     return r.json();
   }
-  throw new Error('Gemini: تجاوزت الحصة المجانية، حاول بعد دقيقة');
 }
-// try a list of models in order; a retired/unknown model answers 404 and we move on to the next one
-async function geminiAny(models, body) {
+async function geminiAny(models, body, onWait) {
   let last;
-  for (const m of models) { try { const j = await gemini(m, body); if (m !== models[0]) log(`ℹ️ استُخدم النموذج ${m}`); return { j, model: m }; } catch (e) { last = e; if (e.status !== 404 && e.status !== 400) throw e; } }
+  for (const m of models) { try { const j = await gemini(m, body, onWait); if (m !== models[0]) log(`ℹ️ استُخدم النموذج ${m}`); return { j, model: m }; } catch (e) { last = e; if (e.status !== 404 && e.status !== 400) throw e; } }
   throw last;
 }
 async function runAI() {
-  const brief = $('brief').value.trim(); if (!brief) return alert('اكتب الفكرة أولًا');
-  $('aiBtn').disabled = true; $('aiMsg').textContent = '🤖 جارٍ كتابة السيناريو…';
+  const brief = $('brief').value.trim(); if (!brief) return say('aiMsg', 'اكتب الفكرة أولًا', true);
+  $('aiBtn').disabled = true; say('aiMsg', '🤖 جارٍ كتابة السيناريو…');
   try {
     const sys = await fetchText('assets/script-writer.md');
     const user = `Brief:\n${brief}\n\nConstraints:\n- format: ${$('format').value}\n- language: ${$('lang').value}\n- available peep seeds: ${CAT.peeps.join(', ')}\n- available art files (use exactly these names with "art/" prefix if they fit, otherwise request custom art): ${[...ART.keys()].join(', ')}\nReturn ONLY the JSON.`;
     const models = [settings.model, ...SCRIPT_MODELS.filter((m) => m !== settings.model)];
-    const { j, model } = await geminiAny(models, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } });
+    const { j, model } = await geminiAny(models, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }, (m) => say('aiMsg', m));
     if (model !== settings.model) { settings.model = model; localStorage.setItem('gemini_model', model); $('s_model').value = model; }
     const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
-    SCRIPT = JSON.parse(text.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'));
-    SCRIPT.format ||= $('format').value; SCRIPT.hand ||= 'marker-a';
-    $('title').value = SCRIPT.title || ''; drawScenes();
-    $('aiMsg').textContent = '✅ تم. راجع المشاهد ثم اضغط معاينة.' + (SCRIPT.artRequests?.length ? ` يطلب ${SCRIPT.artRequests.length} رسمة مخصّصة — البرومبتات في JSON (artRequests).` : '');
-  } catch (e) { $('aiMsg').textContent = '❌ ' + e.message; }
+    const s = JSON.parse(text.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'));
+    const keep = { format: $('format').value, board: SCRIPT.board, hand: SCRIPT.hand, layout: SCRIPT.layout, music: SCRIPT.music, sfx: SCRIPT.sfx, voice: SCRIPT.voice };
+    setScript({ ...keep, ...s, format: s.format || keep.format, hand: keep.hand, voice: keep.voice });
+    say('aiMsg', '✅ تم. راجع المشاهد (الخطوة 2) والمعاينة، ثم اصنع الفيديو.' + (s.artRequests?.length ? ` يقترح ${s.artRequests.length} رسمة مخصّصة — البرومبتات في JSON (artRequests).` : ''));
+  } catch (e) { say('aiMsg', '❌ ' + e.message, true); }
   $('aiBtn').disabled = false;
 }
-function pcmToBuffer(b64, rate = 24000) {
-  const bin = atob(b64); const n = bin.length >> 1; const f = new Float32Array(n);
-  for (let i = 0; i < n; i++) { const v = (bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8)); f[i] = (v > 32767 ? v - 65536 : v) / 32768; }
-  const ctx = new OfflineAudioContext(1, 1, rate); const buf = ctx.createBuffer(1, n, rate); buf.copyToChannel(f, 0); return buf;
-}
-async function tts(text, { voice, style, model }) {
-  const key = [model, voice, style, text].join('|'); if (TTS_CACHE.has(key)) return TTS_CACHE.get(key);
+// --- persistent voice cache (IndexedDB) so re-renders never call Google again
+function idb() { return new Promise((ok, bad) => { const r = indexedDB.open('doodle-studio', 1); r.onupgradeneeded = () => r.result.createObjectStore('tts'); r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
+async function idbGet(k) { try { const db = await idb(); return await new Promise((ok) => { const t = db.transaction('tts').objectStore('tts').get(k); t.onsuccess = () => ok(t.result); t.onerror = () => ok(null); }); } catch { return null; } }
+async function idbSet(k, v) { try { const db = await idb(); db.transaction('tts', 'readwrite').objectStore('tts').put(v, k); } catch {} }
+async function clearAudioCache() { TTS_CACHE.clear(); try { const db = await idb(); db.transaction('tts', 'readwrite').objectStore('tts').clear(); } catch {} say('setMsg', '🧹 مُسحت ذاكرة الصوت'); }
+function pcmToBuffer(f, rate = 24000) { const ctx = new OfflineAudioContext(1, 1, rate); const buf = ctx.createBuffer(1, f.length, rate); buf.copyToChannel(f, 0); return buf; }
+function b64ToF32(b64) { const bin = atob(b64); const n = bin.length >> 1; const f = new Float32Array(n); for (let i = 0; i < n; i++) { const v = (bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8)); f[i] = (v > 32767 ? v - 65536 : v) / 32768; } return f; }
+async function tts(text, { voice, style, model }, onWait) {
+  const wanted = model || settings.tts; const key = [wanted, voice, style, text].join('|');
+  if (TTS_CACHE.has(key)) return TTS_CACHE.get(key);
+  const stored = await idbGet(key); if (stored && stored.pcm) { const b = pcmToBuffer(stored.pcm, stored.rate); TTS_CACHE.set(key, b); return b; }
   const prompt = `${style || 'Read this narration naturally, warm and clear'}:\n${text}`;
-  const wanted = model || $('ttsModel').value;
-  const { j } = await geminiAny(TTS_MODELS[wanted] || [wanted, ...TTS_MODELS['gemini-2.5-flash-preview-tts']], { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || 'Charon' } } } } });
+  const { j } = await geminiAny(TTS_MODELS[wanted] || [wanted, ...TTS_MODELS['gemini-2.5-flash-preview-tts']], { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || 'Charon' } } } } }, onWait);
   const part = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData); if (!part) throw new Error('Gemini لم يُرجع صوتًا');
   const rate = +(part.inlineData.mimeType.match(/rate=(\d+)/)?.[1] || 24000);
-  const buf = pcmToBuffer(part.inlineData.data, rate); TTS_CACHE.set(key, buf); return buf;
+  const pcm = b64ToF32(part.inlineData.data); const buf = pcmToBuffer(pcm, rate); TTS_CACHE.set(key, buf); idbSet(key, { pcm, rate }); return buf;
 }
 function bufferToWav(buf) {
   const n = buf.length, rate = buf.sampleRate, d = buf.getChannelData(0); const ab = new ArrayBuffer(44 + n * 2); const v = new DataView(ab);
@@ -245,73 +319,114 @@ function bufferToWav(buf) {
   for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
   return new Blob([ab], { type: 'audio/wav' });
 }
+let voiceEl = null;
 async function previewVoice() {
-  $('voiceMsg').textContent = '⏳ جارٍ توليد الصوت…';
-  try { const b = await tts($('ttsText').value, { voice: $('voice').value, style: $('voiceStyle').value }); const a = $('voiceAudio'); a.src = URL.createObjectURL(bufferToWav(b)); a.style.display = ''; a.play(); $('voiceMsg').textContent = `✅ ${b.duration.toFixed(1)} ثانية`; }
-  catch (e) { $('voiceMsg').textContent = '❌ ' + e.message; }
+  say('jobMsg', '⏳ جارٍ توليد عيّنة الصوت…');
+  try {
+    const text = SCRIPT.scenes[0]?.narration?.trim() || $('ttsText').value;
+    const b = await tts(text, { voice: $('voice').value, style: $('voiceStyle').value }, (m) => say('jobMsg', m));
+    voiceEl = voiceEl || new Audio(); voiceEl.src = URL.createObjectURL(bufferToWav(b)); voiceEl.play(); say('jobMsg', `🔊 ${$('voice').value} — ${b.duration.toFixed(1)} ث (المشهد الأول)`);
+  } catch (e) { say('jobMsg', '❌ ' + e.message, true); }
 }
 
 // ------------------------------------------------------------ scenes editor
-async function loadExample() { SCRIPT = await (await fetch('assets/demo-ar.json')).json(); $('title').value = SCRIPT.title || ''; $('format').value = SCRIPT.format || '16:9'; $('hand').value = typeof SCRIPT.hand === 'string' ? SCRIPT.hand : 'marker-a'; drawScenes(); }
-function syncHeader() { SCRIPT.title = $('title').value; SCRIPT.format = $('format').value; SCRIPT.hand = $('hand').value; SCRIPT.voice = $('voice').value; SCRIPT.voiceStyle = $('voiceStyle').value; }
 function drawScenes() {
-  $('sceneCount').textContent = SCRIPT.scenes.length + ' مشهد';
+  $('sceneCount').textContent = SCRIPT.scenes.length ? `${SCRIPT.scenes.length} مشهد` : '';
   $('scenes').innerHTML = SCRIPT.scenes.map((sc, i) => `
     <div class="scene">
-      <div class="head"><b>مشهد ${i + 1}</b><span><button class="soft small" onclick="moveScene(${i},-1)">▲</button><button class="soft small" onclick="moveScene(${i},1)">▼</button><button class="soft small" onclick="delScene(${i})">🗑</button></span></div>
-      <textarea placeholder="التعليق الصوتي لهذا المشهد" onchange="SCRIPT.scenes[${i}].narration=this.value">${esc(sc.narration)}</textarea>
-      <div>${(sc.elements || []).map((e, j) => elRow(i, j, e)).join('')}</div>
-      <div class="row"><select id="add-${i}" class="fix"><option value="text">نص</option><option value="image">رسمة (art/)</option><option value="doodle">شخصية Open Doodles</option><option value="peep">شخصية Open Peeps</option><option value="tabler">أيقونة Tabler</option><option value="icon">أيقونة ماركر</option><option value="shape">شكل تأكيد</option></select><button class="soft small fix" onclick="addEl(${i})">＋ عنصر</button></div>
+      <div class="head"><b>مشهد ${i + 1}</b><span class="grow"></span><button class="ghost small" onclick="moveScene(${i},-1)" title="أعلى">▲</button><button class="ghost small" onclick="moveScene(${i},1)" title="أسفل">▼</button><button class="ghost small" onclick="delScene(${i})" title="حذف">🗑</button></div>
+      <textarea placeholder="التعليق الصوتي لهذا المشهد" oninput="SCRIPT.scenes[${i}].narration=this.value;autosave()" onchange="changed()">${esc(sc.narration)}</textarea>
+      <div class="chips">${(sc.elements || []).map((e, j) => chip(i, j, e)).join('')}
+        <select class="add" onchange="addEl(${i}, this.value); this.value=''"><option value="">＋ عنصر…</option><option value="text">نص</option><option value="image">رسمة من ملف</option><option value="peep">شخصية</option><option value="doodle">شخصية دودل</option><option value="tabler">أيقونة</option><option value="shape">شكل تأكيد</option></select>
+      </div>
+      ${OPEN && OPEN[0] === i ? editor(i, OPEN[1], (sc.elements || [])[OPEN[1]]) : ''}
     </div>`).join('');
 }
-function elRow(i, j, e) {
-  const label = { text: 'نص', image: 'رسمة', doodle: 'دودل', peep: 'شخصية', tabler: 'أيقونة', icon: 'أيقونة', shape: 'شكل', svg: 'SVG' }[e.type] || e.type;
-  const sel = (opts, cur, key) => `<select onchange="setEl(${i},${j},'${key}',this.value)">${opts.map((o) => `<option ${o === cur ? 'selected' : ''}>${o}</option>`).join('')}${opts.includes(cur) ? '' : `<option selected>${esc(cur || '')}</option>`}</select>`;
-  const main = e.type === 'text' ? `<input value="${esc(e.text)}" onchange="setEl(${i},${j},'text',this.value)" placeholder="النص">`
-    : e.type === 'image' || e.type === 'svg' ? sel([...ART.keys()].map((a) => 'art/' + a), e.src, 'src')
-    : e.type === 'doodle' ? sel(CAT.doodles, e.name, 'name')
-    : e.type === 'peep' ? sel(CAT.peeps, e.seed, 'seed')
-    : e.type === 'tabler' ? `<input list="tablerList" value="${esc(e.name)}" onchange="setEl(${i},${j},'name',this.value)" placeholder="اسم الأيقونة (tabler.io/icons)">`
-    : e.type === 'icon' ? sel(CAT.icons, e.name, 'name')
-    : e.type === 'shape' ? sel(['underline', 'arrow', 'circle', 'rect', 'check', 'cross', 'highlight', 'bubble', 'line'], e.shape, 'shape') : '';
-  return `<div class="el"><span class="tag">${label}</span>${main}
-    <input style="max-width:58px" value="${e.x ?? '10%'}" onchange="setEl(${i},${j},'x',this.value)" title="x"><input style="max-width:58px" value="${e.y ?? '10%'}" onchange="setEl(${i},${j},'y',this.value)" title="y">
-    <input style="max-width:58px" value="${e.w ?? '30%'}" onchange="setEl(${i},${j},'w',this.value)" title="عرض"><input style="max-width:58px" value="${e.h ?? '30%'}" onchange="setEl(${i},${j},'h',this.value)" title="ارتفاع">
-    <input style="max-width:70px" value="${e.color || ''}" onchange="setEl(${i},${j},'color',this.value)" placeholder="لون"><button class="soft small" onclick="delEl(${i},${j})">✕</button></div>`;
+function chipLabel(e) {
+  if (e.type === 'text') return (e.text || '').split('\n')[0];
+  if (e.type === 'image' || e.type === 'svg') return String(e.src || '').replace(/^art\//, '');
+  if (e.type === 'shape') return { underline: 'خط تحت', arrow: 'سهم', circle: 'دائرة', rect: 'إطار', check: 'صح', cross: 'خطأ', highlight: 'تظليل', bubble: 'فقاعة', line: 'خط' }[e.shape] || e.shape;
+  return e.name || e.seed || '';
 }
-function setEl(i, j, k, v) { if (v === '') delete SCRIPT.scenes[i].elements[j][k]; else SCRIPT.scenes[i].elements[j][k] = v; COMPILED = null; }
-function addEl(i) { const t = $('add-' + i).value; const b = { type: t, x: '10%', y: '10%', w: '40%', h: '60%' }; if (t === 'text') Object.assign(b, { text: 'نص', size: '8%', h: '24%' }); if (t === 'shape') Object.assign(b, { shape: 'underline', color: '#e63946', h: '6%' }); if (t === 'image') b.src = 'art/' + ([...ART.keys()][0] || 'my.png'); if (t === 'doodle') b.name = 'jumping'; if (t === 'peep') b.seed = CAT.peeps[0]; if (t === 'tabler') b.name = 'home'; if (t === 'icon') b.name = 'rocket'; (SCRIPT.scenes[i].elements ||= []).push(b); drawScenes(); COMPILED = null; }
-function delEl(i, j) { SCRIPT.scenes[i].elements.splice(j, 1); drawScenes(); COMPILED = null; }
-function addScene() { SCRIPT.scenes.push({ narration: '', elements: [] }); drawScenes(); COMPILED = null; }
-function delScene(i) { SCRIPT.scenes.splice(i, 1); drawScenes(); COMPILED = null; }
-function moveScene(i, d) { const j = i + d; if (j < 0 || j >= SCRIPT.scenes.length) return; [SCRIPT.scenes[i], SCRIPT.scenes[j]] = [SCRIPT.scenes[j], SCRIPT.scenes[i]]; drawScenes(); COMPILED = null; }
-function toggleJson() { const b = $('jsonBox'); if (b.style.display === 'none') { syncHeader(); b.value = JSON.stringify(SCRIPT, null, 2); b.style.display = ''; } else { try { SCRIPT = JSON.parse(b.value); drawScenes(); b.style.display = 'none'; $('title').value = SCRIPT.title || ''; COMPILED = null; } catch (e) { alert('JSON غير صالح: ' + e.message); } } }
-function downloadScript() { syncHeader(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(SCRIPT, null, 2)], { type: 'application/json' })); a.download = (SCRIPT.title || 'script') + '.json'; a.click(); }
-async function openScript(f) { if (!f) return; SCRIPT = JSON.parse(await f.text()); $('title').value = SCRIPT.title || ''; drawScenes(); COMPILED = null; }
-function renderArt() { $('artGallery').innerHTML = [...ART.entries()].map(([n, u]) => `<img src="${u}" title="art/${n}" loading="lazy">`).join(''); }
-async function uploadArt(files) { for (const f of files) ART.set(f.name, await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); })); renderArt(); drawScenes(); }
+function chip(i, j, e) { const [ico, name] = TYPE_META[e.type] || ['▫️', e.type]; const open = OPEN && OPEN[0] === i && OPEN[1] === j; return `<span class="chip ${open ? 'open' : ''}" onclick="toggleEditor(${i},${j})"><span class="ico">${ico}</span><span class="lbl">${esc(chipLabel(e)) || name}</span></span>`; }
+function toggleEditor(i, j) { OPEN = OPEN && OPEN[0] === i && OPEN[1] === j ? null : [i, j]; drawScenes(); if (OPEN && SCRIPT.scenes[i].elements[j].type === 'tabler') fillTabler(); }
+function editor(i, j, e) {
+  if (!e) return '';
+  const set = (k) => `onchange="setEl(${i},${j},'${k}',this.value)"`;
+  const sel = (opts, cur, key, labels) => `<select ${set(key)}>${opts.map((o, n) => `<option value="${esc(o)}" ${o === cur ? 'selected' : ''}>${labels ? labels[n] : o}</option>`).join('')}${opts.includes(cur) || !cur ? '' : `<option selected>${esc(cur)}</option>`}</select>`;
+  let main = '', extra = '';
+  if (e.type === 'text') {
+    main = `<textarea style="min-height:48px" ${set('text')} placeholder="النص (سطر جديد = سطر آخر)">${esc(e.text)}</textarea>`;
+    extra = `<div class="row"><label>الحجم</label>${sel(['5%', '6%', '7%', '8%', '9%', '10%', '12%'], e.size || '7%', 'size')}<label>المحاذاة</label>${sel(['right', 'center', 'left'], e.align || 'right', 'align', ['يمين', 'وسط', 'يسار'])}<label>الحركة</label>${sel(['write', 'pop', 'rise'], e.anim || 'write', 'anim', ['كتابة باليد', 'قفز الكلمات', 'صعود الكلمات'])}<label><input type="checkbox" ${e.weight === 'bold' ? 'checked' : ''} onchange="setEl(${i},${j},'weight',this.checked?'bold':'')" style="width:auto"> عريض</label></div>`;
+  } else if (e.type === 'image' || e.type === 'svg') {
+    main = `<div class="row">${sel([...ART.keys()].map((a) => 'art/' + a), e.src, 'src')}<label class="fix" style="cursor:pointer;color:var(--accent2)">📤 رفع<input type="file" accept="image/*" style="display:none" onchange="uploadArtFor(${i},${j},this.files[0])"></label></div>`;
+    extra = `<div class="row"><label>الأسلوب</label>${sel(['color', 'line'], e.style || 'color', 'style', ['يرسم ثم يلوّن', 'خطوط فقط'])}<label>الطريقة</label>${sel(['draw', 'reveal'], e.mode || 'draw', 'mode', ['رسم باليد', 'كشف الصورة كما هي'])}</div>`;
+  } else if (e.type === 'doodle') main = sel(CAT.doodles, e.name, 'name');
+  else if (e.type === 'peep') main = sel(CAT.peeps, e.seed, 'seed');
+  else if (e.type === 'tabler') main = `<input list="tablerList" value="${esc(e.name)}" ${set('name')} placeholder="اسم الأيقونة بالإنجليزية (مثل shopping-cart)">`;
+  else if (e.type === 'icon') main = sel(CAT.icons, e.name, 'name');
+  else if (e.type === 'shape') main = sel(['underline', 'arrow', 'circle', 'rect', 'check', 'cross', 'highlight', 'bubble', 'line'], e.shape, 'shape', ['خط تحت', 'سهم', 'دائرة', 'إطار', 'صح', 'خطأ', 'تظليل', 'فقاعة كلام', 'خط']);
+  const pos = (k, label, def) => `<label>${label}<input value="${esc(e[k] ?? def)}" ${set(k)}></label>`;
+  return `<div class="editor">
+    ${main}${extra}
+    <div class="pos">${pos('x', 'من اليسار', '10%')}${pos('y', 'من الأعلى', '10%')}${pos('w', 'العرض', '30%')}${pos('h', 'الارتفاع', '30%')}</div>
+    <div class="row"><label>اللون</label><input type="color" value="${/^#[0-9a-f]{6}$/i.test(e.color || '') ? e.color : (e.type === 'shape' ? '#e63946' : '#1d1d1d')}" onchange="setEl(${i},${j},'color',this.value)"><button class="ghost small" onclick="setEl(${i},${j},'color','')">افتراضي</button>
+      <span class="grow"></span>
+      <label>مدة الرسم (ث)</label><input style="max-width:70px" value="${esc(e.draw ?? '')}" placeholder="تلقائي" onchange="setEl(${i},${j},'draw',this.value?+this.value:'')">
+      <label>يبدأ بعد (ث)</label><input style="max-width:70px" value="${esc(e.at ?? '')}" placeholder="بالترتيب" onchange="setEl(${i},${j},'at',this.value?+this.value:'')"></div>
+    <div class="row" style="justify-content:flex-end"><button class="ghost small" onclick="dupEl(${i},${j})">⧉ نسخ العنصر</button><button class="ghost small" onclick="delEl(${i},${j})">🗑 حذف العنصر</button></div>
+  </div>`;
+}
+function setEl(i, j, k, v) { const e = SCRIPT.scenes[i].elements[j]; if (v === '' || v == null) delete e[k]; else e[k] = v; if (['text', 'src', 'name', 'seed', 'shape'].includes(k)) drawScenes(); changed(); }
+function addEl(i, t) {
+  if (!t) return;
+  const b = { type: t, x: '10%', y: '10%', w: '40%', h: '60%' };
+  if (t === 'text') Object.assign(b, { text: 'نص', size: '8%', h: '24%', w: '50%', align: 'right' });
+  if (t === 'shape') Object.assign(b, { shape: 'underline', color: '#e63946', h: '6%' });
+  if (t === 'image') b.src = 'art/' + ([...ART.keys()][0] || 'my.png');
+  if (t === 'doodle') b.name = 'jumping'; if (t === 'peep') b.seed = CAT.peeps[0]; if (t === 'tabler') b.name = 'rocket'; if (t === 'icon') b.name = 'rocket';
+  (SCRIPT.scenes[i].elements ||= []).push(b); OPEN = [i, SCRIPT.scenes[i].elements.length - 1]; drawScenes(); if (t === 'tabler') fillTabler(); changed();
+}
+function dupEl(i, j) { const c = JSON.parse(JSON.stringify(SCRIPT.scenes[i].elements[j])); SCRIPT.scenes[i].elements.splice(j + 1, 0, c); OPEN = [i, j + 1]; drawScenes(); changed(); }
+function delEl(i, j) { SCRIPT.scenes[i].elements.splice(j, 1); OPEN = null; drawScenes(); changed(); }
+function addScene() { SCRIPT.scenes.push({ narration: '', elements: [] }); drawScenes(); changed(); }
+function delScene(i) { if (!confirm(`حذف المشهد ${i + 1}؟`)) return; SCRIPT.scenes.splice(i, 1); OPEN = null; drawScenes(); changed(); }
+function moveScene(i, d) { const j = i + d; if (j < 0 || j >= SCRIPT.scenes.length) return; [SCRIPT.scenes[i], SCRIPT.scenes[j]] = [SCRIPT.scenes[j], SCRIPT.scenes[i]]; OPEN = null; drawScenes(); changed(); }
+function toggleJson() { const b = $('jsonBox'); if (b.style.display === 'none') { b.value = JSON.stringify(SCRIPT, null, 2); b.style.display = ''; } else { try { setScript(JSON.parse(b.value)); b.style.display = 'none'; } catch (e) { alert('JSON غير صالح: ' + e.message); } } }
+function downloadScript() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(SCRIPT, null, 2)], { type: 'application/json' })); a.download = (SCRIPT.title || 'script') + '.json'; a.click(); }
+async function openScript(f) { if (!f) return; setScript(JSON.parse(await f.text())); }
+function renderArt() { const mine = [...ART.entries()].filter(([n, u]) => u.startsWith('data:')); $('artWrap').style.display = mine.length ? '' : 'none'; $('artGallery').innerHTML = mine.map(([n, u]) => `<img src="${u}" title="art/${n}" loading="lazy">`).join(''); }
+const readFile = (f) => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); });
+async function uploadArt(files) { for (const f of files) ART.set(f.name, await readFile(f)); renderArt(); drawScenes(); changed(); }
+async function uploadArtFor(i, j, f) { if (!f) return; ART.set(f.name, await readFile(f)); renderArt(); setEl(i, j, 'src', 'art/' + f.name); }
 const tl = document.createElement('datalist'); tl.id = 'tablerList'; document.body.appendChild(tl);
+function fillTabler() { if (tl.childElementCount || !CAT) return; tl.innerHTML = CAT.tabler.map((n) => `<option value="${n}">`).join(''); }
+function setMusic(v) { if (v === 'file') { $('musicFile').click(); return; } SCRIPT.music = v; autosave(); }
+async function musicFromFile(f) { if (!f) { $('music').value = SCRIPT.music === 'none' ? 'none' : 'auto'; return; } const ab = await f.arrayBuffer(); MUSIC_FILE = await new AudioContext().decodeAudioData(ab); SCRIPT.music = 'file'; $('music').value = 'file'; say('jobMsg', `🎵 ${f.name} — ${MUSIC_FILE.duration.toFixed(0)} ث`); autosave(); }
 
 // ------------------------------------------------------------ client-side compiler (mirror of src/project.mjs)
 const MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4;
-async function compileClient(p, { withAudio }) {
+async function compileClient(p, { withAudio, onWait }) {
   const [W, H] = FORMATS[p.format || '16:9'] || FORMATS['16:9'];
-  const d = p.defaults || {};
-  const defaults = { font: d.font || '"Patrick Hand","Aref Ruqaa","Cairo",cursive', fontSize: d.fontSize || '7%', textColor: d.textColor || '#1d1d1d', strokeColor: d.strokeColor || '#222222', strokeWidth: d.strokeWidth || 9, background: d.background || '#ffffff', transition: d.transition || 'fade', transitionDuration: d.transitionDuration ?? 0.45, hold: d.hold ?? 0.9, gap: d.gap ?? 0.15, minDraw: d.minDraw ?? 0.7, maxDraw: d.maxDraw ?? 4 };
+  const d = p.defaults || {}; const bd = BOARDS[p.board] || BOARDS.white; const pan = (p.layout || 'pan') === 'pan';
+  const defaults = { font: d.font || '"Patrick Hand","Aref Ruqaa","Cairo",cursive', fontSize: d.fontSize || '7%', textColor: d.textColor || bd.text, strokeColor: d.strokeColor || bd.ink, strokeWidth: d.strokeWidth || 9, background: d.background, transition: pan ? 'cut' : (p.layout || d.transition || 'fade'), transitionDuration: d.transitionDuration ?? 0.45, hold: d.hold ?? 0.9, gap: d.gap ?? 0.15, minDraw: d.minDraw ?? 0.7, maxDraw: d.maxDraw ?? 4.5, colorReveal: d.colorReveal || 'scribble', motion: d.motion || 'pop' };
+  const board = { style: BOARDS[p.board] ? p.board : 'white', layout: pan ? 'pan' : 'scenes', dark: bd.dark, color: d.background };
   // hand
-  let hp = typeof p.hand === 'string' ? CAT.hands[p.hand] || CAT.hands['marker-a'] : { ...CAT.hands[p.hand?.preset || 'marker-a'], ...(p.hand || {}) };
-  const handSrc = hp.src.startsWith('data:') ? hp.src : 'assets/' + hp.src;
+  const hidden = p.hand === 'none';
+  const hp = CAT.hands[hidden ? 'marker-a' : p.hand] || CAT.hands['marker-a'];
+  const handSrc = 'assets/' + hp.src;
   HAND_IMG = await loadImg(handSrc);
   let nw = HAND_IMG.naturalWidth, nh = HAND_IMG.naturalHeight;
   if (handSrc.endsWith('.svg')) { const m = (await fetchText(handSrc)).match(/viewBox="([\d.\s-]+)"/); if (m) { const v = m[1].trim().split(/\s+/).map(Number); nw = v[2]; nh = v[3]; } }
-  const hand = { src: handSrc, naturalWidth: nw, naturalHeight: nh, tip: hp.tip || [14, 14], height: pct(hp.height || '58%', H), hidden: hp.hidden === true };
+  const hand = { src: handSrc, naturalWidth: nw, naturalHeight: nh, tip: hp.tip || [14, 14], height: pct(hp.height || '58%', H), hidden, tintable: !handSrc.endsWith('.svg') };
   const scenes = [], audio = []; let clock = 0, seed = 1;
-  for (const sc of p.scenes || []) {
+  const startDelay = pan ? 0.6 : 0.25;
+  for (const [si, sc] of (p.scenes || []).entries()) {
     let narrationDur = 0;
     if (sc.narration && withAudio && !p.mute) {
-      log('🎙️ ' + sc.narration.slice(0, 40) + '…');
-      const buf = await tts(sc.narration, { voice: sc.voice || p.voice || $('voice').value, style: p.voiceStyle || $('voiceStyle').value });
-      narrationDur = buf.duration; audio.push({ buffer: buf, at: clock + (sc.narrationDelay ?? 0.25) });
+      say('jobMsg', `🎙️ الصوت: مشهد ${si + 1}/${p.scenes.length}…`);
+      const buf = await tts(sc.narration, { voice: sc.voice || p.voice || $('voice').value, style: p.voiceStyle || $('voiceStyle').value }, onWait);
+      narrationDur = buf.duration; audio.push({ buffer: buf, at: clock + (sc.narrationDelay ?? startDelay - 0.15) });
     } else if (sc.narration) narrationDur = Math.max(2, sc.narration.split(/\s+/).length / 2.6);
     const els = [];
     for (const e of sc.elements || []) els.push(await compileEl(e, W, H, seed++, defaults));
@@ -319,87 +434,168 @@ async function compileClient(p, { withAudio }) {
     const autoCount = els.filter((e) => e.draw == null).length;
     const budget = Math.max(narrationDur - explicit - 0.3, autoCount * defaults.minDraw);
     const autoDraw = autoCount ? Math.min(defaults.maxDraw, Math.max(defaults.minDraw, budget / autoCount)) : 0;
-    let cursor = sc.startDelay ?? 0.2, lastEnd = 0;
+    let cursor = sc.startDelay ?? startDelay, lastEnd = 0;
     for (const e of els) { e.draw = e.draw ?? autoDraw; const at = e.at != null ? e.at : cursor; e.start = clock + at; cursor = at + e.draw + defaults.gap; lastEnd = Math.max(lastEnd, at + e.draw); if (e.until != null) e.until = clock + e.until; }
-    const duration = sc.duration ?? Math.max(narrationDur + 0.6, lastEnd + (sc.hold ?? defaults.hold));
+    const duration = sc.duration ?? Math.max(narrationDur + 0.7, lastEnd + (sc.hold ?? defaults.hold));
     scenes.push({ start: clock, end: clock + duration, background: sc.background, transition: sc.transition, camera: sc.camera, elements: els });
     clock += duration;
   }
-  return { width: W, height: H, defaults, hand, scenes, audio, duration: clock };
+  return { width: W, height: H, defaults, board, hand, scenes, audio, duration: clock + (pan ? 0.4 : 0), music: p.music || 'auto', sfx: p.sfx !== false };
 }
 async function compileEl(e, W, H, seed, defaults) {
   const box = { x: pct(e.x ?? '10%', W), y: pct(e.y ?? '10%', H), w: pct(e.w ?? '30%', W), h: pct(e.h ?? '30%', H) };
-  const base = { ...box, rotate: e.rotate || 0, draw: e.draw, at: e.at, until: e.until, color: e.color, strokeWidth: e.strokeWidth };
-  const artUrl = async (src) => { const n = String(src || '').replace(/^art\//, ''); if (String(src).startsWith('data:')) return src; if (!ART.has(n)) throw new Error(`الرسمة غير موجودة: ${src} — ارفعها في قسم الرسومات`); let v = ART.get(n); if (!v.startsWith('data:')) { v = await fetchDataUrl(v); ART.set(n, v); } return v; };
+  const base = { ...box, rotate: e.rotate || 0, draw: e.draw, at: e.at, until: e.until, color: e.color, strokeWidth: e.strokeWidth, motion: e.motion };
+  const ink = defaults.strokeColor;
+  const artUrl = async (src) => { const n = String(src || '').replace(/^art\//, ''); if (String(src).startsWith('data:')) return src; if (!ART.has(n)) throw new Error(`الرسمة غير موجودة: ${src} — ارفعها من عنصر «رسمة» أو من قائمة ⋯`); let v = ART.get(n); if (!v.startsWith('data:')) { v = await fetchDataUrl(v); ART.set(n, v); } return v; };
   switch (e.type) {
-    case 'text': return { ...base, kind: 'text', content: String(e.text ?? ''), size: e.size, font: e.font, align: e.align, weight: e.weight, dir: e.dir };
-    case 'icon': { let svg = await fetchText(`assets/icons/${e.name}.svg`); if (e.color) svg = svg.replace(/#222222|#222\b/g, e.color); return { ...base, kind: 'drawing', svg, style: e.style || 'line' }; }
-    case 'tabler': { const svg = (await fetchText(`assets/tabler/${e.name}.svg`)).replace(/stroke="currentColor"/g, `stroke="${e.color || '#222222'}"`); return { ...base, kind: 'drawing', svg, style: 'line' }; }
-    case 'doodle': { let svg = await fetchText(`assets/illustrations/open-doodles/${e.name}.svg`); if (e.accent) svg = svg.replace(/#f4a261/gi, e.accent); return { ...base, kind: 'drawing', svg, trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || (MOBILE ? 800 : 1200) }; }
+    case 'text': return { ...base, kind: 'text', content: String(e.text ?? ''), size: e.size, font: e.font, align: e.align, weight: e.weight, dir: e.dir, anim: e.anim };
+    case 'icon': { const svg = (await fetchText(`assets/icons/${e.name}.svg`)).replace(/#222222|#222\b/g, e.color || ink); return { ...base, kind: 'drawing', svg, style: e.style || 'line' }; }
+    case 'tabler': { const svg = (await fetchText(`assets/tabler/${e.name}.svg`)).replace(/stroke="currentColor"/g, `stroke="${e.color || ink}"`); return { ...base, kind: 'drawing', svg, style: 'line' }; }
+    case 'doodle': { let svg = await fetchText(`assets/illustrations/open-doodles/${e.name}.svg`); if (e.accent) svg = svg.replace(/#f4a261/gi, e.accent); return { ...base, kind: 'drawing', svg, trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || (MOBILE ? 800 : 1200), accent: e.accent || '#f4a261' }; }
     case 'peep': { const s = String(e.seed || e.name || 'ahmed'); const name = CAT.peeps.includes(s) ? s : CAT.peeps[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % CAT.peeps.length]; return { ...base, kind: 'drawing', svg: await fetchText(`assets/illustrations/peeps/${name}.svg`), trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || (MOBILE ? 700 : 1000) }; }
     case 'svg': { const svg = atob((await artUrl(e.src)).split(',')[1]); return { ...base, kind: 'drawing', svg, trace: e.mode === 'draw' ? 'centerline' : undefined, style: e.style || 'color' }; }
     case 'image': { const src = await artUrl(e.src); if (e.mode === 'reveal') return { ...base, kind: 'photo', src }; if (src.startsWith('data:image/svg')) return { ...base, kind: 'drawing', svg: atob(src.split(',')[1]), trace: 'centerline', style: e.style || 'color' }; return { ...base, kind: 'drawing', src, trace: 'centerline', threshold: e.threshold, traceSize: e.traceSize || (MOBILE ? 900 : 1400), strokeScale: e.strokeScale, style: e.style || 'color' }; }
-    case 'shape': return { ...base, kind: 'drawing', svg: window.shapeSvg(e, seed, { w: box.w, h: box.h }), style: 'line', strokeWidth: e.strokeWidth || (e.shape === 'highlight' ? 0.72 * box.h : undefined), strokeOpacity: e.shape === 'highlight' ? (e.opacity ?? 0.45) : (e.opacity ?? 1) };
+    case 'shape': return { ...base, kind: 'drawing', isShape: true, svg: window.shapeSvg({ ...e, color: e.color || ink }, seed, { w: box.w, h: box.h }), style: 'line', color: e.color || ink, strokeWidth: e.strokeWidth || (e.shape === 'highlight' ? 0.72 * box.h : undefined), strokeOpacity: e.shape === 'highlight' ? (e.opacity ?? 0.45) : (e.opacity ?? 1) };
     default: throw new Error('نوع عنصر غير معروف: ' + e.type);
   }
 }
 
 // ------------------------------------------------------------ preview
 let previewScale = 1, BUSY = false;
-window.doodleProgress = (done, total) => { $('jobMsg').textContent = `✏️ تجهيز الرسومات ${done}/${total}…`; };
-function setBusy(b) { BUSY = b; document.querySelectorAll('button').forEach((x) => { if (!x.classList.contains('small')) x.disabled = b; }); document.body.style.cursor = b ? 'progress' : ''; }
+window.doodleProgress = (done, total) => { say('jobMsg', `✏️ تجهيز الرسومات ${done}/${total}…`); };
+function setBusy(b) { BUSY = b; document.querySelectorAll('#studioCard button, #aiBtn').forEach((x) => { x.disabled = b; }); document.body.style.cursor = b ? 'progress' : ''; }
 async function buildStage() { const { audio, ...rest } = COMPILED; await window.doodle.build(structuredClone(rest)); }
 function fitPreview(W, H) { const wrap = $('previewWrap'); const w = wrap.clientWidth; previewScale = w / W; wrap.style.height = Math.round(H * previewScale) + 'px'; $('stageHolder').style.transform = `scale(${previewScale})`; }
+window.addEventListener('resize', () => { if (COMPILED) fitPreview(COMPILED.width, COMPILED.height); });
 async function prepare(showFrame) {
-  if (BUSY) return; syncHeader(); $('jobMsg').textContent = '⏳ تجهيز المشاهد…'; setBusy(true);
+  if (BUSY) { changed(); return; }
+  if (!SCRIPT.scenes.length) { $('overlay').style.display = ''; return; }
+  say('jobMsg', '⏳ تجهيز المشاهد…'); setBusy(true);
   try {
     COMPILED = await compileClient(SCRIPT, { withAudio: false });
     fitPreview(COMPILED.width, COMPILED.height);
     await buildStage();
-    $('scrub').max = Math.ceil(COMPILED.duration);
-    if (showFrame) scrubTo(+$('scrub').value);
-    $('jobMsg').textContent = `المدة التقديرية (بلا صوت): ${COMPILED.duration.toFixed(1)} ث — حرّك الشريط لمعاينة أي لحظة`;
-  } catch (e) { $('jobMsg').textContent = '❌ ' + e.message; throw e; } finally { setBusy(false); }
+    $('scrub').max = Math.max(1, COMPILED.duration.toFixed(1));
+    $('overlay').style.display = 'none';
+    if (showFrame) scrubTo(Math.min(+$('scrub').value, COMPILED.duration));
+    $('durMsg').textContent = `≈ ${COMPILED.duration.toFixed(0)} ث`; say('jobMsg', '');
+  } catch (e) { say('jobMsg', '❌ ' + e.message, true); throw e; } finally { setBusy(false); }
 }
-function scrubTo(t) { $('scrubVal').textContent = t + ' ث'; if (COMPILED) window.doodle.seek(t); }
+function scrubTo(t) { $('scrubVal').textContent = (+t).toFixed(1) + ' ث'; if (COMPILED) window.doodle.seek(+t); else if (!BUSY) prepare(true).catch(() => {}); }
 let playing = false;
-async function playPreview() { if (!COMPILED) await prepare(false); if (playing) { playing = false; return; } playing = true; const t0 = performance.now(); const loop = () => { if (!playing) return; const t = (performance.now() - t0) / 1000; if (t > COMPILED.duration) { playing = false; return; } window.doodle.seek(t); $('scrub').value = t; $('scrubVal').textContent = t.toFixed(1) + ' ث'; requestAnimationFrame(loop); }; loop(); }
+async function playPreview() {
+  if (!COMPILED) await prepare(false);
+  if (playing) { playing = false; $('playBtn').textContent = '▶'; return; }
+  playing = true; $('playBtn').textContent = '⏸';
+  let t = +$('scrub').value; if (t >= COMPILED.duration - 0.2) t = 0;
+  const t0 = performance.now() - t * 1000;
+  const loop = () => { if (!playing) return; const t = (performance.now() - t0) / 1000; if (t > COMPILED.duration) { playing = false; $('playBtn').textContent = '▶'; return; } window.doodle.seek(t); $('scrub').value = t; $('scrubVal').textContent = t.toFixed(1) + ' ث'; requestAnimationFrame(loop); }; loop();
+}
 
-// ------------------------------------------------------------ frame capture (DOM -> SVG foreignObject -> canvas) + hand
+// ------------------------------------------------------------ sound design (all synthesised locally: no files, no licences)
+const SR = 48000;
+function noiseBuffer(ctx, seconds) { const b = ctx.createBuffer(1, Math.ceil(seconds * SR), SR); const d = b.getChannelData(0); let s = 22222; for (let i = 0; i < d.length; i++) { s = (s * 1664525 + 1013904223) >>> 0; d[i] = (s / 4294967296) * 2 - 1; } return b; }
+// marker on a whiteboard: band-passed noise whose loudness follows the pen; a softer, higher squeak for hand-writing
+function addPenSound(ctx, dest, tl) {
+  const src = ctx.createBufferSource(); src.buffer = noiseBuffer(ctx, 4); src.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1900; bp.Q.value = 0.9;
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+  const g = ctx.createGain(); g.gain.value = 0;
+  src.connect(hp); hp.connect(bp); bp.connect(g); g.connect(dest);
+  const step = 0.02; const n = Math.ceil(tl.duration / step) + 1; const curve = new Float32Array(n);
+  let s = 777; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  for (const seg of tl.pen) {
+    const base = seg.kind === 'write' ? 0.05 : seg.kind === 'shape' ? 0.07 : 0.085;
+    for (let i = Math.max(0, Math.floor(seg.start / step)); i < Math.min(n, Math.ceil(seg.end / step)); i++) {
+      const t = i * step; const fillPhase = seg.fillFrom != null && t >= seg.fillFrom;
+      const wob = 0.55 + 0.45 * Math.abs(Math.sin(t * (fillPhase ? 9 : 14) + seg.start)) * (0.6 + 0.4 * rnd());
+      curve[i] = Math.max(curve[i], base * (fillPhase ? 1.25 : 1) * wob);
+    }
+  }
+  for (let i = 1; i < n - 1; i++) curve[i] = (curve[i - 1] + curve[i] * 2 + curve[i + 1]) / 4; // soften edges
+  g.gain.setValueCurveAtTime(curve, 0, tl.duration + 0.01); src.start(0); src.stop(tl.duration + 0.5);
+  // whoosh while the camera travels to the next scene
+  for (const p of tl.pans) {
+    const w = ctx.createBufferSource(); w.buffer = src.buffer; w.loop = true; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.2;
+    const wg = ctx.createGain(); w.connect(lp); lp.connect(wg); wg.connect(dest);
+    const d = p.end - p.start; lp.frequency.setValueAtTime(300, p.start); lp.frequency.exponentialRampToValueAtTime(2600, p.start + d * 0.5); lp.frequency.exponentialRampToValueAtTime(400, p.end);
+    wg.gain.setValueAtTime(0, p.start); wg.gain.linearRampToValueAtTime(0.11, p.start + d * 0.45); wg.gain.linearRampToValueAtTime(0, p.end); w.start(p.start); w.stop(p.end + 0.05);
+  }
+}
+// a light plucked-string bed (Karplus–Strong) in C major, 96 bpm — pleasant, royalty-free, generated on the spot
+function musicBuffer(ctx, seconds) {
+  const n = Math.ceil((seconds + 2) * SR); const out = new Float32Array(n);
+  let s = 4242; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const pluck = (freq, at, dur, vel, bright) => {
+    const N = Math.round(SR / freq); const buf = new Float32Array(N); let last = 0;
+    for (let i = 0; i < N; i++) { const v = rnd() * 2 - 1; last = last * (1 - bright) + v * bright; buf[i] = last; }
+    const start = Math.round(at * SR), len = Math.min(n - start, Math.round(dur * SR)); if (len <= 0) return;
+    const decay = Math.pow(0.001, 1 / (dur * SR)); let k = 0;
+    for (let i = 0; i < len; i++) { const j = (k + 1) % N; buf[k] = (buf[k] + buf[j]) * 0.5 * 0.998; out[start + i] += buf[k] * vel * Math.pow(decay, i * 0.35); k = j; }
+  };
+  const bpm = 96, beat = 60 / bpm; const chords = [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]]; // C G Am F
+  const f = (semi, oct = 0) => 261.63 * Math.pow(2, (semi + 12 * oct) / 12);
+  const bars = Math.ceil(seconds / (beat * 4)) + 1;
+  for (let b = 0; b < bars; b++) {
+    const ch = chords[b % 4]; const t0 = b * beat * 4;
+    pluck(f(ch[0], -1), t0, 2.2, 0.16, 0.5); pluck(f(ch[0], -1), t0 + beat * 2, 2.0, 0.12, 0.5);
+    const pat = [0, 2, 1, 2, 0, 2, 1, 2];
+    for (let i = 0; i < 8; i++) { const semi = ch[pat[i]] + (i === 3 || i === 7 ? 12 : 0); pluck(f(semi, 0), t0 + i * beat / 2 + (rnd() - 0.5) * 0.012, 1.4, (i % 2 ? 0.07 : 0.1) * (0.85 + rnd() * 0.3), 0.85); }
+    if (b % 2 === 1) pluck(f(ch[2], 1), t0 + beat * 3, 1.6, 0.05, 0.9);
+  }
+  for (let i = 0; i < n; i++) { const t = i / SR; const fadeIn = Math.min(1, t / 1.5), fadeOut = Math.min(1, Math.max(0, (seconds - t) / 2.5)); out[i] *= fadeIn * fadeOut; }
+  const buf = ctx.createBuffer(1, n, SR); buf.copyToChannel(out, 0); return buf;
+}
+async function mixAudio(compiled) {
+  const tl = window.doodle.timeline(); const dur = compiled.duration;
+  const ctx = new OfflineAudioContext(1, Math.ceil(dur * SR) + SR, SR);
+  const master = ctx.createDynamicsCompressor(); master.threshold.value = -12; master.ratio.value = 3; master.connect(ctx.destination);
+  for (const a of compiled.audio) { const s = ctx.createBufferSource(); s.buffer = a.buffer; s.connect(master); s.start(a.at); }
+  if (compiled.sfx) addPenSound(ctx, master, tl);
+  if (compiled.music !== 'none') {
+    const m = ctx.createBufferSource(); m.buffer = compiled.music === 'file' && MUSIC_FILE ? MUSIC_FILE : musicBuffer(ctx, dur); m.loop = compiled.music === 'file';
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6500;
+    const g = ctx.createGain(); const loud = compiled.music === 'file' ? 0.28 : 0.55, duck = loud * 0.38;
+    g.gain.setValueAtTime(compiled.audio.length && compiled.audio[0].at < 0.5 ? duck : loud, 0);
+    for (const a of compiled.audio) { g.gain.setTargetAtTime(duck, Math.max(0, a.at - 0.3), 0.15); g.gain.setTargetAtTime(loud, a.at + a.buffer.duration + 0.25, 0.4); }
+    g.gain.setTargetAtTime(0, Math.max(0, dur - 1.2), 0.35);
+    m.connect(lp); lp.connect(g); g.connect(master); m.start(0); m.stop(dur + 0.5);
+  }
+  return ctx.startRendering();
+}
+
+// ------------------------------------------------------------ render: WebCodecs + mp4/webm muxer
 async function snapshot(ctx, W, H, scale) { window.doodle.paint(ctx, scale, COMPILED.hand.hidden ? null : HAND_IMG); }
-
-// ------------------------------------------------------------ render: WebCodecs + mp4/webm muxer, audio mixed offline
 async function render(draft) {
-  if (BUSY) return; syncHeader(); $('result').innerHTML = ''; $('barFill').style.width = '0%'; setBusy(true);
-  if (!('VideoEncoder' in window)) return ($('jobMsg').textContent = '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge حديثًا');
+  if (BUSY) return; $('result').innerHTML = ''; $('barFill').style.width = '0%'; playing = false; $('playBtn').textContent = '▶';
+  if (!('VideoEncoder' in window)) return say('jobMsg', '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge حديثًا', true);
+  setBusy(true);
   try {
-    $('jobMsg').textContent = '🎙️ توليد الصوت وتجهيز الرسومات…';
-    COMPILED = await compileClient(SCRIPT, { withAudio: !!settings.key && !SCRIPT.mute });
+    const withAudio = !!settings.key && !SCRIPT.mute;
+    if (!withAudio) say('jobMsg', 'ℹ️ بلا تعليق صوتي (لا مفتاح Gemini) — الرسم والموسيقى فقط');
+    COMPILED = await compileClient(SCRIPT, { withAudio, onWait: (m) => say('jobMsg', m) });
     fitPreview(COMPILED.width, COMPILED.height);
-    await buildStage();
+    say('jobMsg', '✏️ تجهيز الرسومات…'); await buildStage();
     const fps = draft ? 15 : 30, scale = draft ? 0.5 : 1;
     const W = Math.round(COMPILED.width * scale / 2) * 2, H = Math.round(COMPILED.height * scale / 2) * 2;
     const frames = Math.ceil(COMPILED.duration * fps);
-    // pick codecs
     let container = 'mp4', vcfg = { codec: 'avc1.640028', width: W, height: H, bitrate: draft ? 2_500_000 : 9_000_000, framerate: fps, avc: { format: 'avc' } };
     if (!(await VideoEncoder.isConfigSupported(vcfg)).supported) { container = 'webm'; vcfg = { codec: 'vp09.00.10.08', width: W, height: H, bitrate: draft ? 2_500_000 : 9_000_000, framerate: fps }; }
-    const hasAudio = COMPILED.audio.length > 0 && 'AudioEncoder' in window;
+    const wantAudio = (COMPILED.audio.length > 0 || COMPILED.sfx || COMPILED.music !== 'none') && 'AudioEncoder' in window;
     let acfg = null;
-    if (hasAudio) { for (const c of (container === 'mp4' ? ['mp4a.40.2', 'opus'] : ['opus'])) { const cfg = { codec: c, sampleRate: 48000, numberOfChannels: 1, bitrate: 128000 }; if ((await AudioEncoder.isConfigSupported(cfg)).supported) { acfg = cfg; break; } } }
+    if (wantAudio) { for (const c of (container === 'mp4' ? ['mp4a.40.2', 'opus'] : ['opus'])) { const cfg = { codec: c, sampleRate: SR, numberOfChannels: 1, bitrate: 128000 }; if ((await AudioEncoder.isConfigSupported(cfg)).supported) { acfg = cfg; break; } } }
     const muxer = container === 'mp4'
-      ? new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: acfg ? { codec: acfg.codec === 'opus' ? 'opus' : 'aac', numberOfChannels: 1, sampleRate: 48000 } : undefined, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })
-      : new WebMMuxer.Muxer({ target: new WebMMuxer.ArrayBufferTarget(), video: { codec: 'V_VP9', width: W, height: H }, audio: acfg ? { codec: 'A_OPUS', numberOfChannels: 1, sampleRate: 48000 } : undefined, firstTimestampBehavior: 'offset' });
+      ? new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: acfg ? { codec: acfg.codec === 'opus' ? 'opus' : 'aac', numberOfChannels: 1, sampleRate: SR } : undefined, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })
+      : new WebMMuxer.Muxer({ target: new WebMMuxer.ArrayBufferTarget(), video: { codec: 'V_VP9', width: W, height: H }, audio: acfg ? { codec: 'A_OPUS', numberOfChannels: 1, sampleRate: SR } : undefined, firstTimestampBehavior: 'offset' });
     const venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => log('encoder: ' + e.message) });
     venc.configure(vcfg);
-    // audio: mix narration clips offline at 48k, then encode
     if (acfg) {
-      const octx = new OfflineAudioContext(1, Math.ceil(COMPILED.duration * 48000) + 4800, 48000);
-      for (const a of COMPILED.audio) { const s = octx.createBufferSource(); s.buffer = a.buffer; s.connect(octx.destination); s.start(a.at); }
-      const mixed = await octx.startRendering();
+      say('jobMsg', '🎧 مزج الصوت والموسيقى…');
+      const mixed = await mixAudio(COMPILED);
       const aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: (e) => log('audio: ' + e.message) });
       aenc.configure(acfg);
-      const data = mixed.getChannelData(0); const step = 48000; // 1s chunks
-      for (let i = 0; i < data.length; i += step) { const n = Math.min(step, data.length - i); const ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: n, numberOfChannels: 1, timestamp: Math.round(i / 48000 * 1e6), data: data.slice(i, i + n) }); aenc.encode(ad); ad.close(); }
+      const data = mixed.getChannelData(0); const step = SR; const total = Math.min(data.length, Math.ceil(COMPILED.duration * SR));
+      for (let i = 0; i < total; i += step) { const n = Math.min(step, total - i); const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: 1, timestamp: Math.round(i / SR * 1e6), data: data.slice(i, i + n) }); aenc.encode(ad); ad.close(); }
       await aenc.flush(); aenc.close();
     }
     const canvas = $('outCanvas'); canvas.width = W; canvas.height = H; const ctx = canvas.getContext('2d');
@@ -409,17 +605,17 @@ async function render(draft) {
       await snapshot(ctx, COMPILED.width, COMPILED.height, scale);
       const frame = new VideoFrame(canvas, { timestamp: Math.round(f * 1e6 / fps), duration: Math.round(1e6 / fps) });
       venc.encode(frame, { keyFrame: f % (fps * 2) === 0 }); frame.close();
-      while (venc.encodeQueueSize > 6) await new Promise((ok) => setTimeout(ok, 5));
-      if (f % 5 === 0) { const p = Math.round((f + 1) / frames * 100); $('barFill').style.width = p + '%'; $('jobMsg').textContent = `🎬 ${p}% — ${f + 1}/${frames} إطار (${((performance.now() - t0) / 1000).toFixed(0)} ث)`; }
+      while (venc.encodeQueueSize > 6) await sleep(5);
+      if (f % 5 === 0) { const p = Math.round((f + 1) / frames * 100); $('barFill').style.width = p + '%'; say('jobMsg', `🎬 ${p}% — ${f + 1}/${frames} إطار (${((performance.now() - t0) / 1000).toFixed(0)} ث)`); $('scrub').value = t; $('scrubVal').textContent = t.toFixed(1) + ' ث'; }
     }
     await venc.flush(); venc.close(); muxer.finalize();
     const blob = new Blob([muxer.target.buffer], { type: container === 'mp4' ? 'video/mp4' : 'video/webm' });
     const url = URL.createObjectURL(blob); const name = (SCRIPT.title || 'doodle') + (draft ? '-preview' : '') + '.' + container;
-    $('result').innerHTML = `<video src="${url}" controls autoplay></video><div class="row"><a class="fix" href="${url}" download="${esc(name)}"><button class="primary">⬇ تحميل ${esc(name)} (${(blob.size / 1e6).toFixed(1)} MB)</button></a><span class="muted">${container === 'webm' ? 'متصفحك لا يدعم ترميز H.264 فأُخرج WebM؛ Chrome/Edge على ويندوز/ماك يُخرجان MP4' : (acfg ? '' : 'بلا صوت: لا مفتاح Gemini')}</span></div>`;
-    $('barFill').style.width = '100%'; $('jobMsg').textContent = `✅ اكتمل — ${COMPILED.duration.toFixed(1)} ث`;
-  } catch (e) { $('jobMsg').textContent = '❌ ' + e.message; log(e.stack || e.message); } finally { setBusy(false); }
+    $('result').innerHTML = `<video src="${url}" controls autoplay></video><div class="row"><a class="fix" href="${url}" download="${esc(name)}"><button class="primary">⬇ تحميل ${esc(name)} (${(blob.size / 1e6).toFixed(1)} MB)</button></a><span class="muted">${container === 'webm' ? 'متصفحك لا يدعم ترميز H.264 فأُخرج WebM؛ Chrome/Edge على ويندوز/ماك يُخرجان MP4' : (withAudio ? '' : 'بلا تعليق صوتي: لا مفتاح Gemini')}</span></div>`;
+    $('barFill').style.width = '100%'; say('jobMsg', `✅ اكتمل — ${COMPILED.duration.toFixed(1)} ث`);
+  } catch (e) { say('jobMsg', '❌ ' + e.message, true); log(e.stack || e.message); } finally { setBusy(false); }
 }
-init().catch((e) => { $('aiMsg').textContent = '❌ تعذّر تحميل الأداة: ' + e.message; });
+init().catch((e) => { say('aiMsg', '❌ تعذّر تحميل الأداة: ' + e.message, true); });
 </script>
 </body>
 </html>

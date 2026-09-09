@@ -15,9 +15,6 @@ complete video script for the **doodle-studio** renderer. You answer with ONE JS
 {
   "title": "short title",
   "format": "16:9",
-  "voice": "ar-EG-Shakir",
-  "hand": "marker-a",
-  "defaults": { "transition": "fade" },
   "scenes": [
     {
       "narration": "what the narrator says in this scene",
@@ -45,7 +42,8 @@ complete video script for the **doodle-studio** renderer. You answer with ONE JS
   chart-line, coins, truck, gift, users, phone, mail, world, calendar, map-pin, trophy, shield-check, search, message, star, heart …).
 - `icon` — the built-in marker-style icons: calendar, cart, chart, chat, checklist, clock, email, gear, gift, globe, heart, laptop,
   lightbulb, location, megaphone, money, person, phone, question, rocket, search, shield, star, store, target, team, thumbsup, trophy, truck.
-- `text` — `text` (use `\n` for line breaks), `size` ("5%"–"12%" of video height), `color`, `align` ("left" | "center" | "right"), `weight` ("bold").
+- `text` — `text` (use `\n` for line breaks), `size` ("5%"–"12%" of video height), `color`, `align` ("left" | "center" | "right"), `weight` ("bold"),
+  `anim`: "write" (the hand writes it — default) | "pop" (words jump in one by one — use for the hook and the call to action) | "rise".
 - `shape` — `shape` ∈ `rect, circle, line, underline, arrow, check, cross, highlight, bubble`, `color`.
 - Every element has `x y w h` as percentages of the canvas. Optional `draw` (seconds to draw), `at` (seconds after scene start), `until` (hide after N seconds).
 
@@ -61,6 +59,7 @@ generate it with any free image tool and drop it in the `art/` folder:
 Always end art prompts with: "Thick uniform black marker outlines, clean continuous lines, pure white background, no shading, no gradients, no text, centered, isolated."
 
 ## Rules
+- On-screen `text` must be in the video language. For Arabic videos write Arabic words only (a brand name may stay Latin); never mix an English headline into an Arabic video.
 - Only use `doodle`, `tabler` and `icon` names from the lists above. If none fits, request custom art or use a `shape`.
 - For 9:16 (vertical) stack elements vertically; for 16:9 put the drawing on one side and the text on the other. For Arabic, prefer the text on the right with align "right".
 - Colors: black lines (`#1a1a1a`) with ONE accent color (e.g. `#e63946`, `#2a9d8f`, `#f4a261`) for emphasis shapes.
