@@ -7,7 +7,7 @@ const errors = []; page.on('pageerror', (e) => errors.push(e.message));
 const png = fs.readFileSync('examples/art/shop-owner.png').toString('base64');
 const clip = fs.readFileSync('scripts/.dbg/fixtures/clip.webm');
 const SCRIPT = { creator: 'Gulf store owner, 35', setting: 'perfume shop', clips: [{ role: 'hook', say: 'عملائي يسألون', action: 'a', camera: 'c' }, { role: 'product', say: 'ب', action: 'a', camera: 'c' }], caption: 'c', hashtags: ['#x'] };
-let calls = []; let mode = process.argv[2] || 'ladder';
+let calls = []; let visionCalls = 0; let mode = process.argv[2] || 'ladder';
 await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
   const u = route.request().url(); const reply = (status, o) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(o) });
   if (u.includes('predictLongRunning')) { const b = JSON.parse(route.request().postData()); const inst = b.instances[0]; calls.push({ fmt: inst.image ? Object.keys(inst.image).join('+') : (inst.referenceImages ? Object.keys(inst.referenceImages[0].image).join('+') : 'none'), model: u.match(/models\/([^:]+)/)[1], img: !!inst.image, refs: !!inst.referenceImages, pg: b.parameters.personGeneration, nov: 'numberOfVideos' in b.parameters, neg: !!b.parameters.negativePrompt, dur: b.parameters.durationSeconds, res: b.parameters.resolution });
@@ -24,6 +24,7 @@ await page.route('https://generativelanguage.googleapis.com/**', async (route) =
   if (u.includes('operations/op1')) return reply(200, { done: true, response: { generateVideoResponse: { generatedSamples: [{ video: { uri: 'https://generativelanguage.googleapis.com/v1beta/files/x:download' } }] } } });
   if (u.includes(':download')) return route.fulfill({ status: 200, contentType: 'video/webm', body: clip });
   const body = JSON.parse(route.request().postData()); const mods = body.generationConfig?.responseModalities || [];
+  const sysTxt = body.systemInstruction?.parts?.[0]?.text || ''; if (/phone_visible/.test(sysTxt)) { visionCalls++; return reply(200, { candidates: [{ content: { parts: [{ text: JSON.stringify({ phone_visible: visionCalls === 1, hand_raised_to_camera: false }) }] } }] }); }
   if (mods.includes('IMAGE')) return reply(200, { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: png } }] } }] });
   return reply(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(SCRIPT) }] } }] });
 });
@@ -37,4 +38,4 @@ if (mode === 'onebutton') console.log('final video:', await page.evaluate(() => 
 console.log('keyframes', await page.evaluate(() => Object.keys(KEYS).length), '| clips', await page.evaluate(() => Object.keys(CLIPS).length));
 console.log(mode, '| msg2:', await page.$eval('#msg2', (e) => e.textContent)); console.log('calls', JSON.stringify(calls));
 await page.$('#clips').then((h) => h.screenshot({ path: `${out}/veo-${mode}.png` }));
-console.log('errors', errors); await browser.close();
+console.log('vision checks', visionCalls); console.log('errors', errors); await browser.close();
