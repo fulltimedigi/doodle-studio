@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH });
+const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+page.on('pageerror', (e) => console.log('pageerror', e.message));
+await page.goto('http://localhost:8090/index.html');
+await page.waitForFunction(() => COMPILED && !BUSY, null, { timeout: 90000 });
+await page.evaluate(() => { const els = SCRIPT.scenes[1].elements; els.push({ type: 'tabler', name: 'megaphone', x: '70%', y: '60%', w: '20%', h: '30%' }, { type: 'tabler', name: 'shopping_cart', x: '5%', y: '5%', w: '10%', h: '10%' }, { type: 'icon', name: 'bulb', x: '5%', y: '5%', w: '10%', h: '10%' }, { type: 'doodle', name: 'nonexistent', x: '5%', y: '5%', w: '10%', h: '10%' }, { type: 'image', src: 'art/missing.png', x: '5%', y: '5%', w: '10%', h: '10%' }, { type: 'shape', shape: 'zigzag', x: '5%', y: '5%', w: '10%', h: '10%' }); changed(); });
+await page.waitForFunction(() => COMPILED && !BUSY, null, { timeout: 90000 });
+console.log(await page.evaluate(() => ({ job: document.querySelector('#jobMsg').textContent, log: document.querySelector('#log').textContent, n: COMPILED.scenes[1].elements.length })));
+await browser.close();

@@ -38,7 +38,7 @@ complete video script for the **doodle-studio** renderer. You answer with ONE JS
   coffee, selfie, unboxing, plant, meditating, chilling, loving, levitate, float, groovy, sleek, swinging, petting, doggie,
   dog-jump, ballet, roller-skating, sprinting, rolling, clumsy, laying, ice-cream, sitting-reading, reading-side, moshing, bikini, zombieing}.
 - `peep` — a random hand-drawn character from Open Peeps (CC0): `{ "type": "peep", "seed": "any word" }`. Different seed → different person.
-- `tabler` — 5,000 clean stroke icons (MIT): `{ "type": "tabler", "name": "shopping-cart" }` (home, device-laptop, rocket, bulb,
+- `tabler` — 5,000 clean stroke icons (MIT), exact Tabler names only (`speakerphone` not `megaphone`, `shopping-cart` not `cart`, `mail` not `email`): `{ "type": "tabler", "name": "shopping-cart" }` (home, device-laptop, rocket, bulb, speakerphone, message-chatbot,
   chart-line, coins, truck, gift, users, phone, mail, world, calendar, map-pin, trophy, shield-check, search, message, star, heart …).
 - `icon` — the built-in marker-style icons: calendar, cart, chart, chat, checklist, clock, email, gear, gift, globe, heart, laptop,
   lightbulb, location, megaphone, money, person, phone, question, rocket, search, shield, star, store, target, team, thumbsup, trophy, truck.

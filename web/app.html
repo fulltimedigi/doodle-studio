@@ -406,7 +406,17 @@ async function musicFromFile(f) { if (!f) { $('music').value = SCRIPT.music === 
 
 // ------------------------------------------------------------ client-side compiler (mirror of src/project.mjs)
 const MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4;
+const WARN = [];
+// find the closest existing asset name so one typo from the AI never breaks the video
+function nearest(list, name) {
+  const n = String(name || '').toLowerCase().trim().replace(/[\s_]+/g, '-');
+  if (list.includes(n)) return n;
+  const base = n.replace(/-(outline|icon|filled)$/, '');
+  return list.find((x) => x === base) || list.find((x) => x.startsWith(n + '-')) || list.find((x) => x.startsWith(n)) || list.find((x) => x.includes(n)) || list.find((x) => n.includes(x) && x.length > 3) || null;
+}
+const TABLER_ALIASES = { megaphone: 'speakerphone', cart: 'shopping-cart', chat: 'message', email: 'mail', gear: 'settings', lightbulb: 'bulb', idea: 'bulb', money: 'coins', person: 'user', team: 'users', store: 'building-store', checklist: 'checklist', thumbsup: 'thumb-up', chart: 'chart-line', location: 'map-pin', laptop: 'device-laptop', globe: 'world' };
 async function compileClient(p, { withAudio, onWait }) {
+  WARN.length = 0;
   const [W, H] = FORMATS[p.format || '16:9'] || FORMATS['16:9'];
   const d = p.defaults || {}; const bd = BOARDS[p.board] || BOARDS.white; const pan = (p.layout || 'pan') === 'pan';
   const defaults = { font: d.font || '"Patrick Hand","Aref Ruqaa","Cairo",cursive', fontSize: d.fontSize || '7%', textColor: d.textColor || bd.text, strokeColor: d.strokeColor || bd.ink, strokeWidth: d.strokeWidth || 9, background: d.background, transition: pan ? 'cut' : (p.layout || d.transition || 'fade'), transitionDuration: d.transitionDuration ?? 0.45, hold: d.hold ?? 0.9, gap: d.gap ?? 0.15, minDraw: d.minDraw ?? 0.7, maxDraw: d.maxDraw ?? 4.5, colorReveal: d.colorReveal || 'scribble', motion: d.motion || 'pop' };
@@ -429,7 +439,7 @@ async function compileClient(p, { withAudio, onWait }) {
       narrationDur = buf.duration; audio.push({ buffer: buf, at: clock + (sc.narrationDelay ?? startDelay - 0.15) });
     } else if (sc.narration) narrationDur = Math.max(2, sc.narration.split(/\s+/).length / 2.6);
     const els = [];
-    for (const e of sc.elements || []) els.push(await compileEl(e, W, H, seed++, defaults));
+    for (const e of sc.elements || []) { try { els.push(await compileEl(e, W, H, seed++, defaults)); } catch (err) { WARN.push(`مشهد ${si + 1}: تخطّينا عنصر (${err.message})`); } }
     const explicit = els.filter((e) => e.draw != null).reduce((a, e) => a + e.draw, 0);
     const autoCount = els.filter((e) => e.draw == null).length;
     const budget = Math.max(narrationDur - explicit - 0.3, autoCount * defaults.minDraw);
@@ -449,13 +459,21 @@ async function compileEl(e, W, H, seed, defaults) {
   const artUrl = async (src) => { const n = String(src || '').replace(/^art\//, ''); if (String(src).startsWith('data:')) return src; if (!ART.has(n)) throw new Error(`الرسمة غير موجودة: ${src} — ارفعها من عنصر «رسمة» أو من قائمة ⋯`); let v = ART.get(n); if (!v.startsWith('data:')) { v = await fetchDataUrl(v); ART.set(n, v); } return v; };
   switch (e.type) {
     case 'text': return { ...base, kind: 'text', content: String(e.text ?? ''), size: e.size, font: e.font, align: e.align, weight: e.weight, dir: e.dir, anim: e.anim };
-    case 'icon': { const svg = (await fetchText(`assets/icons/${e.name}.svg`)).replace(/#222222|#222\b/g, e.color || ink); return { ...base, kind: 'drawing', svg, style: e.style || 'line' }; }
-    case 'tabler': { const svg = (await fetchText(`assets/tabler/${e.name}.svg`)).replace(/stroke="currentColor"/g, `stroke="${e.color || ink}"`); return { ...base, kind: 'drawing', svg, style: 'line' }; }
-    case 'doodle': { let svg = await fetchText(`assets/illustrations/open-doodles/${e.name}.svg`); if (e.accent) svg = svg.replace(/#f4a261/gi, e.accent); return { ...base, kind: 'drawing', svg, trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || (MOBILE ? 800 : 1200), accent: e.accent || '#f4a261' }; }
+    case 'icon': case 'tabler': {
+      const want = String(e.name || '').toLowerCase().trim();
+      let iconName = e.type === 'icon' ? nearest(CAT.icons, want) : null;
+      let tablerName = null;
+      if (!iconName) tablerName = CAT.tabler.includes(want) ? want : (TABLER_ALIASES[want] && CAT.tabler.includes(TABLER_ALIASES[want]) ? TABLER_ALIASES[want] : null) || (CAT.icons.includes(want) ? null : nearest(CAT.tabler, want));
+      if (!iconName && !tablerName) iconName = nearest(CAT.icons, want) || 'star';
+      if ((tablerName || iconName) !== want) log(`ℹ️ الأيقونة "${e.name}" غير موجودة — استُخدمت "${tablerName || iconName}"`);
+      if (tablerName) { const svg = (await fetchText(`assets/tabler/${tablerName}.svg`)).replace(/stroke="currentColor"/g, `stroke="${e.color || ink}"`); return { ...base, kind: 'drawing', svg, style: 'line' }; }
+      const svg = (await fetchText(`assets/icons/${iconName}.svg`)).replace(/#222222|#222\b/g, e.color || ink); return { ...base, kind: 'drawing', svg, style: e.style || 'line' };
+    }
+    case 'doodle': { const dn = nearest(CAT.doodles, e.name) || CAT.doodles[0]; let svg = await fetchText(`assets/illustrations/open-doodles/${dn}.svg`); if (e.accent) svg = svg.replace(/#f4a261/gi, e.accent); return { ...base, kind: 'drawing', svg, trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || (MOBILE ? 800 : 1200), accent: e.accent || '#f4a261' }; }
     case 'peep': { const s = String(e.seed || e.name || 'ahmed'); const name = CAT.peeps.includes(s) ? s : CAT.peeps[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % CAT.peeps.length]; return { ...base, kind: 'drawing', svg: await fetchText(`assets/illustrations/peeps/${name}.svg`), trace: 'centerline', style: e.style || 'color', traceSize: e.traceSize || (MOBILE ? 700 : 1000) }; }
     case 'svg': { const svg = atob((await artUrl(e.src)).split(',')[1]); return { ...base, kind: 'drawing', svg, trace: e.mode === 'draw' ? 'centerline' : undefined, style: e.style || 'color' }; }
     case 'image': { const src = await artUrl(e.src); if (e.mode === 'reveal') return { ...base, kind: 'photo', src }; if (src.startsWith('data:image/svg')) return { ...base, kind: 'drawing', svg: atob(src.split(',')[1]), trace: 'centerline', style: e.style || 'color' }; return { ...base, kind: 'drawing', src, trace: 'centerline', threshold: e.threshold, traceSize: e.traceSize || (MOBILE ? 900 : 1400), strokeScale: e.strokeScale, style: e.style || 'color' }; }
-    case 'shape': return { ...base, kind: 'drawing', isShape: true, svg: window.shapeSvg({ ...e, color: e.color || ink }, seed, { w: box.w, h: box.h }), style: 'line', color: e.color || ink, strokeWidth: e.strokeWidth || (e.shape === 'highlight' ? 0.72 * box.h : undefined), strokeOpacity: e.shape === 'highlight' ? (e.opacity ?? 0.45) : (e.opacity ?? 1) };
+    case 'shape': return { ...base, kind: 'drawing', isShape: true, svg: window.shapeSvg({ ...e, shape: ['rect', 'box', 'circle', 'ellipse', 'line', 'underline', 'arrow', 'check', 'cross', 'highlight', 'bubble'].includes(e.shape) ? e.shape : 'underline', color: e.color || ink }, seed, { w: box.w, h: box.h }), style: 'line', color: e.color || ink, strokeWidth: e.strokeWidth || (e.shape === 'highlight' ? 0.72 * box.h : undefined), strokeOpacity: e.shape === 'highlight' ? (e.opacity ?? 0.45) : (e.opacity ?? 1) };
     default: throw new Error('نوع عنصر غير معروف: ' + e.type);
   }
 }
@@ -478,7 +496,7 @@ async function prepare(showFrame) {
     $('scrub').max = Math.max(1, COMPILED.duration.toFixed(1));
     $('overlay').style.display = 'none';
     if (showFrame) scrubTo(Math.min(+$('scrub').value, COMPILED.duration));
-    $('durMsg').textContent = `≈ ${COMPILED.duration.toFixed(0)} ث`; say('jobMsg', '');
+    $('durMsg').textContent = `≈ ${COMPILED.duration.toFixed(0)} ث`; say('jobMsg', WARN.length ? '⚠️ ' + WARN.join(' · ') : '');
   } catch (e) { say('jobMsg', '❌ ' + e.message, true); throw e; } finally { setBusy(false); }
 }
 function scrubTo(t) { $('scrubVal').textContent = (+t).toFixed(1) + ' ث'; if (COMPILED) window.doodle.seek(+t); else if (!BUSY) prepare(true).catch(() => {}); }
