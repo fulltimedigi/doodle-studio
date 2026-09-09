@@ -11,7 +11,15 @@ mkdirSync(join(SITE, 'js'), { recursive: true });
 mkdirSync(join(SITE, 'assets'), { recursive: true });
 
 // page
-cpSync(join(ROOT, 'web/app.html'), join(SITE, 'index.html'));
+cpSync(join(ROOT, 'web/index.html'), join(SITE, 'index.html'));
+cpSync(join(ROOT, 'web/app.html'), join(SITE, 'doodle.html'));
+for (const f of ['reels.html', 'carousel.html', 'ad.html']) cpSync(join(ROOT, 'web', f), join(SITE, f));
+cpSync(join(ROOT, 'web/css'), join(SITE, 'css'), { recursive: true });
+cpSync(join(ROOT, 'web/js/core.js'), join(SITE, 'js/core.js'));
+cpSync(join(ROOT, 'node_modules/html-to-image/dist/html-to-image.js'), join(SITE, 'js/html-to-image.js'));
+cpSync(join(ROOT, 'node_modules/jszip/dist/jszip.min.js'), join(SITE, 'js/jszip.min.js'));
+mkdirSync(join(SITE, 'assets/prompts'), { recursive: true });
+for (const f of readdirSync(join(ROOT, 'prompts'))) cpSync(join(ROOT, 'prompts', f), join(SITE, 'assets/prompts', f));
 // engine + tracing (plain scripts)
 cpSync(join(ROOT, 'src/renderer/engine.js'), join(SITE, 'js/engine.js'));
 cpSync(join(ROOT, 'src/renderer/strokes-core.js'), join(SITE, 'js/strokes-core.js'));
@@ -21,6 +29,7 @@ cpSync(join(ROOT, 'node_modules/mp4-muxer/build/mp4-muxer.js'), join(SITE, 'js/m
 cpSync(join(ROOT, 'node_modules/webm-muxer/build/webm-muxer.js'), join(SITE, 'js/webm-muxer.js'));
 // assets
 for (const d of ['fonts', 'hands', 'icons', 'illustrations']) cpSync(join(ROOT, 'assets', d), join(SITE, 'assets', d), { recursive: true });
+for (const [pkg, files] of [['cairo', ['cairo-arabic-400-normal', 'cairo-arabic-700-normal', 'cairo-arabic-900-normal']], ['tajawal', ['tajawal-arabic-400-normal', 'tajawal-arabic-700-normal', 'tajawal-arabic-800-normal']]]) for (const f of files) cpSync(join(ROOT, 'node_modules/@fontsource', pkg, 'files', f + '.woff2'), join(SITE, 'assets/fonts', f + '.woff2'));
 cpSync(join(ROOT, 'assets/hand.svg'), join(SITE, 'assets/hand.svg'));
 cpSync(join(ROOT, 'examples/art'), join(SITE, 'assets/art'), { recursive: true });
 cpSync(join(ROOT, 'examples/demo-ar.json'), join(SITE, 'assets/demo-ar.json'));

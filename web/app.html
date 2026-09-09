@@ -98,6 +98,7 @@
   #outCanvas{display:none}
   #result video{width:100%;border-radius:10px;margin-top:10px;background:#000}
   .log{font-family:ui-monospace,monospace;font-size:11px;color:#999;white-space:pre-wrap;max-height:60px;overflow:auto;direction:ltr;text-align:left;margin-top:6px}
+  .res{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fcfbf8;margin:10px 0;font-size:14px}
   dialog{border:0;border-radius:16px;padding:0;max-width:560px;width:calc(100% - 24px);box-shadow:0 20px 60px rgba(0,0,0,.2)}
   dialog::backdrop{background:rgba(0,0,0,.35)}
   dialog .body{padding:18px}
@@ -121,7 +122,7 @@
 <body>
 <header>
   <div class="logo">🎨</div>
-  <h1>Doodle Studio</h1>
+  <a href="index.html" style="text-decoration:none;color:inherit" title="الاستوديو الرئيسي"><h1 id="appTitle">Doodle Studio</h1></a>
   <input id="title" placeholder="اسم الفيديو" oninput="SCRIPT.title=this.value;autosave()">
   <button class="soft small" onclick="openSettings()" title="الإعدادات">⚙️</button>
 </header>
@@ -207,6 +208,7 @@
   </div>
 </dialog>
 
+<script src="js/core.js"></script>
 <script src="js/trace_skeleton.js"></script>
 <script src="js/strokes-core.js"></script>
 <script src="js/shapes.js"></script>
@@ -230,6 +232,11 @@ const SCRIPT_MODELS = ['gemini-3.6-flash', 'gemini-3.1-flash', 'gemini-3-flash',
 const TTS_MODELS = { 'gemini-2.5-flash-preview-tts': ['gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview', 'gemini-2.5-pro-preview-tts'], 'gemini-2.5-pro-preview-tts': ['gemini-2.5-pro-preview-tts', 'gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview'] };
 const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || SCRIPT_MODELS[0], tts: localStorage.getItem('tts_model') || 'gemini-2.5-flash-preview-tts', img: localStorage.getItem('img_model') || 'gemini-3.1-flash-image', style: localStorage.getItem('voice_style') || '' };
 if (settings.model === 'gemini-2.5-flash') settings.model = SCRIPT_MODELS[0];
+const MODE = new URLSearchParams(location.search).get('mode') === 'motion' ? 'motion' : 'doodle';
+const SAVE_KEY = MODE === 'motion' ? 'motion_script' : 'doodle_script';
+const BRAND = window.Suite ? Suite.loadBrand() : null;
+let LIB_ID = null;
+const DIALECT_STYLE = { eg: 'اقرأ بلهجة مصرية دافئة وواثقة كمعلّق إعلانات، بإيقاع طبيعي', gulf: 'اقرأ بلهجة خليجية بيضاء واثقة وراقية كمعلّق إعلانات، بإيقاع طبيعي', msa: 'اقرأ بالعربية الفصحى المبسّطة بنبرة دافئة وواثقة كمعلّق إعلانات' };
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const pct = (v, total) => (typeof v === 'string' && v.endsWith('%') ? (parseFloat(v) / 100) * total : +v);
 const log = (m) => { const l = $('log'); l.textContent = (l.textContent + '\n' + m).split('\n').slice(-4).join('\n'); };
@@ -253,7 +260,12 @@ async function init() {
   renderArt();
   try { await Promise.all(faces.map(([n]) => document.fonts.load(`20px "${n}"`))); } catch {}
   if (!settings.key) say('aiMsg', '🔑 ضع مفتاح Gemini في ⚙️ (أعلى الصفحة) لتشغيل كتابة السيناريو والصوت. المعاينة والرسم يعملان بدونه.');
-  const saved = localStorage.getItem('doodle_script');
+  if (!settings.style && BRAND) $('voiceStyle').value = DIALECT_STYLE[BRAND.dialect] || DIALECT_STYLE.eg;
+  if (MODE === 'motion') { document.title = 'موشن نصي — Doodle Studio'; $('appTitle').textContent = 'موشن نصي'; $('artMode').style.display = 'none'; $('makeBtn').textContent = '🎬 اصنع الموشن'; document.querySelector('#ideaCard .center').textContent = 'كلمات تقفز على الشاشة بلون براندك مع موسيقى — مجاني تقريبًا، وأقل من دقيقتين.'; $('brief').placeholder = 'اكتب الرسالة: المنتج، الفائدة، الدعوة للفعل…'; $('format').value = '9:16'; }
+  const bf = localStorage.getItem('doodle_brief'); if (bf) { $('brief').value = bf; localStorage.removeItem('doodle_brief'); }
+  const lid = new URLSearchParams(location.search).get('id');
+  if (lid && window.Suite) { const it = await Suite.lib.get(lid); if (it && it.data) { LIB_ID = lid; $('studioCard').hidden = false; setScript(it.data); if (it.video) { const url = URL.createObjectURL(it.video); $('result').innerHTML = `<video src="${url}" controls></video><div class="row"><a class="fix" href="${url}" download="${esc((it.title || 'video') + '.' + (it.ext || 'mp4'))}"><button class="primary">⬇ تحميل الفيديو</button></a></div>`; showResult(true); } return; } }
+  const saved = localStorage.getItem(SAVE_KEY);
   if (saved) { try { const sc = JSON.parse(saved); if (sc.scenes?.length) { $('studioCard').hidden = false; setScript(sc); } } catch {} }
 }
 function openSettings() { $('settings').showModal(); }
@@ -263,7 +275,7 @@ function saveSettings() {
   say('setMsg', '✅ حُفظ في متصفحك'); if (settings.key) say('aiMsg', '');
 }
 let saveTimer = null;
-function autosave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem('doodle_script', JSON.stringify(SCRIPT)); } catch {} }, 300); }
+function autosave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SCRIPT)); } catch {} }, 300); }
 function setScript(s) {
   SCRIPT = { ...blankScript(), ...s }; if (typeof SCRIPT.hand !== 'string') SCRIPT.hand = SCRIPT.hand?.preset || 'marker-a';
   $('title').value = SCRIPT.title || ''; $('format').value = FORMATS[SCRIPT.format] ? SCRIPT.format : '16:9'; $('board').value = BOARDS[SCRIPT.board] ? SCRIPT.board : 'white';
@@ -311,9 +323,11 @@ async function runAI() {
   const brief = $('brief').value.trim(); if (!brief) { say('aiMsg', 'اكتب الفكرة أولًا', true); return false; }
   say('jobMsg', '🤖 جارٍ كتابة السيناريو…');
   try {
-    const sys = await fetchText('assets/script-writer.md');
+    const brandCtx = BRAND && Suite.brandReady(BRAND) ? '\n\n' + Suite.brandContext(BRAND) : '';
+    if (MODE === 'motion') return await runMotion(brief, brandCtx);
+    const sys = (await fetchText('assets/script-writer.md')) + brandCtx;
     const ai = $('artMode').value === 'ai';
-    const user = `Brief:\n${brief}\n\nConstraints:\n- format: ${$('format').value}\n- language: ${$('lang').value}\n- available peep seeds: ${CAT.peeps.join(', ')}\n- available art files (use exactly these names with "art/" prefix if they fit): ${[...ART.keys()].join(', ')}\n${ai ? '- The user has an AI illustrator. For the MAIN drawing of EVERY scene use an `image` element with a NEW descriptive file name under art/ and describe it in artRequests (one request per file; a recurring person gets the same `character` key and the identical physical description each time). Use peeps/doodles/icons only for small secondary elements.' : '- The user has no image generator: use only the available art files, peeps, doodles, tabler icons and shapes; do not request custom art.'}\nReturn ONLY the JSON.`;
+    const user = `Brief:\n${brief}\n\nConstraints:\n- format: ${$('format').value}\n- language: ${$('lang').value}\n- dialect for narration and on-screen text: ${BRAND && window.Suite ? Suite.DIALECT_NOTE[BRAND.dialect] || Suite.DIALECT_NOTE.eg : 'Egyptian colloquial Arabic'}\n- available peep seeds: ${CAT.peeps.join(', ')}\n- available art files (use exactly these names with "art/" prefix if they fit): ${[...ART.keys()].join(', ')}\n${ai ? '- The user has an AI illustrator. For the MAIN drawing of EVERY scene use an `image` element with a NEW descriptive file name under art/ and describe it in artRequests (one request per file; a recurring person gets the same `character` key and the identical physical description each time). Use peeps/doodles/icons only for small secondary elements.' : '- The user has no image generator: use only the available art files, peeps, doodles, tabler icons and shapes; do not request custom art.'}\nReturn ONLY the JSON.`;
     const models = [settings.model, ...SCRIPT_MODELS.filter((m) => m !== settings.model)];
     const { j, model } = await geminiAny(models, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: user }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }, (m) => say('jobMsg', m));
     if (model !== settings.model) { settings.model = model; localStorage.setItem('gemini_model', model); $('s_model').value = model; }
@@ -323,6 +337,20 @@ async function runAI() {
     setScript({ ...keep, ...s, format: s.format || keep.format, hand: keep.hand, voice: keep.voice });
     return true;
   } catch (e) { say('jobMsg', '❌ ' + e.message, true); return false; }
+}
+// motion-text mode: the agent writes punchy lines; each line becomes a scene of popping words on the brand colour
+async function runMotion(brief, brandCtx) {
+  const sys = (await fetchText('assets/prompts/motion.md')) + brandCtx;
+  const models = [settings.model, ...SCRIPT_MODELS.filter((m) => m !== settings.model)];
+  const { j } = await geminiAny(models, { systemInstruction: { parts: [{ text: sys }] }, contents: [{ parts: [{ text: `Message / brief:\n${brief}\nReturn ONLY the JSON.` }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }, (m) => say('jobMsg', m));
+  const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
+  const m = JSON.parse(text.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'));
+  const c = BRAND?.colors || { primary: '#1d1d1d', accent: '#e63946', bg: '#ffffff' };
+  const vertical = $('format').value === '9:16';
+  const scenes = (m.lines || []).map((l) => ({ narration: '', duration: Math.max(1.2, +l.hold || 1.8) + 0.35, elements: [{ type: 'text', text: String(l.text || ''), x: '6%', y: vertical ? '30%' : '20%', w: '88%', h: vertical ? '40%' : '60%', size: l.emphasis ? (vertical ? '7.5%' : '13%') : (vertical ? '5.5%' : '10%'), align: 'center', weight: 'bold', anim: 'pop', color: l.emphasis ? c.accent : c.bg, font: '"Cairo","Tajawal",sans-serif', at: 0.05 }] }));
+  if (!scenes.length) throw new Error('لم يُرجع النموذج سطورًا');
+  setScript({ ...SCRIPT, title: m.title || brief.slice(0, 40), format: $('format').value, hand: 'none', board: 'white', layout: 'fade', music: 'auto', sfx: false, caption: m.caption || '', hashtags: m.hashtags || [], defaults: { background: c.primary, transitionDuration: 0.2, hold: 0, gap: 0.1 }, scenes });
+  return true;
 }
 // --- persistent voice cache (IndexedDB) so re-renders never call Google again
 function idb() { return new Promise((ok, bad) => { const r = indexedDB.open('doodle-studio', 2); r.onupgradeneeded = () => { for (const st of ['tts', 'art']) if (!r.result.objectStoreNames.contains(st)) r.result.createObjectStore(st); }; r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
@@ -762,7 +790,9 @@ async function render(draft) {
     const blob = new Blob([muxer.target.buffer], { type: container === 'mp4' ? 'video/mp4' : 'video/webm' });
     const url = URL.createObjectURL(blob); const name = (SCRIPT.title || 'doodle') + (draft ? '-preview' : '') + '.' + container;
     $('result').innerHTML = `<video src="${url}" controls autoplay></video><div class="row"><a class="fix" href="${url}" download="${esc(name)}"><button class="primary">⬇ تحميل الفيديو (${(blob.size / 1e6).toFixed(1)} MB)</button></a><span class="muted">${container === 'webm' ? 'متصفحك لا يدعم ترميز H.264 فأُخرج WebM؛ Chrome/Edge على ويندوز/ماك يُخرجان MP4' : (withAudio ? '' : 'بلا تعليق صوتي: لا مفتاح Gemini')}</span></div>`;
+    if (SCRIPT.caption) $('result').insertAdjacentHTML('beforeend', `<div class="res"><b>الكابشن</b> <button class="ghost small" onclick="navigator.clipboard.writeText(SCRIPT.caption + '\\n\\n' + (SCRIPT.hashtags || []).join(' '))">📋 نسخ</button><div style="white-space:pre-wrap;margin-top:4px">${esc(SCRIPT.caption)}</div><div class="muted">${esc((SCRIPT.hashtags || []).join(' '))}</div></div>`);
     $('barFill').style.width = '100%'; say('jobMsg', `✅ الفيديو جاهز — ${COMPILED.duration.toFixed(0)} ث${draft ? ' (نسخة سريعة)' : ''}`); showResult(true); ok = true;
+    if (window.Suite && !draft) { try { const it = await Suite.lib.save({ id: LIB_ID || undefined, type: MODE, title: SCRIPT.title || 'video', data: SCRIPT, video: blob, ext: container, thumb: $('outCanvas').toDataURL('image/jpeg', 0.5) }); LIB_ID = it.id; } catch (e) { log('lib: ' + e.message); } }
   } catch (e) { say('jobMsg', '❌ ' + e.message, true); log(e.stack || e.message); } finally { setBusy(false); if (DIRTY) changed(); }
   return ok;
 }

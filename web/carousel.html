@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>كاروسيل إنستجرام — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  /* ---- slide design system (1080 x 1350) ---- */
+  .slide{width:1080px;height:1350px;position:relative;overflow:hidden;direction:rtl;font-family:"Cairo",sans-serif;--p:#1d1d1d;--a:#e63946;--bg:#fff;background:var(--bg);color:var(--p)}
+  .slide .bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .slide .veil{position:absolute;inset:0}
+  .slide .in{position:absolute;inset:0;padding:96px 88px;display:flex;flex-direction:column}
+  .slide .top{display:flex;align-items:center;gap:18px;font-size:30px;font-weight:700;opacity:.85}
+  .slide .top img{height:64px;width:auto;max-width:220px;object-fit:contain}
+  .slide .top .pg{margin-inline-start:auto;font-weight:400;font-size:26px;opacity:.7}
+  .slide .mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px}
+  .slide .num{width:120px;height:120px;border-radius:36px;display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:900;background:var(--a);color:#fff}
+  .slide h1{font-size:104px;line-height:1.18;margin:0;font-weight:900;letter-spacing:-.5px}
+  .slide h1.long{font-size:84px}.slide h1.xlong{font-size:68px}
+  .slide h2{font-size:76px;line-height:1.22;margin:0;font-weight:800}
+  .slide h2.long{font-size:62px}
+  .slide p{font-size:44px;line-height:1.55;margin:0;font-weight:400;opacity:.9}
+  .slide .sub{font-size:48px;line-height:1.4;font-weight:600;opacity:.85}
+  .slide .cta{display:inline-block;align-self:flex-start;background:var(--a);color:#fff;font-size:44px;font-weight:800;padding:22px 56px;border-radius:999px;margin-top:12px}
+  .slide .bot{display:flex;align-items:center;justify-content:space-between;font-size:30px;opacity:.75}
+  .slide .swipe{display:inline-flex;align-items:center;gap:12px;font-weight:700}
+  .slide .dots{display:flex;gap:10px}.slide .dots i{width:14px;height:14px;border-radius:50%;background:currentColor;opacity:.3}.slide .dots i.on{opacity:1}
+  /* templates */
+  .slide.t-bold{background:var(--p);color:#fff}.slide.t-bold .num{background:#fff;color:var(--p)}.slide.t-bold .cta{background:#fff;color:var(--p)}.slide.t-bold .sub{color:#fff}
+  .slide.t-bold .in::before{content:"";position:absolute;right:-180px;top:-180px;width:520px;height:520px;border-radius:50%;background:var(--a);opacity:.35}
+  .slide.t-clean{background:#fff;color:#1d1d1d}.slide.t-clean .in::before{content:"";position:absolute;top:0;right:0;left:0;height:22px;background:var(--a)}.slide.t-clean h1,.slide.t-clean h2{color:var(--p)}
+  .slide.t-dark{background:#0f1115;color:#fff}.slide.t-dark .in::before{content:"";position:absolute;left:-260px;bottom:-260px;width:760px;height:760px;border-radius:50%;background:radial-gradient(circle,var(--a),transparent 70%);opacity:.55}
+  .slide.t-paper{background:#faf6ec;color:#23201b}.slide.t-paper h1,.slide.t-paper h2{font-family:"Aref Ruqaa","Cairo",serif;font-weight:400}.slide.t-paper .ul{height:14px;width:60%;background:var(--a);border-radius:8px;transform:rotate(-1deg);opacity:.85}
+  .slide.hasimg .veil{background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.62) 50%,rgba(0,0,0,.22) 100%)}.slide.hasimg .in::before{display:none}.slide.hasimg .num{background:var(--a);color:#fff}.slide.hasimg .cta{background:var(--a);color:#fff}.slide.hasimg{color:#fff}.slide.hasimg h1,.slide.hasimg h2,.slide.hasimg p{color:#fff}
+  /* page */
+  .frames{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .editor{border:1px solid #cfe7e3;border-radius:12px;padding:10px;background:#fff;margin-top:10px}
+  .tpl{display:flex;gap:8px;flex-wrap:wrap}
+  .tpl label{border:2px solid var(--line);border-radius:10px;padding:6px 10px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;background:#fff}
+  .tpl label i{width:22px;height:28px;border-radius:5px;display:inline-block}
+  .tpl label:has(input:checked){border-color:var(--accent2)}
+  .tpl input{display:none}
+  #exportBox{position:fixed;left:0;top:0;width:1080px;height:1350px;opacity:0;pointer-events:none;z-index:-1;overflow:hidden}
+</style>
+</head>
+<body>
+<main class="wide">
+  <div><h1 class="page">🖼️ كاروسيل إنستجرام</h1><p class="lead">٧ شرائح مكتوبة ومصمّمة بألوان براندك وشعارك، جاهزة للرفع كصور بمقاس ١٠٨٠×١٣٥٠.</p></div>
+  <div class="pane">
+    <section class="card">
+      <label class="f">موضوع الكاروسيل</label>
+      <textarea id="topic" placeholder="مثال: ٥ أسباب تخلي عميلك يسيب متجرك من غير ما يشتري، وإزاي تصلحها"></textarea>
+      <label class="f">القالب</label>
+      <div class="tpl" id="tpl">
+        <label><input type="radio" name="tpl" value="t-bold" checked><i id="sw-bold"></i>جريء</label>
+        <label><input type="radio" name="tpl" value="t-clean"><i style="background:#fff;border:1px solid #ddd"></i>نظيف</label>
+        <label><input type="radio" name="tpl" value="t-dark"><i style="background:#0f1115"></i>داكن</label>
+        <label><input type="radio" name="tpl" value="t-paper"><i style="background:#faf6ec;border:1px solid #e5dccb"></i>ورقي</label>
+      </div>
+      <label class="f" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="aiCover" style="width:auto"> خلفية مولّدة بالذكاء الاصطناعي للغلاف (≈ ٠٫٠٧$)</label>
+      <button class="primary big" id="go" onclick="generate()">✨ اكتب وصمّم الكاروسيل</button>
+      <div id="msg" class="msg"></div>
+      <div id="editBox" class="editor" hidden>
+        <div class="muted">تعديل الشريحة <b id="edN"></b></div>
+        <label class="f">العنوان</label><input id="edTitle" oninput="edit('title', this.value)">
+        <label class="f" id="edBodyL">النص</label><textarea id="edBody" style="min-height:60px" oninput="edit('body', this.value)"></textarea>
+        <div class="row"><button class="soft small fix" onclick="aiBg(SEL)">🎨 خلفية ذكية لهذه الشريحة (≈ ٠٫٠٧$)</button><button class="ghost small fix" onclick="clearBg(SEL)">بلا خلفية</button></div>
+      </div>
+    </section>
+
+    <section class="card" id="out" hidden>
+      <h2>الشرائح <span class="muted" id="cnt"></span><span class="grow"></span><button class="soft small" onclick="exportAll()">⬇ تحميل الكل (ZIP)</button><button class="small" onclick="save()">💾 حفظ</button></h2>
+      <div class="frames" id="frames"></div>
+      <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: «خلّي الغلاف سؤال» أو «اختصر النصوص» أو «أضف رقمًا لكل نقطة»"><button class="fix" onclick="chat()">تعديل</button></div>
+      <div class="res" style="margin-top:12px"><h3>الكابشن <button class="ghost small" onclick="copyText(DATA.caption + '\n\n' + (DATA.hashtags||[]).join(' '))">📋 نسخ</button></h3><div class="cap" id="cap"></div><div class="hash" id="hash"></div></div>
+      <div id="msg2" class="msg"></div>
+    </section>
+  </div>
+</main>
+<div id="exportBox"></div>
+<script src="js/html-to-image.js"></script>
+<script src="js/jszip.min.js"></script>
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, loadBrand, lib, needKey, chatEdit, nodeToPng, zipBlobs, download, q, sleep } = Suite;
+Suite.mountHeader('كاروسيل');
+const B = loadBrand(); $('sw-bold').style.background = B.colors.primary;
+let DATA = null, SEL = 0, ID = q.get('id'), BG = {}; // BG: slide index -> dataURL
+const tpl = () => document.querySelector('input[name=tpl]:checked').value;
+document.querySelectorAll('input[name=tpl]').forEach((x) => x.addEventListener('change', render));
+async function generate() {
+  const topic = $('topic').value.trim(); if (!topic) return say('msg', 'اكتب الموضوع أولًا', true);
+  if (!needKey('msg')) return;
+  $('go').disabled = true; say('msg', '✍️ جارٍ الكتابة…');
+  try {
+    const sys = (await (await fetch('assets/prompts/carousel.md')).text()) + '\n\n' + brandContext(B);
+    DATA = await geminiJSON(sys, `Topic: ${topic}\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
+    ID = null; BG = {}; SEL = 0; render();
+    if ($('aiCover').checked) await aiBg(0);
+    say('msg', '✅ جاهز — انقر أي شريحة لتعديلها');
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+function slideHTML(s, i, n) {
+  const brand = `<div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span><span class="pg">${i + 1}/${n}</span></div>`;
+  const dots = `<div class="dots">${Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>`;
+  const cls = (t, a, b) => (t.length > b ? 'xlong' : t.length > a ? 'long' : '');
+  let mid;
+  if (s.role === 'cover') mid = `<div class="mid"><h1 class="${cls(s.title || '', 22, 40)}">${esc(s.title)}</h1>${tpl() === 't-paper' ? '<div class="ul"></div>' : ''}<div class="sub">${esc(s.sub || '')}</div></div><div class="bot"><span class="swipe">اسحب للتفاصيل ←</span>${dots}</div>`;
+  else if (s.role === 'cta') mid = `<div class="mid"><h2 class="${cls(s.title || '', 24, 999) ? 'long' : ''}">${esc(s.title)}</h2><p>${esc(s.body || '')}</p><span class="cta">${esc(s.cta || B.cta || 'اطلب الآن')}</span>${B.website || B.phone ? `<p style="font-size:34px;opacity:.8">${esc(B.website || '')} ${esc(B.phone || '')}</p>` : ''}</div><div class="bot"><span class="swipe">احفظ المنشور 🔖</span>${dots}</div>`;
+  else mid = `<div class="mid"><div class="num">${s.n || i}</div><h2 class="${cls(s.title || '', 24, 999) ? 'long' : ''}">${esc(s.title)}</h2><p>${esc(s.body || '')}</p></div><div class="bot"><span class="swipe">${i < n - 1 ? 'التالي ←' : ''}</span>${dots}</div>`;
+  const bg = BG[i] ? `<img class="bgimg" src="${BG[i]}"><div class="veil"></div>` : '';
+  return `<div class="slide ${tpl()} ${BG[i] ? 'hasimg' : ''}" style="--p:${B.colors.primary};--a:${B.colors.accent};--bg:${B.colors.bg}" data-i="${i}">${bg}<div class="in">${brand}${mid}</div></div>`;
+}
+function render() {
+  if (!DATA) return; $('out').hidden = false; const n = DATA.slides.length; $('cnt').textContent = `${n} شرائح`;
+  $('frames').innerHTML = DATA.slides.map((s, i) => `<div class="frame ${i === SEL ? 'sel' : ''}" onclick="select(${i})"><div class="scaler" style="aspect-ratio:1080/1350"><div class="inner">${slideHTML(s, i, n)}</div></div><span class="n">${i + 1}</span></div>`).join('');
+  fit(); $('cap').textContent = DATA.caption || ''; $('hash').textContent = (DATA.hashtags || []).join(' ');
+  showEditor();
+}
+function fit() { document.querySelectorAll('.frame .scaler').forEach((sc) => { const k = sc.clientWidth / 1080; sc.querySelector('.inner').style.transform = `scale(${k})`; }); }
+window.addEventListener('resize', fit);
+function select(i) { SEL = i; document.querySelectorAll('.frame').forEach((f, k) => f.classList.toggle('sel', k === i)); showEditor(); }
+function showEditor() { const s = DATA.slides[SEL]; $('editBox').hidden = false; $('edN').textContent = SEL + 1; $('edTitle').value = s.title || ''; $('edBodyL').textContent = s.role === 'cover' ? 'السطر الفرعي' : 'النص'; $('edBody').value = s.role === 'cover' ? (s.sub || '') : (s.body || ''); }
+function edit(k, v) { const s = DATA.slides[SEL]; if (k === 'title') s.title = v; else if (s.role === 'cover') s.sub = v; else s.body = v; const el = document.querySelector(`.frame:nth-child(${SEL + 1}) .inner`); el.innerHTML = slideHTML(s, SEL, DATA.slides.length); }
+async function aiBg(i) {
+  if (!needKey('msg2')) return; say('msg2', `🎨 توليد خلفية الشريحة ${i + 1}…`);
+  try {
+    const s = DATA.slides[i]; const prompt = `Editorial social-media background illustration, ${s.visual || DATA.topic}. Style: clean modern flat illustration with soft depth, colour palette built around ${B.colors.primary} and ${B.colors.accent}, dark bottom half so white text stays readable, no text, no letters, no logos, no people faces close-up, vertical composition.`;
+    BG[i] = await generateImage(prompt, { ratio: '4:5', onWait: (m) => say('msg2', m) }); render(); say('msg2', '✅ تمت إضافة الخلفية');
+  } catch (e) { say('msg2', '❌ ' + e.message, true); }
+}
+function clearBg(i) { delete BG[i]; render(); }
+async function chat() {
+  const ins = $('chatIn').value.trim(); if (!ins || !DATA) return; if (!needKey('msg2')) return;
+  say('msg2', '✏️ جارٍ التعديل…');
+  try { const out = await chatEdit(DATA, ins, 'Instagram carousel (7 slides)', (m) => say('msg2', m)); if (out.slides?.length) { DATA = out; render(); $('chatIn').value = ''; say('msg2', '✅ تم التعديل'); } }
+  catch (e) { say('msg2', '❌ ' + e.message, true); }
+}
+async function renderPng(i) {
+  const box = $('exportBox'); box.innerHTML = slideHTML(DATA.slides[i], i, DATA.slides.length); const node = box.firstElementChild;
+  await document.fonts.ready; await sleep(30);
+  const blob = await nodeToPng(node, 1); box.innerHTML = ''; return blob;
+}
+async function exportAll() {
+  say('msg2', '⬇ تجهيز الصور…'); const files = [];
+  for (let i = 0; i < DATA.slides.length; i++) { say('msg2', `⬇ الشريحة ${i + 1}/${DATA.slides.length}…`); files.push([`slide-${String(i + 1).padStart(2, '0')}.png`, await renderPng(i)]); }
+  files.push(['caption.txt', new Blob([(DATA.caption || '') + '\n\n' + (DATA.hashtags || []).join(' ')], { type: 'text/plain' })]);
+  download(await zipBlobs(files), `${(DATA.topic || 'carousel').slice(0, 40).replace(/[\\/:*?"<>|]/g, ' ')}.zip`); say('msg2', '✅ نُزّل ملف ZIP بالشرائح والكابشن');
+}
+async function save() {
+  let thumb = ''; try { const b = await renderPng(0); thumb = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); }); } catch {}
+  const item = await lib.save({ id: ID || undefined, type: 'carousel', title: DATA.slides[0]?.title || DATA.topic, data: DATA, tpl: tpl(), bg: BG, thumb }); ID = item.id; toast('💾 حُفظ في المكتبة');
+}
+(async () => { if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; BG = it.bg || {}; $('topic').value = DATA.topic || ''; const t = document.querySelector(`input[name=tpl][value=${it.tpl}]`); if (t) t.checked = true; render(); } } })();
+</script>
+</body>
+</html>

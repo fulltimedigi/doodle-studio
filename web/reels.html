@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>سكريبتات ريلز — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .tabs button{background:var(--soft);color:var(--ink);padding:7px 12px;font-size:13px}
+  .tabs button.on{background:var(--ink);color:#fff}
+  .hook{font-size:18px;font-weight:700;margin:6px 0}
+  .beat{display:grid;grid-template-columns:52px 1fr 1fr;gap:8px;padding:8px 0;border-top:1px dashed var(--line);font-size:14px}
+  .beat .t{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px}
+  .beat .s{color:var(--muted);font-size:13px}
+  .beat .s b{display:block;color:var(--ink);font-weight:600}
+  @media (max-width:640px){.beat{grid-template-columns:44px 1fr}.beat .s{grid-column:2}}
+  .src a{font-size:12px;margin-inline-end:8px}
+</style>
+</head>
+<body>
+<main>
+  <div><h1 class="page">🎬 سكريبتات ريلز</h1><p class="lead">اكتب الموضوع واحصل على ٣ سيناريوهات جاهزة للتصوير: خطّاف، مشاهد بالثواني، نص الشاشة، الكابشن والهاشتاجات — بلهجة براندك.</p></div>
+  <div class="pane">
+    <section class="card">
+      <label class="f">الموضوع أو الفكرة</label>
+      <textarea id="topic" placeholder="مثال: ٣ أخطاء بتخلي العميل يسيب متجرك من غير ما يشتري"></textarea>
+      <label class="f">الهدف</label>
+      <div class="opts" id="goal">
+        <label><input type="radio" name="goal" value="مبيعات مباشرة" checked>مبيعات</label>
+        <label><input type="radio" name="goal" value="توعية وتعليم">توعية</label>
+        <label><input type="radio" name="goal" value="ركوب ترند">ترند</label>
+        <label><input type="radio" name="goal" value="قصة وبناء ثقة">قصة</label>
+      </div>
+      <div class="grid2">
+        <div><label class="f">المدة</label><select id="dur"><option value="15">١٥ ثانية</option><option value="30" selected>٣٠ ثانية</option><option value="60">٦٠ ثانية</option></select></div>
+        <div><label class="f">عدد السيناريوهات</label><select id="count"><option>1</option><option selected>3</option><option>5</option></select></div>
+      </div>
+      <label class="f" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="trend" checked style="width:auto"> ابحث عن الترند الحالي في جوجل قبل الكتابة</label>
+      <button class="primary big" id="go" onclick="generate()">✨ اكتب السيناريوهات</button>
+      <div id="msg" class="msg"></div>
+    </section>
+
+    <section class="card" id="out" hidden>
+      <div class="tabs" id="tabs"></div>
+      <div id="view"></div>
+      <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: مثلًا «خلّي الخطّاف أقوى» أو «قصّر الجمل»"><button class="fix" onclick="chat()">تعديل</button></div>
+      <div class="row" style="margin-top:12px">
+        <button class="soft fix" onclick="copyAll()">📋 نسخ السيناريو كاملًا</button>
+        <button class="soft fix" onclick="toDoodle()">✍️ حوّله لفيديو Doodle</button>
+        <button class="soft fix" onclick="toMotion()">💬 حوّله لموشن نصي</button>
+        <span class="grow"></span>
+        <button class="fix" onclick="save()">💾 حفظ في المكتبة</button>
+      </div>
+      <div id="msg2" class="msg"></div>
+    </section>
+  </div>
+</main>
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, chatEdit, q } = Suite;
+Suite.mountHeader('سكريبتات ريلز');
+let DATA = null, CUR = 0, ID = q.get('id');
+async function generate() {
+  const topic = $('topic').value.trim(); if (!topic) return say('msg', 'اكتب الموضوع أولًا', true);
+  if (!needKey('msg')) return;
+  $('go').disabled = true; say('msg', $('trend').checked ? '🔎 بحث عن الترند ثم الكتابة…' : '✍️ جارٍ الكتابة…');
+  try {
+    const sys = (await (await fetch('assets/prompts/reels.md')).text()) + '\n\n' + brandContext();
+    const user = `Topic: ${topic}\nGoal: ${document.querySelector('input[name=goal]:checked').value}\nDuration: ${$('dur').value} seconds\nNumber of ideas: ${$('count').value}\n${$('trend').checked ? 'Research what is currently trending on Instagram/TikTok around this topic and audience (formats, sounds, angles) and use it.' : ''}\nReturn ONLY the JSON.`;
+    DATA = await geminiJSON(sys, user, { search: $('trend').checked, onWait: (m) => say('msg', m) });
+    ID = null; CUR = 0; render(); say('msg', '✅ جاهز — راجع، عدّل بالدردشة، ثم احفظ');
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+function render() {
+  if (!DATA || !DATA.ideas?.length) return;
+  $('out').hidden = false;
+  $('tabs').innerHTML = DATA.ideas.map((it, i) => `<button class="${i === CUR ? 'on' : ''}" onclick="CUR=${i};render()">${i + 1}. ${esc(it.title || it.format || '')}</button>`).join('');
+  const it = DATA.ideas[CUR];
+  $('view').innerHTML = `
+    ${DATA.trend ? `<div class="note">📈 الترند: ${esc(DATA.trend)}</div>` : ''}
+    <div class="res"><div class="muted">${esc(it.format || '')} · ${esc(String(it.duration || ''))} ث</div>
+      <div class="hook copy" onclick="copyText(this.textContent)" title="انقر للنسخ">🪝 ${esc(it.hook)}</div>
+      ${(it.beats || []).map((b) => `<div class="beat"><span class="t">${esc(b.t)}</span><span><b>${esc(b.say)}</b>${b.screen ? `<div class="muted">📝 ${esc(b.screen)}</div>` : ''}</span><span class="s"><b>الصورة</b>${esc(b.show || '')}</span></div>`).join('')}
+      <div class="beat"><span class="t">ختام</span><span><b>${esc(it.cta || '')}</b></span><span></span></div>
+      ${it.why ? `<div class="muted" style="margin-top:8px">💡 ${esc(it.why)}</div>` : ''}
+    </div>
+    <div class="res"><h3>الكابشن <button class="ghost small" onclick="copyText(DATA.ideas[CUR].caption + '\\n\\n' + (DATA.ideas[CUR].hashtags||[]).join(' '))">📋 نسخ</button></h3><div class="cap">${esc(it.caption || '')}</div><div class="hash">${(it.hashtags || []).map(esc).join(' ')}</div></div>
+    ${DATA._sources?.length ? `<div class="src muted">المصادر: ${DATA._sources.map((s) => `<a href="${esc(s.uri)}" target="_blank">${esc(s.title || s.uri)}</a>`).join('')}</div>` : ''}`;
+  $('topic').value = $('topic').value || DATA.topic || '';
+}
+async function chat() {
+  const ins = $('chatIn').value.trim(); if (!ins || !DATA) return; if (!needKey('msg2')) return;
+  say('msg2', '✏️ جارٍ التعديل…');
+  try { const one = { ...DATA, ideas: [DATA.ideas[CUR]] }; const out = await chatEdit(one, ins, 'reel script', (m) => say('msg2', m)); if (out.ideas?.[0]) DATA.ideas[CUR] = out.ideas[0]; render(); $('chatIn').value = ''; say('msg2', '✅ تم التعديل'); }
+  catch (e) { say('msg2', '❌ ' + e.message, true); }
+}
+function scriptText(it) { return [`🪝 ${it.hook}`, ...(it.beats || []).map((b) => `[${b.t}] ${b.say}${b.screen ? `  (على الشاشة: ${b.screen})` : ''}${b.show ? `  (الصورة: ${b.show})` : ''}`), `ختام: ${it.cta || ''}`, '', it.caption || '', (it.hashtags || []).join(' ')].join('\n'); }
+function copyAll() { copyText(scriptText(DATA.ideas[CUR])); }
+async function save() { const it = DATA.ideas[CUR]; const item = await lib.save({ id: ID || undefined, type: 'reel', title: it.title || DATA.topic, data: DATA, cur: CUR }); ID = item.id; toast('💾 حُفظ في المكتبة'); }
+function toDoodle() { const it = DATA.ideas[CUR]; localStorage.setItem('doodle_brief', `فيديو Doodle مبني على سكريبت ريلز:\nالخطّاف: ${it.hook}\n${(it.beats || []).map((b) => '- ' + b.say).join('\n')}\nالدعوة للفعل: ${it.cta || ''}`); location.href = 'doodle.html?from=reel'; }
+function toMotion() { const it = DATA.ideas[CUR]; localStorage.setItem('doodle_brief', `${it.hook}\n${(it.beats || []).map((b) => b.screen || b.say).join('\n')}\n${it.cta || ''}`); location.href = 'doodle.html?mode=motion&from=reel'; }
+(async () => { if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; CUR = it.cur || 0; $('topic').value = DATA.topic || it.title || ''; render(); } } })();
+</script>
+</body>
+</html>

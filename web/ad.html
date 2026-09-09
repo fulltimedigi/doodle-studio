@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>إعلان ثابت — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📣</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  /* ---- ad design system (1080 wide; height by size) ---- */
+  .ad{width:1080px;position:relative;overflow:hidden;direction:rtl;font-family:"Cairo",sans-serif;--p:#1d1d1d;--a:#e63946;--bg:#fff;background:var(--bg);color:#fff}
+  .ad.s11{height:1080px}.ad.s45{height:1350px}.ad.s916{height:1920px}
+  .ad .bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .ad .veil{position:absolute;inset:0}
+  .ad.space-bottom .veil{background:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.62) 42%,rgba(0,0,0,.08) 72%)}
+  .ad.space-top .veil{background:linear-gradient(to bottom,rgba(0,0,0,.9) 0%,rgba(0,0,0,.62) 42%,rgba(0,0,0,.08) 72%)}
+  .ad.space-right .veil{background:linear-gradient(to left,rgba(0,0,0,.9) 0%,rgba(0,0,0,.62) 42%,rgba(0,0,0,.08) 72%)}
+  .ad.space-left .veil{background:linear-gradient(to right,rgba(0,0,0,.9) 0%,rgba(0,0,0,.62) 42%,rgba(0,0,0,.08) 72%)}
+  .ad .in{position:absolute;inset:0;padding:80px;display:flex;flex-direction:column}
+  .ad .top{display:flex;align-items:center;gap:16px;font-size:30px;font-weight:700}
+  .ad .top img{height:64px;width:auto;max-width:220px;object-fit:contain}
+  .ad .copy{display:flex;flex-direction:column;gap:22px;max-width:100%}
+  .ad.space-bottom .copy{margin-top:auto}.ad.space-top .copy{margin-top:40px}.ad.space-right .copy,.ad.space-left .copy{margin-top:auto;margin-bottom:auto;max-width:62%}
+  .ad.space-left .in{align-items:flex-end}.ad.space-left .copy{text-align:left;direction:ltr}.ad.space-left .copy *{direction:rtl}
+  .ad .badge{align-self:flex-start;background:var(--a);color:#fff;font-size:36px;font-weight:800;padding:10px 30px;border-radius:999px}
+  .ad h1{font-size:110px;line-height:1.12;margin:0;font-weight:900;text-shadow:0 2px 24px rgba(0,0,0,.25)}
+  .ad h1.long{font-size:88px}.ad h1.xlong{font-size:72px}
+  .ad .sub{font-size:46px;line-height:1.4;font-weight:500;opacity:.92}
+  .ad .cta{align-self:flex-start;background:#fff;color:var(--p);font-size:44px;font-weight:800;padding:22px 60px;border-radius:999px;margin-top:8px}
+  .ad .contact{font-size:32px;opacity:.85;margin-top:8px}
+  /* no-image (solid) variant: brand gradient, big type */
+  .ad.solid{background:linear-gradient(160deg,var(--p),color-mix(in srgb,var(--p) 55%,var(--a)))}
+  .ad.solid .in::before{content:"";position:absolute;right:-220px;top:-220px;width:640px;height:640px;border-radius:50%;background:var(--a);opacity:.35}
+  .ad.solid .in::after{content:"";position:absolute;left:-260px;bottom:-300px;width:760px;height:760px;border-radius:50%;background:#fff;opacity:.06}
+  .ad.solid .copy{margin:auto 0;max-width:100%}
+  /* page */
+  .frames{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+  .frame .tools{display:flex;gap:4px;padding:6px;border-top:1px solid var(--line);flex-wrap:wrap}
+  .frame .tools button{padding:4px 8px;font-size:12px}
+  .editor{border:1px solid #cfe7e3;border-radius:12px;padding:10px;background:#fff;margin-top:10px}
+  #exportBox{position:fixed;left:0;top:0;width:1080px;height:1920px;opacity:0;pointer-events:none;z-index:-1;overflow:hidden}
+</style>
+</head>
+<body>
+<main class="wide">
+  <div><h1 class="page">📣 إعلان ثابت</h1><p class="lead">ثلاثة اتجاهات إعلانية (فائدة، عرض، عاطفي) مع صورة مولّدة أو خلفية بألوان براندك، بمقاسات إنستجرام وفيسبوك وسناب وتيك توك.</p></div>
+  <div class="pane">
+    <section class="card">
+      <label class="f">المنتج / العرض</label>
+      <textarea id="brief" placeholder="مثال: عطر «ليل» ٥٠ مل، خصم ٢٠٪ حتى الجمعة، توصيل مجاني داخل الرياض"></textarea>
+      <label class="f">المقاسات</label>
+      <div class="opts">
+        <label><input type="checkbox" name="size" value="s11" checked>مربع 1:1</label>
+        <label><input type="checkbox" name="size" value="s45" checked>منشور 4:5</label>
+        <label><input type="checkbox" name="size" value="s916">ستوري 9:16</label>
+      </div>
+      <label class="f">الخلفية</label>
+      <div class="opts">
+        <label><input type="radio" name="bgmode" value="ai" checked>صورة مولّدة لكل اتجاه (≈ ٠٫٢$)</label>
+        <label><input type="radio" name="bgmode" value="solid">ألوان البراند فقط (مجاني)</label>
+      </div>
+      <label class="f">أو صورة منتجك</label><input type="file" id="ownImg" accept="image/*" onchange="ownImage(this.files[0])">
+      <button class="primary big" id="go" onclick="generate()">✨ اكتب وصمّم الإعلانات</button>
+      <div id="msg" class="msg"></div>
+      <div id="editBox" class="editor" hidden>
+        <div class="muted">تعديل الاتجاه <b id="edN"></b></div>
+        <label class="f">العنوان</label><input id="edH" oninput="edit('headline', this.value)">
+        <label class="f">السطر الفرعي</label><input id="edS" oninput="edit('sub', this.value)">
+        <div class="grid2"><div><label class="f">الشارة</label><input id="edB" oninput="edit('badge', this.value)"></div><div><label class="f">الزر</label><input id="edC" oninput="edit('cta', this.value)"></div></div>
+        <div class="row"><button class="soft small fix" onclick="aiImage(SEL)">🎨 صورة جديدة (≈ ٠٫٠٧$)</button><button class="ghost small fix" onclick="delete IMG[SEL]; render()">بلا صورة</button></div>
+      </div>
+    </section>
+
+    <section class="card" id="out" hidden>
+      <h2>الإعلانات <span class="grow"></span><button class="soft small" onclick="exportAll()">⬇ تحميل الكل (ZIP)</button><button class="small" onclick="save()">💾 حفظ</button></h2>
+      <div class="frames" id="frames"></div>
+      <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: «خلّي العنوان أقصر» أو «ركّز على التوصيل المجاني»"><button class="fix" onclick="chat()">تعديل</button></div>
+      <div class="res" style="margin-top:12px"><h3>الكابشن <button class="ghost small" onclick="copyText(DATA.caption + '\n\n' + (DATA.hashtags||[]).join(' '))">📋 نسخ</button></h3><div class="cap" id="cap"></div><div class="hash" id="hash"></div></div>
+      <div id="msg2" class="msg"></div>
+    </section>
+  </div>
+</main>
+<div id="exportBox"></div>
+<script src="js/html-to-image.js"></script>
+<script src="js/jszip.min.js"></script>
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, loadBrand, lib, needKey, chatEdit, nodeToPng, zipBlobs, download, readFile, q, sleep, pmap } = Suite;
+Suite.mountHeader('إعلان ثابت');
+const B = loadBrand();
+let DATA = null, SEL = 0, ID = q.get('id'), IMG = {}, OWN = '';
+const sizes = () => [...document.querySelectorAll('input[name=size]:checked')].map((x) => x.value);
+const SIZE_NAME = { s11: '1:1', s45: '4:5', s916: '9:16' };
+async function ownImage(f) { if (!f) return; OWN = await readFile(f); toast('✅ ستُستخدم صورتك كخلفية'); if (DATA) { DATA.variants.forEach((v, i) => { IMG[i] = OWN; }); render(); } }
+async function generate() {
+  const brief = $('brief').value.trim(); if (!brief) return say('msg', 'اكتب المنتج أو العرض أولًا', true);
+  if (!needKey('msg')) return; if (!sizes().length) return say('msg', 'اختر مقاسًا واحدًا على الأقل', true);
+  $('go').disabled = true; say('msg', '✍️ جارٍ كتابة النصوص…');
+  try {
+    const sys = (await (await fetch('assets/prompts/ad.md')).text()) + '\n\n' + brandContext(B);
+    DATA = await geminiJSON(sys, `Brief: ${brief}\nBrand colours: primary ${B.colors.primary}, accent ${B.colors.accent}.\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
+    ID = null; IMG = {}; SEL = 0;
+    if (OWN) DATA.variants.forEach((v, i) => { IMG[i] = OWN; });
+    else if (document.querySelector('input[name=bgmode]:checked').value === 'ai') { say('msg', '🎨 توليد الصور (بالتوازي)…'); await pmap(DATA.variants.map((v, i) => i), 3, (i) => aiImage(i, true)); }
+    render(); say('msg', '✅ جاهز — انقر أي إعلان لتعديله');
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+async function aiImage(i, quiet) {
+  if (!needKey('msg2')) return; if (!quiet) say('msg2', `🎨 توليد صورة الاتجاه ${i + 1}…`);
+  try {
+    const v = DATA.variants[i];
+    const prompt = `Professional advertising photograph / render for a social media ad. ${v.image} Mood: ${v.mood || 'clean'}. Colour harmony with ${B.colors.primary} and ${B.colors.accent}. Leave clean, uncluttered negative space at the ${v.space || 'bottom'} of the frame for text. Absolutely no text, letters, watermarks or logos. High-end commercial quality, sharp focus, vertical composition.`;
+    IMG[i] = await generateImage(prompt, { ratio: '4:5', onWait: (m) => say('msg2', m) }); if (!quiet) { render(); say('msg2', '✅ تم'); }
+  } catch (e) { say('msg2', '❌ ' + e.message, true); }
+}
+function adHTML(v, i, size) {
+  const long = (v.headline || '').length; const cls = long > 34 ? 'xlong' : long > 20 ? 'long' : '';
+  const img = IMG[i];
+  return `<div class="ad ${size} ${img ? 'space-' + (v.space || 'bottom') : 'solid'}" style="--p:${B.colors.primary};--a:${B.colors.accent};--bg:${B.colors.primary}">
+    ${img ? `<img class="bgimg" src="${img}"><div class="veil"></div>` : ''}
+    <div class="in"><div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div>
+      <div class="copy">${v.badge ? `<span class="badge">${esc(v.badge)}</span>` : ''}<h1 class="${cls}">${esc(v.headline)}</h1><div class="sub">${esc(v.sub || '')}</div><span class="cta">${esc(v.cta || B.cta || 'اطلب الآن')}</span>${B.website || B.phone ? `<div class="contact">${esc(B.website || '')} ${esc(B.phone || '')}</div>` : ''}</div>
+    </div></div>`;
+}
+const H = { s11: 1080, s45: 1350, s916: 1920 };
+function render() {
+  if (!DATA) return; $('out').hidden = false; const ss = sizes();
+  $('frames').innerHTML = DATA.variants.flatMap((v, i) => ss.map((s) => `<div class="frame ${i === SEL ? 'sel' : ''}" onclick="select(${i})"><div class="scaler" style="aspect-ratio:1080/${H[s]}"><div class="inner">${adHTML(v, i, s)}</div></div><span class="n">${esc(v.name || '')} · ${SIZE_NAME[s]}</span><div class="tools"><button class="soft" onclick="event.stopPropagation();exportOne(${i},'${s}')">⬇ PNG</button></div></div>`)).join('');
+  fit(); $('cap').textContent = DATA.caption || ''; $('hash').textContent = (DATA.hashtags || []).join(' '); showEditor();
+}
+function fit() { document.querySelectorAll('.frame .scaler').forEach((sc) => { const k = sc.clientWidth / 1080; sc.querySelector('.inner').style.transform = `scale(${k})`; }); }
+window.addEventListener('resize', fit);
+document.querySelectorAll('input[name=size]').forEach((x) => x.addEventListener('change', () => DATA && render()));
+function select(i) { SEL = i; render(); }
+function showEditor() { const v = DATA.variants[SEL]; $('editBox').hidden = false; $('edN').textContent = SEL + 1; $('edH').value = v.headline || ''; $('edS').value = v.sub || ''; $('edB').value = v.badge || ''; $('edC').value = v.cta || ''; }
+function edit(k, val) { DATA.variants[SEL][k] = val; document.querySelectorAll('.frame').forEach((f) => { const inner = f.querySelector('.inner'); const ad = inner.firstElementChild; const m = f.querySelector('.n').textContent; if (f.classList.contains('sel')) { const size = [...ad.classList].find((c) => /^s\d/.test(c)); inner.innerHTML = adHTML(DATA.variants[SEL], SEL, size); } }); }
+async function renderPng(i, size) { const box = $('exportBox'); box.innerHTML = adHTML(DATA.variants[i], i, size); await document.fonts.ready; await sleep(30); const b = await nodeToPng(box.firstElementChild, 1); box.innerHTML = ''; return b; }
+async function exportOne(i, size) { say('msg2', '⬇ تجهيز الصورة…'); download(await renderPng(i, size), `ad-${DATA.variants[i].name || i + 1}-${SIZE_NAME[size].replace(':', 'x')}.png`); say('msg2', '✅'); }
+async function exportAll() { const files = []; for (const [i, v] of DATA.variants.entries()) for (const s of sizes()) { say('msg2', `⬇ ${v.name} ${SIZE_NAME[s]}…`); files.push([`ad-${v.name || i + 1}-${SIZE_NAME[s].replace(':', 'x')}.png`, await renderPng(i, s)]); } files.push(['caption.txt', new Blob([(DATA.caption || '') + '\n\n' + (DATA.hashtags || []).join(' ')])]); download(await zipBlobs(files), 'ads.zip'); say('msg2', '✅ نُزّل ملف ZIP'); }
+async function chat() {
+  const ins = $('chatIn').value.trim(); if (!ins || !DATA) return; if (!needKey('msg2')) return; say('msg2', '✏️ جارٍ التعديل…');
+  try { const out = await chatEdit(DATA, ins, 'static social ad set (3 variants)', (m) => say('msg2', m)); if (out.variants?.length) { DATA = out; render(); $('chatIn').value = ''; say('msg2', '✅ تم التعديل'); } } catch (e) { say('msg2', '❌ ' + e.message, true); }
+}
+async function save() { let thumb = ''; try { const b = await renderPng(SEL, 's11'); thumb = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); }); } catch {} const item = await lib.save({ id: ID || undefined, type: 'ad', title: DATA.variants[SEL]?.headline || DATA.product, data: DATA, img: IMG, thumb }); ID = item.id; toast('💾 حُفظ في المكتبة'); }
+(async () => { if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; IMG = it.img || {}; $('brief').value = DATA.product || ''; render(); } } })();
+</script>
+</body>
+</html>

@@ -3,247 +3,148 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Doodle Studio</title>
+<title>Doodle Studio — استوديو المحتوى</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
 <style>
-  :root{--bg:#f6f4ef;--card:#fff;--ink:#1d1d1d;--muted:#6b6b6b;--accent:#e63946;--accent2:#2a9d8f;--line:#e6e1d8}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahoma,"Noto Sans Arabic",system-ui,sans-serif;font-size:15px}
-  header{display:flex;align-items:center;gap:14px;padding:14px 22px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-  header h1{font-size:20px;margin:0}
-  header .sub{color:var(--muted);font-size:13px}
-  main{max-width:1240px;margin:0 auto;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media (max-width:980px){main{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
-  .card h2{margin:0 0 10px;font-size:17px;display:flex;align-items:center;gap:8px}
-  .step{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;align-items:center;justify-content:center;font-size:13px}
-  textarea,input,select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff}
-  textarea{min-height:110px;resize:vertical}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
-  .row > *{flex:1}
-  .row > .fix{flex:0 0 auto}
-  button{padding:9px 14px;border:0;border-radius:9px;background:var(--ink);color:#fff;font:inherit;cursor:pointer}
-  button.primary{background:var(--accent)}
-  button.soft{background:#eee;color:var(--ink)}
-  button.small{padding:5px 9px;font-size:13px}
-  button:disabled{opacity:.5;cursor:default}
-  .muted{color:var(--muted);font-size:13px}
-  .scene{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:#fcfbf8}
-  .scene .head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
-  .scene textarea{min-height:60px}
-  .el{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:13px;flex-wrap:wrap}
-  .el .tag{background:#eee;border-radius:6px;padding:2px 7px}
-  .el input{flex:1;min-width:120px;padding:5px 8px;font-size:13px}
-  .preview{background:#fff;border:1px solid var(--line);border-radius:10px;min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-  .preview img,.preview video{max-width:100%;border-radius:8px}
-  .bar{height:10px;background:#eee;border-radius:6px;overflow:hidden}
-  .bar i{display:block;height:100%;background:var(--accent2);width:0;transition:width .3s}
-  .log{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:120px;overflow:auto;direction:ltr;text-align:left}
-  .gallery{display:flex;gap:8px;flex-wrap:wrap}
-  .gallery img{width:70px;height:70px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px;cursor:pointer}
-  details summary{cursor:pointer;color:var(--muted)}
-  .wide{grid-column:1 / -1}
-  .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7f5;color:var(--accent2);font-size:12px}
-  .warn{background:#fff6e5;border:1px solid #ffe0a8;border-radius:9px;padding:8px 10px;font-size:13px}
+  .hero{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .hero .txt{flex:1;min-width:240px}
+  .hero h1{margin:0 0 4px;font-size:24px}
+  .brandBox{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .brandBox .logo{width:64px;height:64px;border-radius:16px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden;flex:none}
+  .brandBox .logo img{width:100%;height:100%;object-fit:cover}
+  .brandBox .meta{flex:1;min-width:200px}
+  .brandBox .meta b{font-size:17px}
+  .swatches{display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap}
+  .swatches i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.08);display:inline-block}
+  .logoDrop{width:84px;height:84px;border:2px dashed var(--line);border-radius:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:#fff;font-size:12px;color:var(--muted);text-align:center}
+  .logoDrop img{width:100%;height:100%;object-fit:contain}
 </style>
 </head>
 <body>
-<header>
-  <div style="font-size:26px">🎨</div>
-  <div><h1>Doodle Studio</h1><div class="sub">فيديوهات Doodle مجانية: فكرة ← سيناريو ← رسم بيد حقيقية ← فيديو</div></div>
-  <div style="flex:1"></div>
-  <button class="soft small" onclick="document.getElementById('settings').open=true;document.getElementById('settings').scrollIntoView()">⚙️ الإعدادات</button>
-</header>
 <main>
-  <section class="card">
-    <h2><span class="step">1</span> الفكرة</h2>
-    <textarea id="brief" placeholder="اكتب فكرة الفيديو: المنتج، الجمهور، المشكلة، الفائدة، الدعوة للفعل، والمدة المطلوبة…"></textarea>
-    <div class="row">
-      <select id="format"><option value="16:9">يوتيوب 16:9</option><option value="9:16">ريلز / تيك توك 9:16</option><option value="1:1">مربع 1:1</option></select>
-      <select id="lang"><option value="ar">عربي</option><option value="en">English</option></select>
-      <button class="primary fix" id="aiBtn" onclick="runAI()">🤖 اكتب لي السيناريو</button>
-      <button class="soft fix" onclick="loadExample()">مثال جاهز</button>
+  <section class="card hero">
+    <div class="txt">
+      <h1>استوديو المحتوى بالذكاء الاصطناعي</h1>
+      <p class="lead">اكتب الفكرة، والأداة تكتب وتصمّم وتُخرج: فيديو Doodle، ريلز، كاروسيل، إعلانات، وموشن نصي — كلها بصوت براندك ولهجته، وبمفتاح Gemini واحد بلا اشتراكات.</p>
     </div>
-    <div class="muted">الوكيل يحتاج نموذج ذكاء اصطناعي (Ollama محليًا مجانًا، أو أي مفتاح API في الإعدادات). أو الصق سيناريو JSON مباشرة في الخطوة 2.</div>
-    <div id="aiMsg" class="muted"></div>
+  </section>
+
+  <section class="card" id="brandCard">
+    <h2>🧬 هوية البراند <span class="grow"></span><button class="soft small" onclick="openBrand()">تعديل</button></h2>
+    <div id="brandView"></div>
+  </section>
+
+  <section>
+    <h2 style="font-size:17px;margin:4px 0 10px">ماذا نصنع اليوم؟</h2>
+    <div class="tiles" id="tiles"></div>
   </section>
 
   <section class="card">
-    <h2><span class="step">3</span> الصوت</h2>
-    <div class="row">
-      <select id="provider">
-        <option value="edge">Edge — مجاني بلا مفتاح (جودة متوسطة)</option>
-        <option value="gemini">Gemini TTS — مجاني بمفتاح، طبيعي جدًا (موصى به)</option>
-        <option value="google">Google Chirp3-HD — مجاني مليون حرف/شهر</option>
-        <option value="azure">Azure — مجاني 500 ألف حرف/شهر</option>
-        <option value="openai">خادم محلي متوافق مع OpenAI (Habibi / Chatterbox)</option>
-      </select>
-      <select id="voice"></select>
-    </div>
-    <div class="row">
-      <input id="ttsText" value="بتصرف على الإعلانات، والعميل بيدخل متجرك ويطلع من غير ما يشتري؟ هنا بييجي دور مساعد التسوّق الذكي.">
-      <button class="fix" onclick="previewVoice()">▶ جرّب الصوت</button>
-    </div>
-    <div id="voiceStyleRow" class="row" style="display:none"><input id="voiceStyle" placeholder="أسلوب القراءة (Gemini): مثلًا: اقرأ بلهجة مصرية دافئة وواثقة كمعلّق إعلانات"></div>
-    <audio id="voiceAudio" controls style="width:100%;display:none"></audio>
-    <div id="voiceMsg" class="muted"></div>
+    <h2>📁 أعمالك الأخيرة <span class="grow"></span><span class="muted" id="libCount"></span></h2>
+    <div class="lib" id="lib"></div>
+    <div class="muted" id="libEmpty" style="display:none">لا شيء بعد — اختر أداة من الأعلى وابدأ.</div>
   </section>
-
-  <section class="card wide">
-    <h2><span class="step">2</span> المشاهد <span class="pill" id="sceneCount"></span></h2>
-    <div class="row">
-      <select id="hand"></select>
-      <input id="title" placeholder="اسم الفيديو">
-      <button class="soft fix" onclick="addScene()">＋ مشهد</button>
-      <button class="soft fix" onclick="toggleJson()">{ } تحرير JSON</button>
-      <button class="soft fix" onclick="saveScript()">💾 حفظ</button>
-    </div>
-    <div id="scenes"></div>
-    <textarea id="jsonBox" style="display:none;min-height:260px;direction:ltr;font-family:ui-monospace,monospace;font-size:12px"></textarea>
-    <details><summary>📁 الرسومات الخاصة (art/) — ارفع صور PNG/JPG/SVG ثم استخدمها كعنصر image</summary>
-      <div class="row"><input type="file" id="artFile" accept="image/*" multiple onchange="uploadArt(this.files)"><span class="muted">برومبت توليد رسمة جاهز موجود في README (يعمل مع Microsoft Designer / Gemini مجانًا)</span></div>
-      <div class="gallery" id="artGallery"></div>
-    </details>
-    <details><summary>🖐️ يدك أنت — ارفع صورة يدك مقصوصة الخلفية (PNG شفاف) أو استخدم الأمر doodle hand</summary>
-      <div class="row"><input type="file" id="handFile" accept="image/png" onchange="uploadHand(this.files)"></div>
-    </details>
-  </section>
-
-  <section class="card wide">
-    <h2><span class="step">4</span> المعاينة والتصيير</h2>
-    <div class="row">
-      <input type="range" id="scrub" min="0" max="60" step="0.5" value="3" oninput="document.getElementById('scrubVal').textContent=this.value+' ث'">
-      <span class="fix" id="scrubVal">3 ث</span>
-      <button class="fix" onclick="still()">📷 لقطة</button>
-      <button class="fix" onclick="render(true)">⚡ معاينة سريعة</button>
-      <button class="primary fix" onclick="render(false)">🎬 تصيير نهائي 1080p</button>
-    </div>
-    <div class="bar"><i id="barFill"></i></div>
-    <div id="jobMsg" class="muted"></div>
-    <div class="preview" id="preview"><span class="muted">اضغط «لقطة» لمعاينة إطار، أو «معاينة سريعة» لفيديو مصغّر.</span></div>
-    <div class="log" id="log"></div>
-    <div class="row" id="downloads"></div>
-  </section>
-
-  <details class="card wide" id="settings">
-    <summary>⚙️ الإعدادات — مفاتيح الصوت والذكاء الاصطناعي (تُحفظ على جهازك في workspace/.env)</summary>
-    <div class="warn" style="margin:10px 0">أفضل صوت عربي مجاني: <b>Gemini TTS</b>. أنشئ مفتاحًا مجانيًا من aistudio.google.com (بدون بطاقة) والصقه هنا، ثم اختر Gemini في الخطوة 3.</div>
-    <div class="row"><label class="fix">GEMINI_API_KEY</label><input id="s_GEMINI_API_KEY"></div>
-    <div class="row"><label class="fix">GOOGLE_TTS_KEY</label><input id="s_GOOGLE_TTS_KEY"></div>
-    <div class="row"><label class="fix">AZURE_TTS_KEY</label><input id="s_AZURE_TTS_KEY"><label class="fix">AZURE_TTS_REGION</label><input id="s_AZURE_TTS_REGION" placeholder="eastus"></div>
-    <div class="row"><label class="fix">TTS_ENDPOINT</label><input id="s_TTS_ENDPOINT" placeholder="http://localhost:8004/v1"><label class="fix">TTS_MODEL</label><input id="s_TTS_MODEL"></div>
-    <div class="row"><label class="fix">AI endpoint</label><input id="s_DOODLE_AI_ENDPOINT" placeholder="http://localhost:11434/v1"><label class="fix">AI model</label><input id="s_DOODLE_AI_MODEL" placeholder="qwen2.5:7b"><label class="fix">AI key</label><input id="s_DOODLE_AI_KEY"></div>
-    <div class="row"><button class="fix" onclick="saveSettings()">حفظ الإعدادات</button><span id="setMsg" class="muted"></span></div>
-  </details>
 </main>
 
-<script>
-const $ = (id) => document.getElementById(id);
-let META = null;
-let SCRIPT = { title: '', format: '16:9', voice: 'ar-EG-Shakir', hand: 'marker-a', scenes: [] };
-const GEMINI_VOICES = ['Charon','Kore','Puck','Zephyr','Fenrir','Leda','Orus','Aoede','Enceladus','Iapetus','Algieba','Despina','Sadaltager','Sulafat'];
-const GOOGLE_VOICES = ['ar-XA-Chirp3-HD-Charon','ar-XA-Chirp3-HD-Kore','ar-XA-Chirp3-HD-Puck','ar-XA-Chirp3-HD-Aoede','ar-XA-Chirp3-HD-Leda','ar-XA-Chirp3-HD-Fenrir'];
+<dialog id="brandDlg">
+  <div class="body">
+    <h2>🧬 هوية البراند</h2>
+    <div class="muted">تُملأ مرة واحدة وتُطبَّق تلقائيًا على كل ما تنتجه الأدوات: الاسم، اللهجة، النبرة، الألوان، والدعوة للفعل.</div>
+    <div class="note">اختصار: اكتب وصفًا سريعًا لنشاطك (أو الصق نص صفحتك) واضغط «املأ تلقائيًا»، ثم راجع الحقول.</div>
+    <div class="row"><textarea id="b_desc" style="min-height:64px" placeholder="مثال: متجر عطور نيش في الرياض، عملاؤنا سيدات ٢٥–٤٥، توصيل خلال ٢٤ ساعة، نبرة فاخرة وهادئة"></textarea><button class="fix" onclick="autoBrand()">✨ املأ تلقائيًا</button></div>
+    <div id="b_msg" class="msg"></div>
+    <div class="grid2">
+      <div><label class="f">اسم البراند</label><input id="b_name"></div>
+      <div><label class="f">الدعوة للفعل الافتراضية</label><input id="b_cta" placeholder="اطلب الآن / احجز / جرّب مجانًا"></div>
+    </div>
+    <label class="f">ماذا تبيع / تقدّم؟</label><input id="b_sells" placeholder="سطر واحد">
+    <label class="f">الوعد الأساسي (ما يميّزك)</label><input id="b_usp" placeholder="اختياري: أسرع توصيل، أرخص سعر، خبرة ١٠ سنوات…">
+    <label class="f">الجمهور</label><input id="b_aud" placeholder="من يشتري؟ (الفئة، العمر، المدينة)">
+    <label class="f">اللهجة</label>
+    <div class="opts" id="b_dialect"></div>
+    <label class="f">النبرة (اختر ٢–٣)</label>
+    <div class="opts" id="b_tones"></div>
+    <label class="f">الألوان والشعار</label>
+    <div class="row">
+      <span class="sw fix"><input type="color" id="b_c1" title="اللون الأساسي"><span class="muted">أساسي</span></span>
+      <span class="sw fix"><input type="color" id="b_c2" title="لون التمييز"><span class="muted">تمييز</span></span>
+      <span class="sw fix"><input type="color" id="b_c3" title="الخلفية"><span class="muted">خلفية</span></span>
+      <span class="grow"></span>
+      <label class="logoDrop fix" id="logoDrop" title="الشعار (PNG شفاف يُفضَّل)">شعار<input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])"></label>
+    </div>
+    <div class="grid2">
+      <div><label class="f">الموقع / رابط الطلب</label><input id="b_web" placeholder="اختياري"></div>
+      <div><label class="f">واتساب / هاتف</label><input id="b_phone" placeholder="اختياري"></div>
+    </div>
+    <label class="f">هاشتاجات البراند</label><input id="b_tags" placeholder="#اسم_البراند #…">
+    <label class="f">كلمات أو وعود ممنوعة</label><input id="b_banned" placeholder="اختياري: مثلًا الأرخص في مصر، يعالج…">
+    <div class="row" style="margin-top:14px"><button class="primary fix" onclick="saveBrandForm()">💾 حفظ الهوية</button><span class="grow"></span><button class="ghost fix" onclick="document.getElementById('brandDlg').close()">إغلاق</button></div>
+  </div>
+</dialog>
 
-async function api(path, data) {
-  const r = await fetch(path, data ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) } : {});
-  const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j;
+<script src="js/core.js"></script>
+<script>
+const { $, esc, loadBrand, saveBrand, brandReady, DIALECTS, TONES, lib, say, toast, readFile, geminiJSON, needKey } = Suite;
+Suite.mountHeader('');
+const TOOLS = [
+  { href: 'doodle.html', ic: '✍️', t: 'فيديو Doodle', d: 'يد ترسم وتشرح فكرتك مع تعليق صوتي وموسيقى', cost: '≈ ٠٫٥$ للفيديو' },
+  { href: 'reels.html', ic: '🎬', t: 'سكريبتات ريلز', d: 'ثلاثة سيناريوهات جاهزة للتصوير مع بحث الترند', cost: 'شبه مجاني' },
+  { href: 'carousel.html', ic: '🖼️', t: 'كاروسيل إنستجرام', d: '٧ شرائح مصمّمة بألوان براندك، جاهزة للرفع', cost: 'مجاني · +٠٫٠٧$ للخلفية' },
+  { href: 'ad.html', ic: '📣', t: 'إعلان ثابت', d: 'صورة إعلانية بثلاثة اتجاهات ومقاسات المنصات', cost: '≈ ٠٫٠٧$ للصورة' },
+  { href: 'doodle.html?mode=motion', ic: '💬', t: 'موشن نصي', d: 'ريلز كلمات متحركة على إيقاع موسيقى بلون براندك', cost: 'مجاني' },
+  { href: '#', ic: '🎥', t: 'إعلان فيديو واقعي', d: 'مقاطع Veo مولّدة من وصفك (المرحلة الثانية)', cost: 'قريبًا', soon: true },
+  { href: '#', ic: '📘', t: 'كتيّب جذب عملاء', d: 'دليل PDF مصمّم (المرحلة الثانية)', cost: 'قريبًا', soon: true },
+  { href: '#', ic: '🔷', t: 'شعار', d: 'اقتراحات شعار (المرحلة الثانية)', cost: 'قريبًا', soon: true },
+];
+$('tiles').innerHTML = TOOLS.map((t) => `<a class="tile ${t.soon ? 'soon' : ''}" href="${t.href}"><div class="ic">${t.ic}</div><b>${t.t}</b><span>${t.d}</span><br><span class="cost">${t.cost}</span></a>`).join('');
+
+function renderBrand() {
+  const b = loadBrand();
+  if (!brandReady(b)) { $('brandView').innerHTML = `<div class="note">لم تُنشئ هوية البراند بعد. تستغرق دقيقة وتجعل كل المخرجات بصوتك ولهجتك.</div><button class="primary" onclick="openBrand()">🧬 أنشئ هوية البراند الآن</button>`; return; }
+  $('brandView').innerHTML = `<div class="brandBox"><div class="logo">${b.logo ? `<img src="${b.logo}" alt="">` : esc(b.name.slice(0, 1))}</div>
+    <div class="meta"><b>${esc(b.name)}</b><div class="muted">${esc(b.sells)}</div><div class="muted">${esc(b.audience || '')}</div>
+    <div class="swatches"><i style="background:${b.colors.primary}"></i><i style="background:${b.colors.accent}"></i><i style="background:${b.colors.bg}"></i> <span class="pill on">${DIALECTS[b.dialect] || 'مصري'}</span> ${(b.tones || []).map((t) => `<span class="pill">${esc(t)}</span>`).join(' ')}</div></div></div>`;
 }
-async function init() {
-  META = await api('/api/meta');
-  $('hand').innerHTML = [...META.hands, ...META.userHands].map((h) => `<option value="${h}">${h.startsWith('hands/') ? 'يدي: ' + h.slice(6) : h === 'marker-a' ? 'يد حقيقية — ماركر (A)' : h === 'marker-b' ? 'يد حقيقية — ماركر (B)' : 'يد كرتونية'}</option>`).join('');
-  fillVoices(); renderArt(); renderDownloads();
-  for (const k in META.settings) { const el = $('s_' + k); if (el) el.value = META.settings[k]; }
-  $('provider').value = META.provider || 'edge';
-  $('provider').addEventListener('change', fillVoices);
-  loadExample(false);
+let LOGO = '';
+function openBrand() {
+  const b = loadBrand(); LOGO = b.logo || '';
+  $('b_name').value = b.name; $('b_sells').value = b.sells; $('b_usp').value = b.usp || ''; $('b_aud').value = b.audience; $('b_cta').value = b.cta; $('b_web').value = b.website || ''; $('b_phone').value = b.phone || ''; $('b_tags').value = b.hashtags || ''; $('b_banned').value = b.banned || '';
+  $('b_c1').value = b.colors.primary; $('b_c2').value = b.colors.accent; $('b_c3').value = b.colors.bg;
+  $('b_dialect').innerHTML = Object.entries(DIALECTS).map(([k, v]) => `<label><input type="radio" name="dialect" value="${k}" ${b.dialect === k ? 'checked' : ''}>${v}</label>`).join('');
+  $('b_tones').innerHTML = TONES.map((t) => `<label><input type="checkbox" name="tone" value="${esc(t)}" ${(b.tones || []).includes(t) ? 'checked' : ''}>${t}</label>`).join('');
+  $('logoDrop').innerHTML = (LOGO ? `<img src="${LOGO}">` : 'شعار') + '<input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">';
+  $('brandDlg').showModal();
 }
-function fillVoices() {
-  const p = $('provider').value; let list;
-  if (p === 'gemini') list = GEMINI_VOICES; else if (p === 'google') list = GOOGLE_VOICES; else if (p === 'openai') list = ['default', 'alloy', 'nova']; else list = Object.keys(META.voices);
-  $('voice').innerHTML = list.map((v) => `<option value="${v}">${v}</option>`).join('');
-  if (p === 'edge' || p === 'azure') $('voice').value = 'ar-EG-Shakir';
-  $('voiceStyleRow').style.display = p === 'gemini' ? '' : 'none';
+async function pickLogo(f) { if (!f) return; LOGO = await readFile(f); $('logoDrop').innerHTML = `<img src="${LOGO}"><input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">`; }
+function saveBrandForm() {
+  const b = { ...loadBrand(), name: $('b_name').value.trim(), sells: $('b_sells').value.trim(), usp: $('b_usp').value.trim(), audience: $('b_aud').value.trim(), cta: $('b_cta').value.trim() || 'اطلب الآن', website: $('b_web').value.trim(), phone: $('b_phone').value.trim(), hashtags: $('b_tags').value.trim(), banned: $('b_banned').value.trim(),
+    dialect: document.querySelector('input[name=dialect]:checked')?.value || 'eg', tones: [...document.querySelectorAll('input[name=tone]:checked')].map((x) => x.value), colors: { primary: $('b_c1').value, accent: $('b_c2').value, bg: $('b_c3').value }, logo: LOGO };
+  if (!b.name || !b.sells) return say('b_msg', 'اسم البراند وما تبيعه مطلوبان', true);
+  saveBrand(b); $('brandDlg').close(); renderBrand(); toast('✅ حُفظت هوية البراند'); document.querySelector('.brandChip .n').textContent = b.name; document.querySelector('.brandChip .dot').innerHTML = b.logo ? `<img src="${b.logo}" alt="">` : esc(b.name.slice(0, 1));
 }
-function loadExample(fill = true) {
-  SCRIPT = JSON.parse(JSON.stringify(META.example)); if (!fill) SCRIPT.scenes = SCRIPT.scenes.slice(0, 6);
-  $('title').value = SCRIPT.title || ''; $('format').value = SCRIPT.format || '16:9'; if (SCRIPT.hand) $('hand').value = typeof SCRIPT.hand === 'string' ? SCRIPT.hand : 'marker-a';
-  drawScenes();
-}
-function syncHeader() { SCRIPT.title = $('title').value; SCRIPT.format = $('format').value; SCRIPT.hand = $('hand').value; SCRIPT.voice = $('voice').value; SCRIPT.tts = $('provider').value; if ($('voiceStyle').value) SCRIPT.voiceStyle = $('voiceStyle').value; }
-function drawScenes() {
-  $('sceneCount').textContent = SCRIPT.scenes.length + ' مشهد';
-  $('scenes').innerHTML = SCRIPT.scenes.map((sc, i) => `
-    <div class="scene">
-      <div class="head"><b>مشهد ${i + 1}</b>
-        <span><button class="soft small" onclick="moveScene(${i},-1)">▲</button><button class="soft small" onclick="moveScene(${i},1)">▼</button><button class="soft small" onclick="delScene(${i})">🗑</button></span></div>
-      <textarea placeholder="التعليق الصوتي لهذا المشهد" onchange="SCRIPT.scenes[${i}].narration=this.value">${esc(sc.narration || '')}</textarea>
-      <div>${(sc.elements || []).map((e, j) => elRow(i, j, e)).join('')}</div>
-      <div class="row">
-        <select id="add-${i}" class="fix"><option value="text">نص</option><option value="image">رسمة من art/</option><option value="doodle">شخصية Open Doodles</option><option value="peep">شخصية Open Peeps</option><option value="tabler">أيقونة Tabler</option><option value="icon">أيقونة ماركر</option><option value="shape">شكل تأكيد</option></select>
-        <button class="soft small fix" onclick="addEl(${i})">＋ عنصر</button>
-      </div>
-    </div>`).join('');
-}
-function elRow(i, j, e) {
-  const label = { text: 'نص', image: 'رسمة', doodle: 'دودل', peep: 'شخصية', tabler: 'أيقونة', icon: 'أيقونة', shape: 'شكل', svg: 'SVG' }[e.type] || e.type;
-  const main = e.type === 'text' ? `<input value="${esc(e.text || '')}" onchange="setEl(${i},${j},'text',this.value)" placeholder="النص">`
-    : e.type === 'image' || e.type === 'svg' ? `<select onchange="setEl(${i},${j},'src',this.value)">${META.art.map((a) => `<option ${a === e.src ? 'selected' : ''}>${a}</option>`).join('')}<option ${!META.art.includes(e.src) ? 'selected' : ''} value="${esc(e.src || '')}">${esc(e.src || '— ارفع رسمة —')}</option></select>`
-    : e.type === 'doodle' ? `<select onchange="setEl(${i},${j},'name',this.value)">${META.doodles.map((d) => `<option ${d === e.name ? 'selected' : ''}>${d}</option>`).join('')}</select>`
-    : e.type === 'peep' ? `<input value="${esc(e.seed || '')}" onchange="setEl(${i},${j},'seed',this.value)" placeholder="كلمة (seed)">`
-    : e.type === 'tabler' ? `<input list="tablerList" value="${esc(e.name || '')}" onchange="setEl(${i},${j},'name',this.value)" placeholder="اسم الأيقونة"><datalist id="tablerList">${META.tabler.slice(0, 2000).map((t) => `<option value="${t}">`).join('')}</datalist>`
-    : e.type === 'icon' ? `<select onchange="setEl(${i},${j},'name',this.value)">${META.icons.map((d) => `<option ${d === e.name ? 'selected' : ''}>${d}</option>`).join('')}</select>`
-    : e.type === 'shape' ? `<select onchange="setEl(${i},${j},'shape',this.value)">${['underline', 'arrow', 'circle', 'rect', 'check', 'cross', 'highlight', 'bubble', 'line'].map((d) => `<option ${d === e.shape ? 'selected' : ''}>${d}</option>`).join('')}</select>` : '';
-  return `<div class="el"><span class="tag">${label}</span>${main}
-    <input style="max-width:60px" value="${e.x ?? '10%'}" onchange="setEl(${i},${j},'x',this.value)" title="x"><input style="max-width:60px" value="${e.y ?? '10%'}" onchange="setEl(${i},${j},'y',this.value)" title="y">
-    <input style="max-width:60px" value="${e.w ?? '30%'}" onchange="setEl(${i},${j},'w',this.value)" title="عرض"><input style="max-width:60px" value="${e.h ?? '30%'}" onchange="setEl(${i},${j},'h',this.value)" title="ارتفاع">
-    <input style="max-width:70px" value="${e.color || ''}" onchange="setEl(${i},${j},'color',this.value)" placeholder="لون">
-    <button class="soft small" onclick="delEl(${i},${j})">✕</button></div>`;
-}
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-function setEl(i, j, k, v) { if (v === '') delete SCRIPT.scenes[i].elements[j][k]; else SCRIPT.scenes[i].elements[j][k] = v; }
-function addEl(i) { const t = $('add-' + i).value; const base = { type: t, x: '10%', y: '10%', w: '40%', h: '60%' }; if (t === 'text') Object.assign(base, { text: 'نص', size: '8%', h: '24%' }); if (t === 'shape') Object.assign(base, { shape: 'underline', color: '#e63946', h: '6%' }); if (t === 'image') base.src = META.art[0] || 'art/my.png'; if (t === 'doodle') base.name = 'jumping'; if (t === 'peep') base.seed = 'ahmed'; if (t === 'tabler') base.name = 'home'; if (t === 'icon') base.name = 'rocket'; (SCRIPT.scenes[i].elements ||= []).push(base); drawScenes(); }
-function delEl(i, j) { SCRIPT.scenes[i].elements.splice(j, 1); drawScenes(); }
-function addScene() { SCRIPT.scenes.push({ narration: '', elements: [] }); drawScenes(); }
-function delScene(i) { SCRIPT.scenes.splice(i, 1); drawScenes(); }
-function moveScene(i, d) { const j = i + d; if (j < 0 || j >= SCRIPT.scenes.length) return; [SCRIPT.scenes[i], SCRIPT.scenes[j]] = [SCRIPT.scenes[j], SCRIPT.scenes[i]]; drawScenes(); }
-function toggleJson() { const b = $('jsonBox'); if (b.style.display === 'none') { syncHeader(); b.value = JSON.stringify(SCRIPT, null, 2); b.style.display = ''; } else { try { SCRIPT = JSON.parse(b.value); drawScenes(); b.style.display = 'none'; $('title').value = SCRIPT.title || ''; } catch (e) { alert('JSON غير صالح: ' + e.message); } } }
-async function runAI() {
-  const brief = $('brief').value.trim(); if (!brief) return alert('اكتب الفكرة أولًا');
-  $('aiBtn').disabled = true; $('aiMsg').textContent = '🤖 جارٍ كتابة السيناريو…';
-  try { const r = await api('/api/ai', { brief, format: $('format').value, lang: $('lang').value, voice: $('voice').value }); SCRIPT = r.script; $('title').value = SCRIPT.title || ''; drawScenes(); $('aiMsg').textContent = '✅ تم. راجع المشاهد ثم اضغط معاينة.' + (SCRIPT.artRequests?.length ? ` يحتاج ${SCRIPT.artRequests.length} رسمة مخصّصة — البرومبتات في JSON (artRequests).` : ''); }
-  catch (e) { $('aiMsg').textContent = '❌ ' + e.message + ' — تأكد من إعداد الذكاء الاصطناعي في الإعدادات (Ollama محليًا أو مفتاح API).'; }
-  $('aiBtn').disabled = false;
-}
-async function previewVoice() {
-  $('voiceMsg').textContent = '⏳ جارٍ توليد الصوت…';
-  try { const r = await api('/api/tts', { text: $('ttsText').value, voice: $('voice').value, provider: $('provider').value, style: $('voiceStyle').value }); const a = $('voiceAudio'); a.src = r.url + '?t=' + Date.now(); a.style.display = ''; a.play(); $('voiceMsg').textContent = `✅ ${r.duration.toFixed(1)} ثانية`; }
-  catch (e) { $('voiceMsg').textContent = '❌ ' + e.message; }
-}
-async function still() {
-  syncHeader(); $('jobMsg').textContent = '⏳ جارٍ رسم اللقطة…';
-  try { const r = await api('/api/still', { script: SCRIPT, t: +$('scrub').value }); $('preview').innerHTML = `<img src="${r.url}">`; $('scrub').max = Math.ceil(r.duration); $('jobMsg').textContent = `المدة التقديرية بلا صوت: ${r.duration.toFixed(1)} ث`; }
-  catch (e) { $('jobMsg').textContent = '❌ ' + e.message; }
-}
-async function render(draft) {
-  syncHeader(); $('barFill').style.width = '0%'; $('jobMsg').textContent = draft ? '⚡ معاينة سريعة…' : '🎬 تصيير نهائي… (بضع دقائق)';
+async function autoBrand() {
+  const desc = $('b_desc').value.trim(); if (!desc) return say('b_msg', 'اكتب وصفًا أولًا', true);
+  if (!needKey('b_msg')) return;
+  say('b_msg', '✨ جارٍ التحليل…');
   try {
-    const { id } = await api('/api/render', { script: SCRIPT, draft, name: SCRIPT.title });
-    const timer = setInterval(async () => {
-      const j = await api('/api/jobs/' + id);
-      $('barFill').style.width = j.progress + '%'; $('log').textContent = j.log.slice(-6).join('\n');
-      $('jobMsg').textContent = { queued: 'في الانتظار', compiling: '🎙️ توليد الصوت وتجهيز الرسومات…', rendering: `🎬 ${j.progress}%`, done: '✅ اكتمل', error: '❌ ' + j.error }[j.status];
-      if (j.status === 'done') { clearInterval(timer); $('preview').innerHTML = `<video src="${j.url}" controls autoplay></video>`; META = await api('/api/meta'); renderDownloads(); }
-      if (j.status === 'error') clearInterval(timer);
-    }, 1500);
-  } catch (e) { $('jobMsg').textContent = '❌ ' + e.message; }
+    const sys = await (await fetch('assets/prompts/brand.md')).text();
+    const out = await geminiJSON(sys, desc, { temperature: 0.3, onWait: (m) => say('b_msg', m) });
+    if (out.name) $('b_name').value = out.name; if (out.sells) $('b_sells').value = out.sells; if (out.usp) $('b_usp').value = out.usp; if (out.audience) $('b_aud').value = out.audience; if (out.cta) $('b_cta').value = out.cta; if (out.hashtags) $('b_tags').value = out.hashtags; if (out.banned) $('b_banned').value = out.banned;
+    if (out.dialect && DIALECTS[out.dialect]) document.querySelector(`input[name=dialect][value=${out.dialect}]`).checked = true;
+    if (Array.isArray(out.tones)) document.querySelectorAll('input[name=tone]').forEach((x) => { x.checked = out.tones.includes(x.value); });
+    say('b_msg', '✅ راجع الحقول ثم احفظ');
+  } catch (e) { say('b_msg', '❌ ' + e.message, true); }
 }
-function renderDownloads() { $('downloads').innerHTML = META.outputs.map((f) => `<a class="fix" href="/files/output/${encodeURIComponent(f)}" download>⬇ ${f}</a>`).join(''); }
-function renderArt() { $('artGallery').innerHTML = META.art.map((a) => `<img src="/files/${a}" title="${a}" onclick="navigator.clipboard.writeText('${a}');this.style.outline='3px solid #2a9d8f'">`).join(''); }
-function readAs(file) { return new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); }); }
-async function uploadArt(files) { for (const f of files) await api('/api/upload', { kind: 'art', name: f.name, data: await readAs(f) }); META = await api('/api/meta'); renderArt(); drawScenes(); }
-async function uploadHand(files) { for (const f of files) await api('/api/upload', { kind: 'hand', name: f.name, data: await readAs(f) }); META = await api('/api/meta'); init(); alert('تم رفع اليد. حدّد موضع طرف القلم في JSON: "hand": {"src":"hands/اسم.png","tip":[x,y]}'); }
-async function saveScript() { syncHeader(); const r = await api('/api/save', { name: SCRIPT.title || 'script', script: SCRIPT }); $('jobMsg').textContent = '💾 حُفظ في workspace/scripts/' + r.name; }
-async function saveSettings() { const b = {}; for (const el of document.querySelectorAll('[id^="s_"]')) b[el.id.slice(2)] = el.value; const r = await api('/api/settings', b); $('setMsg').textContent = '✅ حُفظت'; for (const k in r.settings) { const el = $('s_' + k); if (el) el.value = r.settings[k]; } }
-init();
+const KIND = { reel: ['🎬', 'ريلز', 'reels.html'], carousel: ['🖼️', 'كاروسيل', 'carousel.html'], ad: ['📣', 'إعلان', 'ad.html'], doodle: ['✍️', 'Doodle', 'doodle.html'], motion: ['💬', 'موشن', 'doodle.html?mode=motion'] };
+async function renderLib() {
+  const items = await lib.list();
+  $('libCount').textContent = items.length ? `${items.length} عنصر` : ''; $('libEmpty').style.display = items.length ? 'none' : '';
+  $('lib').innerHTML = items.slice(0, 24).map((it) => { const k = KIND[it.type] || ['📄', it.type, '#']; return `<div class="it" onclick="location.href='${k[2]}${k[2].includes('?') ? '&' : '?'}id=${it.id}'"><div class="th">${it.thumb ? `<img src="${it.thumb}">` : k[0]}</div><div class="t">${esc(it.title || k[1])}</div><span class="k">${k[1]}</span><span class="x" onclick="event.stopPropagation();delItem('${it.id}')" title="حذف">✕</span></div>`; }).join('');
+}
+async function delItem(id) { if (!confirm('حذف هذا العنصر؟')) return; await lib.del(id); renderLib(); }
+renderBrand(); renderLib();
+if (location.hash === '#brand') openBrand();
 </script>
 </body>
 </html>

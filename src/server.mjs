@@ -57,7 +57,7 @@ async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
   const path = url.pathname;
   try {
-    if (req.method === 'GET' && (path === '/' || path === '/index.html')) return sendFile(res, join(ROOT, 'web/index.html'));
+    if (req.method === 'GET' && (path === '/' || path === '/index.html')) return sendFile(res, join(ROOT, 'web/local.html'));
     if (req.method === 'GET' && path.startsWith('/web/')) return sendFile(res, join(ROOT, path.slice(1)));
     if (req.method === 'GET' && path.startsWith('/files/')) return sendFile(res, safe(decodeURIComponent(path.slice(7))));
     if (req.method === 'GET' && path.startsWith('/assets/')) return sendFile(res, join(ROOT, decodeURIComponent(path.slice(1))));
