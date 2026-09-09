@@ -115,14 +115,14 @@ const dialectName = () => ({ eg: 'Egyptian', gulf: 'Gulf (Saudi/Khaleeji)', msa:
 async function ensureCreator() {
   if (CREATOR) return CREATOR;
   say('msg2', '👤 توليد صورة المبدع (للثبات بين اللقطات)…');
-  CREATOR = await generateImage(`Photorealistic vertical phone selfie of ${DATA.creator}. ${DATA.setting}. Looking at the camera with a friendly natural smile, casual and modest, realistic skin texture, natural window light, slight phone-camera softness, no text, no logos, no watermark.`, { ratio: '9:16', onWait: (m) => say('msg2', m) });
+  CREATOR = await generateImage(`Photorealistic vertical 9:16 portrait of ${DATA.creator}, shot on a phone's front camera propped on a table at eye level, chest-up framing. ${DATA.setting}. Looking straight into the lens with a friendly natural smile, casual and modest, hands relaxed and visible or holding the product, realistic skin texture, natural window light, slight phone-camera softness. The camera IS the phone, so the phone is never visible: no phone in hand, no arm stretched toward the camera, no mirror. Hands are free, resting, gesturing naturally, or holding the product. No text, no logos, no watermark.`, { ratio: '9:16', onWait: (m) => say('msg2', m) });
   $('creatorImg').src = CREATOR; $('creatorImg').hidden = false; cost(); return CREATOR;
 }
 function veoPrompt(c) {
-  return `UGC style selfie video ad, vertical 9:16, filmed handheld on a smartphone by the creator herself/himself. Creator: ${DATA.creator}. Setting: ${DATA.setting}. Action: ${c.action}. Camera: ${c.camera}. The creator looks into the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Authentic amateur feel, real room, natural light, realistic skin, small handheld shake. ${PRODUCT ? 'The product shown must match the reference product photo exactly.' : ''} No on-screen text, no captions, no subtitles, no logos, no watermark.`;
+  return `UGC style vertical 9:16 video ad recorded on a phone's front camera that is propped up at eye level (the phone itself is never visible). Creator: ${DATA.creator}. Setting: ${DATA.setting}. Action: ${c.action}. Camera: ${c.camera}. The camera IS the phone, so the phone is never visible: no phone in hand, no arm stretched toward the camera, no mirror. Hands are free, resting, gesturing naturally, or holding the product. The creator looks into the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Authentic amateur feel, real room, natural light, realistic skin, small handheld shake. ${PRODUCT ? 'The product shown must match the reference product photo exactly.' : ''} No on-screen text, no captions, no subtitles, no logos, no watermark.`;
 }
 function keyPrompt(c) {
-  return `Photorealistic vertical 9:16 smartphone selfie frame, first frame of a UGC video. The SAME person as in the first reference image (identical face, hair, skin tone, clothes). Setting: ${DATA.setting}. Action: ${c.action}. ${PRODUCT ? 'The product from the second reference image is clearly visible and identical in shape, label and colours.' : ''} Looking at the camera, mid-sentence natural expression, ${c.camera}. Real room, natural light, slight phone-camera softness. No text, no captions, no logos, no watermark.`;
+  return `Photorealistic vertical 9:16 frame from a phone's front camera propped at eye level, first frame of a UGC video, chest-up framing. The SAME person as in the first reference image (identical face, hair, skin tone, clothes). Setting: ${DATA.setting}. Action: ${c.action}. The camera IS the phone, so the phone is never visible: no phone in hand, no arm stretched toward the camera, no mirror. Hands are free, resting, gesturing naturally, or holding the product. ${PRODUCT ? 'The product from the second reference image is clearly visible and identical in shape, label and colours.' : ''} Looking at the camera, mid-sentence natural expression, ${c.camera}. Real room, natural light, slight phone-camera softness. No text, no captions, no logos, no watermark.`;
 }
 async function keyframe(i) {
   if (KEYS[i]) return KEYS[i]; await ensureCreator();
@@ -131,7 +131,7 @@ async function keyframe(i) {
   renderClips(); return KEYS[i];
 }
 function veoPromptFromFrame(c) {
-  return `Animate this selfie frame into a UGC style vertical video: the person in the image talks directly to the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Action: ${c.action}. Camera: ${c.camera}, handheld smartphone, small natural shake, real room ambience. Keep the same person, clothes and product exactly as in the image. No on-screen text, no captions, no subtitles, no logos, no watermark.`;
+  return `Animate this frame into a UGC style vertical video recorded on a propped-up phone front camera: the person in the image talks directly to the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Action: ${c.action}. Camera: ${c.camera}, static or very slight drift, real room ambience. The camera IS the phone, so the phone is never visible: no phone in hand, no arm stretched toward the camera, no mirror. Hands are free, resting, gesturing naturally, or holding the product. Keep the same person, clothes and product exactly as in the image. No on-screen text, no captions, no subtitles, no logos, no watermark.`;
 }
 async function shootOne(i) {
   if (!needKey('msg2')) return; await ensureCreator();
@@ -142,7 +142,7 @@ async function shootOne(i) {
     const job = tier === 'standard'
       ? { prompt: veoPrompt(c), refs: [CREATOR, PRODUCT].filter(Boolean) }            // Veo 3.1: reference images keep creator + product consistent
       : { prompt: veoPromptFromFrame(c), image: await keyframe(i) };                  // Fast / Lite: image-to-video from a per-clip keyframe (same creator, product in shot)
-    CLIPS[i] = await veoGenerate({ ...job, tier, aspect: '9:16', resolution: res(), duration: 8, negative: 'text, captions, subtitles, watermark, logo, cartoon, blurry, distorted hands', onStatus });
+    CLIPS[i] = await veoGenerate({ ...job, tier, aspect: '9:16', resolution: res(), duration: 8, negative: 'visible phone, holding a phone, phone in hand, arm extended toward camera, mirror selfie, text, captions, subtitles, watermark, logo, cartoon, blurry, distorted hands', onStatus });
     renderClips(); say('msg2', `✅ اللقطة ${i + 1} جاهزة`); await save(true); }
   catch (e) { ERR[i] = e.message; renderClips(); say('msg2', `❌ لقطة ${i + 1}: ${e.message}`, true); }
 }
