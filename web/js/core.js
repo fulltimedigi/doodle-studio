@@ -99,11 +99,13 @@
     const H = { 'content-type': 'application/json', 'x-goog-api-key': settings.key };
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning`;
     // negativePrompt is not in the current Gemini API docs for Veo 3.1 → fold it into the prompt text instead of risking a 400.
-    const state = { refs: refs.length > 0, neg: false, dropped: new Set() };
+    const state = { refs: refs.length > 0, neg: false, dropped: new Set(), imgFmt: 'bytes' };
+    // Image objects: the official @google/genai SDK sends { bytesBase64Encoded, mimeType } to the Gemini API (imageToMldev). Fallback: inlineData.
+    const img = (u) => state.imgFmt === 'bytes' ? { bytesBase64Encoded: u.split(',')[1], mimeType: u.match(/^data:([^;]+)/)[1] } : inline(u);
     const build = () => {
       const inst = { prompt: state.neg || !negative ? prompt : `${prompt} Avoid: ${negative}.` };
-      if (image) inst.image = inline(image);
-      if (state.refs) inst.referenceImages = refs.slice(0, 3).map((u) => ({ image: inline(u), referenceType: 'asset' }));
+      if (image) inst.image = img(image);
+      if (state.refs) inst.referenceImages = refs.slice(0, 3).map((u) => ({ image: img(u), referenceType: 'asset' }));
       const params = { aspectRatio: aspect, resolution, durationSeconds: (inst.referenceImages || resolution !== '720p') ? 8 : duration };
       if (image || inst.referenceImages) params.personGeneration = 'allow_adult';
       if (state.neg && negative) params.negativePrompt = negative;
@@ -118,6 +120,8 @@
       lastText = await r.text();
       if (r.status !== 400) throw new Error(veoError(r.status, lastText));
       if (/location|region|country/i.test(lastText)) throw new Error(veoError(400, lastText));
+      if (/bytesBase64Encoded/.test(lastText) && state.imgFmt === 'bytes') { state.imgFmt = 'inline'; if (onStatus) onStatus('⚠️ أعيد إرسال الصورة بصيغة أخرى…'); continue; }
+      if (/inlineData/.test(lastText) && state.imgFmt === 'inline') { state.imgFmt = 'bytes'; continue; }
       // Self-healing: if the error names one of our parameters, drop that parameter and retry the same request.
       const named = Object.keys(body.parameters).find((k) => new RegExp(`\\b${k}\\b`).test(lastText) && !state.dropped.has(k) && k !== 'aspectRatio');
       if (named) { state.dropped.add(named); if (onStatus) onStatus(`⚠️ Veo لا يقبل «${named}» هنا — أعيد المحاولة بدونه…`); continue; }

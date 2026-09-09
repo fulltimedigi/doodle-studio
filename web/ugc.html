@@ -42,7 +42,9 @@
         <div><label class="f">جودة التصوير</label><select id="tier" onchange="cost()"><option value="fast">Veo 3.1 Fast — 1080p (الأفضل قيمة، كل لقطة تبدأ من صورة المبدع)</option><option value="lite">Veo 3.1 Lite — 720p (الأرخص)</option><option value="standard">Veo 3.1 — أعلى جودة (صور مرجعية للمبدع والمنتج)</option></select></div>
         <div><label class="f">المكان</label><select id="place"><option value="auto">يختاره الوكيل</option><option>مطبخ منزلي مضيء</option><option>غرفة معيشة</option><option>داخل السيارة</option><option>مقهى</option><option>الشارع نهارًا</option></select></div>
       </div>
-      <button class="primary big" id="go" onclick="writeScript()">✍️ اكتب سكريبت الإعلان (مجاني)</button>
+      <button class="primary big" id="go" onclick="makeAd()">🎬 اصنع الإعلان (سكريبت ← تصوير ← فيديو جاهز)</button>
+      <div class="muted center" id="oneLine" style="margin-top:8px">زر واحد: يكتب السكريبت، يصوّر اللقطات بـ Veo، ويجمّع الإعلان مع الترجمة والشعار. الكلفة التقريبية تظهر قبل الدفع.</div>
+      <div class="row" style="justify-content:center;margin-top:6px"><button class="ghost small fix" onclick="writeScript()">✍️ اكتب السكريبت فقط وراجعه أولًا (مجاني)</button></div>
       <div id="msg" class="msg"></div>
     </section>
 
@@ -85,7 +87,7 @@ async function writeScript() {
     const sys = (await (await fetch('assets/prompts/ugc.md')).text()) + '\n\n' + brandContext(B);
     const user = `Brief: ${brief}\nNumber of clips: ${$('count').value}\nCreator preference: ${$('persona').value === 'auto' ? 'choose to match the audience' : $('persona').value}\nSetting preference: ${$('place').value === 'auto' ? 'choose' : $('place').value}\n${PRODUCT ? 'A real product photo is attached: describe the product in the notes exactly as it looks so the video model keeps it consistent.' : ''}\nReturn ONLY the JSON.`;
     DATA = await geminiJSON(sys, user, { onWait: (m) => say('msg', m), images: PRODUCT ? [PRODUCT] : [] });
-    ID = null; CLIPS = {}; KEYS = {}; ERR = {}; CREATOR = ''; FINAL = null; renderScript(); await save(true); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر» — محفوظ تلقائيًا، التحديث لا يضيّعه');
+    DATA._brief = brief; ID = null; CLIPS = {}; KEYS = {}; ERR = {}; CREATOR = ''; FINAL = null; renderScript(); await save(true); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر» — محفوظ تلقائيًا، التحديث لا يضيّعه');
     $('scriptCard').hidden = false; $('scriptCard').scrollIntoView({ behavior: 'smooth' });
   } catch (e) { say('msg', '❌ ' + e.message, true); }
   $('go').disabled = false;
@@ -144,9 +146,24 @@ async function shootOne(i) {
     renderClips(); say('msg2', `✅ اللقطة ${i + 1} جاهزة`); await save(true); }
   catch (e) { ERR[i] = e.message; renderClips(); say('msg2', `❌ لقطة ${i + 1}: ${e.message}`, true); }
 }
-async function shoot() {
+async function makeAd() {
+  if (!needKey('msg')) return;
+  const brief = $('brief').value.trim(); if (!brief && !DATA) return say('msg', 'اكتب المنتج والفكرة أولًا', true);
+  $('go').disabled = true;
+  try {
+    const stale = !DATA || (DATA._brief && DATA._brief !== brief);
+    if (stale) { await writeScript(); if (!DATA) return; DATA._brief = brief; }
+    const n = DATA.clips.length; const est = n * clipCost() + (CREATOR ? 0 : 0.07) + ($('tier').value === 'standard' ? 0 : n * 0.07);
+    if (!confirm(`الإعلان: ${n} لقطات × ٨ ثوانٍ. التكلفة التقريبية $${est.toFixed(2)} من رصيد Gemini، والوقت ٣–٨ دقائق. نبدأ التصوير؟`)) return;
+    $('scriptCard').hidden = false; $('scriptCard').scrollIntoView({ behavior: 'smooth' });
+    await shoot(true);
+    if (Object.keys(CLIPS).length === DATA.clips.length) { await assemble(); $('final').scrollIntoView({ behavior: 'smooth' }); }
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  finally { $('go').disabled = false; }
+}
+async function shoot(silent) {
   if (!DATA) return; if (!needKey('msg2')) return;
-  const total = cost(); if (!confirm(`سيتم تصوير ${DATA.clips.length} لقطات بـ Veo 3.1 بتكلفة تقريبية $${total.toFixed(2)} من رصيد Gemini. كل لقطة تستغرق ١–٣ دقائق. نكمل؟`)) return;
+  const total = cost(); if (!silent && !confirm(`سيتم تصوير ${DATA.clips.length} لقطات بـ Veo 3.1 بتكلفة تقريبية $${total.toFixed(2)} من رصيد Gemini. كل لقطة تستغرق ١–٣ دقائق. نكمل؟`)) return;
   $('shootBtn').disabled = true;
   try {
     await ensureCreator(); let done = 0; $('bar').style.width = '5%';
