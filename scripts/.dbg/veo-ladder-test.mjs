@@ -10,9 +10,10 @@ const SCRIPT = { creator: 'Gulf store owner, 35', setting: 'perfume shop', clips
 let calls = []; let mode = process.argv[2] || 'ladder';
 await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
   const u = route.request().url(); const reply = (status, o) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(o) });
-  if (u.includes('predictLongRunning')) { const b = JSON.parse(route.request().postData()); calls.push({ neg: !!b.parameters.negativePrompt, refs: !!b.instances[0].referenceImages, pg: b.parameters.personGeneration, dur: b.parameters.durationSeconds });
+  if (u.includes('predictLongRunning')) { const b = JSON.parse(route.request().postData()); calls.push({ neg: !!b.parameters.negativePrompt, refs: !!b.instances[0].referenceImages, nov: 'numberOfVideos' in b.parameters, pg: b.parameters.personGeneration });
     if (mode === 'forbidden') return reply(403, { error: { code: 403, message: 'Permission denied: Veo is not available for this API key. Enable billing.' } });
-    if (b.parameters.negativePrompt) return reply(400, { error: { code: 400, message: 'Invalid JSON payload received. Unknown name "negativePrompt"' } });
+    if ('numberOfVideos' in b.parameters) return reply(400, { error: { code: 400, message: '`numberOfVideos` isn\'t supported by this model. Please remove it or refer to the Gemini API documentation for supported usage.' } });
+    if (b.parameters.negativePrompt) return reply(400, { error: { code: 400, message: '`negativePrompt` isn\'t supported by this model. Please remove it or refer to the Gemini API documentation for supported usage.' } });
     return reply(200, { name: 'operations/op1' }); }
   if (u.includes('operations/op1')) return reply(200, { done: true, response: { generateVideoResponse: { generatedSamples: [{ video: { uri: 'https://generativelanguage.googleapis.com/v1beta/files/x:download' } }] } } });
   if (u.includes(':download')) return route.fulfill({ status: 200, contentType: 'video/webm', body: clip });

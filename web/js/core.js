@@ -92,21 +92,25 @@
     const build = ({ withRefs, withNeg }) => {
       const inst = { prompt: withNeg || !negative ? prompt : `${prompt} Avoid: ${negative}.` }; if (image) inst.image = inline(image);
       if (withRefs && refs.length) inst.referenceImages = refs.slice(0, 3).map((u) => ({ image: inline(u), referenceType: 'asset' }));
-      const params = { aspectRatio: aspect, resolution, durationSeconds: inst.referenceImages || resolution !== '720p' ? 8 : duration, numberOfVideos: 1, personGeneration: 'allow_adult' };
+      const params = { aspectRatio: aspect, resolution, durationSeconds: inst.referenceImages || resolution !== '720p' ? 8 : duration, personGeneration: 'allow_adult' };
       if (withNeg && negative) params.negativePrompt = negative;
+      for (const k of dropped) delete params[k];
       return JSON.stringify({ instances: [inst], parameters: params });
     };
     // Retry ladder for 400s: the public Gemini API is stricter than Vertex — drop optional fields one by one.
     const ladder = [{ withRefs: true, withNeg: true }, { withRefs: true, withNeg: false }, { withRefs: false, withNeg: false }];
-    let r, lastText = '';
-    for (const step of ladder) {
-      if (!refs.length && !step.withRefs && ladder.indexOf(step) > 0 && !negative) break;
-      r = await fetch(url, { method: 'POST', headers: H, body: build(step) });
+    const dropped = new Set(); let r, lastText = '', li = 0;
+    for (let a = 0; a < 8; a++) {
+      r = await fetch(url, { method: 'POST', headers: H, body: build(ladder[li]) });
       if (r.ok) break;
       lastText = await r.text();
       if (r.status !== 400) throw new Error(veoError(r.status, lastText));
       if (/location|region|country/i.test(lastText)) throw new Error(veoError(400, lastText));
-      if (onStatus) onStatus('⚠️ Veo رفض بعض الخيارات — أعيد المحاولة بإعدادات أبسط…');
+      // "`field` isn't supported by this model" → drop that exact parameter and retry the same step
+      const m = lastText.match(/`([A-Za-z]+)`\s+isn'?t supported/);
+      if (m && !dropped.has(m[1])) { dropped.add(m[1]); if (onStatus) onStatus(`⚠️ Veo لا يدعم «${m[1]}» — أعيد المحاولة بدونه…`); continue; }
+      if (li >= ladder.length - 1) break;
+      li++; if (onStatus) onStatus('⚠️ Veo رفض بعض الخيارات — أعيد المحاولة بإعدادات أبسط…');
     }
     if (!r.ok) throw new Error(veoError(r.status, lastText));
     const op = await r.json(); let name = op.name; let tries = 0;
