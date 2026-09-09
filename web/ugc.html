@@ -85,7 +85,7 @@ async function writeScript() {
   if (!needKey('msg')) return; $('go').disabled = true; say('msg', '✍️ جارٍ كتابة السكريبت…');
   try {
     const sys = (await (await fetch('assets/prompts/ugc.md')).text()) + '\n\n' + brandContext(B);
-    const user = `Brief: ${brief}\nNumber of clips: ${$('count').value}\nCreator preference: ${$('persona').value === 'auto' ? 'choose to match the audience' : $('persona').value}\nSetting preference: ${$('place').value === 'auto' ? 'choose' : $('place').value}\n${PRODUCT ? 'A real product photo is attached: describe the product in the notes exactly as it looks so the video model keeps it consistent.' : ''}\nReturn ONLY the JSON.`;
+    const user = `Brief: ${brief}\nNumber of clips: ${$('count').value}\nCreator preference: ${$('persona').value === 'auto' ? 'choose to match the audience (respect any brand rule about who may appear on camera)' : $('persona').value}\nSetting preference: ${$('place').value === 'auto' ? 'choose' : $('place').value}\n${PRODUCT ? 'A real product photo is attached: describe the product in the notes exactly as it looks so the video model keeps it consistent.' : ''}\nReturn ONLY the JSON.`;
     DATA = await geminiJSON(sys, user, { onWait: (m) => say('msg', m), images: PRODUCT ? [PRODUCT] : [] });
     DATA._brief = brief; ID = null; CLIPS = {}; KEYS = {}; ERR = {}; CREATOR = ''; FINAL = null; renderScript(); await save(true); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر» — محفوظ تلقائيًا، التحديث لا يضيّعه');
     $('scriptCard').hidden = false; $('scriptCard').scrollIntoView({ behavior: 'smooth' });
