@@ -9,6 +9,23 @@
   const SCRIPT_MODELS = ['gemini-3.6-flash', 'gemini-3.1-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
   const IMG_MODELS = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-3.1-flash-lite-image'];
   const IMG_PRICE = { 'gemini-3.1-flash-image': 0.067, 'gemini-2.5-flash-image': 0.039, 'gemini-3.1-flash-lite-image': 0.034 };
+  // ---------- spend meter (estimated, local) ----------
+  const spend = {
+    log() { try { return JSON.parse(localStorage.getItem('spend_log') || '[]'); } catch { return []; } },
+    add(usd, label) { if (!(usd > 0)) return; const l = spend.log(); l.push({ t: Date.now(), usd: +usd.toFixed(4), label }); localStorage.setItem('spend_log', JSON.stringify(l.slice(-2000))); spend.render(); },
+    since(ms) { const from = Date.now() - ms; return spend.log().filter((x) => x.t >= from).reduce((a, x) => a + x.usd, 0); },
+    today() { const d = new Date(); d.setHours(0, 0, 0, 0); return spend.log().filter((x) => x.t >= d.getTime()).reduce((a, x) => a + x.usd, 0); },
+    total() { return spend.log().reduce((a, x) => a + x.usd, 0); },
+    get budget() { return +(localStorage.getItem('budget_day') ?? 5); }, set budget(v) { localStorage.setItem('budget_day', String(v)); },
+    /** Ask before an operation that would push today's estimated spend over the daily budget. */
+    guard(estUsd, what) {
+      const b = spend.budget; if (!(b > 0)) return true;
+      const after = spend.today() + estUsd; if (after <= b) return true;
+      return confirm(`تنبيه ميزانية: صرفت اليوم ≈ $${spend.today().toFixed(2)} و«${what}» يكلّف ≈ $${estUsd.toFixed(2)} → المجموع $${after.toFixed(2)} يتجاوز حدّك اليومي ($${b}). تكمل؟`);
+    },
+    render() { const el = document.getElementById('spendChip'); if (el) el.innerHTML = `💸 اليوم $${spend.today().toFixed(2)} <small>· الكل $${spend.total().toFixed(2)}</small>`; },
+    reset() { localStorage.removeItem('spend_log'); spend.render(); },
+  };
   const settings = {
     get key() { return localStorage.getItem('gemini_key') || ''; }, set key(v) { localStorage.setItem('gemini_key', v); },
     get model() { const m = localStorage.getItem('gemini_model') || SCRIPT_MODELS[0]; return m === 'gemini-2.5-flash' ? SCRIPT_MODELS[0] : m; }, set model(v) { localStorage.setItem('gemini_model', v); },
@@ -66,7 +83,7 @@
     const models = [settings.img, ...IMG_MODELS.filter((m) => m !== settings.img)]; let last;
     for (const m of models) {
       for (const cfg of [{ responseModalities: ['IMAGE'], imageConfig: { aspectRatio: ratio } }, { responseModalities: ['TEXT', 'IMAGE'] }]) {
-        try { const j = await gemini(m, { contents: [{ parts }], generationConfig: cfg }, onWait); const im = findImagePart(j.candidates?.[0]?.content); if (im) return `data:${im.mime};base64,${im.data}`; last = new Error('لم يُرجع Gemini صورة (ربما رفض الوصف)'); }
+        try { const j = await gemini(m, { contents: [{ parts }], generationConfig: cfg }, onWait); const im = findImagePart(j.candidates?.[0]?.content); if (im) { spend.add(IMG_PRICE[m] || 0.067, 'صورة ' + m); return `data:${im.mime};base64,${im.data}`; } last = new Error('لم يُرجع Gemini صورة (ربما رفض الوصف)'); }
         catch (e) { last = e; if (e.status !== 400 && e.status !== 404) throw e; }
       }
     }
@@ -112,6 +129,7 @@
       for (const k of state.dropped) delete params[k];
       return { instances: [inst], parameters: params };
     };
+    if (!spend.guard((VEO_PRICE[tier] || VEO_PRICE.fast)[resolution] * 8, 'لقطة Veo')) throw new Error('أُلغي: تجاوز الميزانية اليومية (غيّرها من ⚙️)');
     let r, lastText = '';
     for (let a = 0; a < 8; a++) {
       const body = build();
@@ -143,6 +161,7 @@
         const uri = s?.video?.uri;
         if (!uri) { const why = j.response?.generateVideoResponse?.raiMediaFilteredReasons?.[0] || j.response?.raiMediaFilteredReasons?.[0]; throw new Error(why ? `Veo رفض المحتوى: ${String(why).slice(0, 200)}` : 'Veo لم يُرجع فيديو (ربما رفض الوصف أو صورة المبدع/المنتج)'); }
         const v = await fetch(uri, { headers: { 'x-goog-api-key': settings.key } }); if (!v.ok) throw new Error(`تعذّر تنزيل الفيديو (${v.status})`);
+        spend.add((VEO_PRICE[tier] || VEO_PRICE.fast)[resolution] * 8, `Veo ${tier} ${resolution}`);
         return await v.blob();
       }
       if (tries > 90) throw new Error('Veo تأخر أكثر من ١٢ دقيقة');
@@ -208,19 +227,24 @@
     const h = document.createElement('header'); h.className = 'top';
     h.innerHTML = `<a class="logo" href="index.html"><img src="assets/brand/fd-logo.png" alt=""><span>FullTime<em>Digi</em> Studio</span></a>${crumb ? `<span class="crumb">/ ${esc(crumb)}</span>` : ''}<span class="grow"></span>
       <a class="brandChip" href="index.html#brand" title="هوية البراند"><span class="dot">${b.logo ? `<img src="${b.logo}" alt="">` : esc((b.name || '؟').slice(0, 1))}</span><span class="n">${esc(b.name || 'أنشئ هوية البراند')}</span></a>
+      <button class="soft small" id="spendChip" onclick="Suite.openSettings()" title="الإنفاق التقديري (يُحسب محليًا من عمليات هذه الأداة)"></button>
       <button class="soft small" onclick="Suite.openSettings()" title="الإعدادات">⚙️</button>`;
-    document.body.prepend(h);
+    document.body.prepend(h); spend.render();
     const d = document.createElement('dialog'); d.id = 'suiteSettings';
     d.innerHTML = `<div class="body"><h2>⚙️ الإعدادات</h2>
       <div class="note">مفتاح Gemini واحد يشغّل كل الوحدات (نص، صوت، صور). أنشئه من <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. يُحفظ في متصفحك فقط.</div>
       <label class="f">GEMINI_API_KEY</label><input id="ss_key" placeholder="AIza…">
       <label class="f">نموذج النص</label><input id="ss_model" placeholder="gemini-3.6-flash">
       <label class="f">نموذج الصور</label><select id="ss_img"><option value="gemini-3.1-flash-image">Nano Banana 2 — الأفضل (≈ $0.067)</option><option value="gemini-2.5-flash-image">Nano Banana (≈ $0.039)</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite (≈ $0.034)</option></select>
+      <label class="f">حدّ الإنفاق اليومي (دولار) — الأداة تسألك قبل أي عملية تتجاوزه</label><input id="ss_budget" type="number" min="0" step="1" placeholder="5">
+      <div class="note" id="ss_spend"></div>
       <div class="row" style="margin-top:14px"><button class="fix" onclick="Suite.saveSettings()">حفظ</button><span class="grow"></span><button class="ghost fix" onclick="document.getElementById('suiteSettings').close()">إغلاق</button></div><div id="ss_msg" class="msg"></div></div>`;
     document.body.appendChild(d);
   }
-  function openSettings() { $('ss_key').value = settings.key; $('ss_model').value = settings.model; $('ss_img').value = settings.img; $('suiteSettings').showModal(); }
-  function saveSettings() { settings.key = $('ss_key').value.trim(); settings.model = $('ss_model').value.trim() || SCRIPT_MODELS[0]; settings.img = $('ss_img').value; say('ss_msg', '✅ حُفظ'); setTimeout(() => $('suiteSettings').close(), 500); }
+  function openSettings() { $('ss_key').value = settings.key; $('ss_model').value = settings.model; $('ss_img').value = settings.img; $('ss_budget').value = spend.budget;
+    const l = spend.log().slice(-8).reverse(); $('ss_spend').innerHTML = `الإنفاق التقديري: اليوم $${spend.today().toFixed(2)} · آخر ٧ أيام $${spend.since(7 * 864e5).toFixed(2)} · الإجمالي $${spend.total().toFixed(2)}<br><small>${l.map((x) => `${new Date(x.t).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} ${esc(x.label)} $${x.usd.toFixed(2)}`).join(' · ') || 'لا شيء بعد'}</small><br><small>الرقم الرسمي في <a href="https://aistudio.google.com/usage" target="_blank">AI Studio › Usage</a>. <a href="#" onclick="if(confirm('تصفير العدّاد المحلي؟'))Suite.spend.reset();return false">تصفير العدّاد</a></small>`;
+    $('suiteSettings').showModal(); }
+  function saveSettings() { settings.key = $('ss_key').value.trim(); settings.model = $('ss_model').value.trim() || SCRIPT_MODELS[0]; settings.img = $('ss_img').value; spend.budget = +$('ss_budget').value || 0; say('ss_msg', '✅ حُفظ'); setTimeout(() => $('suiteSettings').close(), 500); }
   function needKey(msgId) { if (settings.key) return true; openSettings(); if (msgId) say(msgId, 'ضع مفتاح Gemini ثم احفظ وأعد المحاولة', true); return false; }
 
   // chat-based editing: apply a plain-language instruction to any JSON result, same shape back
@@ -239,5 +263,5 @@
   async function thumb(node, size = 320) { try { const b = await window.htmlToImage.toJpeg(node, { pixelRatio: size / Math.max(node.offsetWidth, 1), quality: 0.7 }); return b; } catch { return ''; } }
 
   window.Suite = { $, esc, sleep, settings, SCRIPT_MODELS, IMG_MODELS, IMG_PRICE, gemini, geminiAny, geminiJSON, generateImage, pmap, textOf, parseJSON,
-    VEO_MODELS, VEO_PRICE, veoGenerate, DIALECTS, DIALECT_NOTE, TONES, DEFAULT_BRAND, loadBrand, saveBrand, brandReady, brandContext, imageStyle, lib, toast, say, copyText, download, readFile, fonts, mountHeader, openSettings, saveSettings, needKey, chatEdit, nodeToPng, zipBlobs, q, thumb };
+    VEO_MODELS, VEO_PRICE, veoGenerate, DIALECTS, DIALECT_NOTE, TONES, DEFAULT_BRAND, loadBrand, saveBrand, brandReady, brandContext, imageStyle, lib, spend, toast, say, copyText, download, readFile, fonts, mountHeader, openSettings, saveSettings, needKey, chatEdit, nodeToPng, zipBlobs, q, thumb };
 })();

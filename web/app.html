@@ -362,11 +362,12 @@ async function clearAudioCache() { TTS_CACHE.clear(); try { const db = await idb
 function pcmToBuffer(f, rate = 24000) { const ctx = new OfflineAudioContext(1, 1, rate); const buf = ctx.createBuffer(1, f.length, rate); buf.copyToChannel(f, 0); return buf; }
 function b64ToF32(b64) { const bin = atob(b64); const n = bin.length >> 1; const f = new Float32Array(n); for (let i = 0; i < n; i++) { const v = (bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8)); f[i] = (v > 32767 ? v - 65536 : v) / 32768; } return f; }
 async function tts(text, { voice, style, model }, onWait) {
+  const _t0 = text; const _rec = () => { try { window.Suite && Suite.spend.add(Math.max(0.005, String(_t0).length / 1000 * 0.03), 'صوت'); } catch {} };
   const wanted = model || settings.tts; const key = [wanted, voice, style, text].join('|');
   if (TTS_CACHE.has(key)) return TTS_CACHE.get(key);
   const stored = await idbGet(key); if (stored && stored.pcm) { const b = pcmToBuffer(stored.pcm, stored.rate); TTS_CACHE.set(key, b); return b; }
   const prompt = `${style || 'Read this narration naturally, warm and clear'}:\n${text}`;
-  const { j } = await geminiAny(TTS_MODELS[wanted] || [wanted, ...TTS_MODELS['gemini-2.5-flash-preview-tts']], { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || 'Charon' } } } } }, onWait);
+  const { j } = await geminiAny(TTS_MODELS[wanted] || [wanted, ...TTS_MODELS['gemini-2.5-flash-preview-tts']], { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || 'Charon' } } } } }, onWait); _rec();
   const part = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData); if (!part) throw new Error('Gemini لم يُرجع صوتًا');
   const rate = +(part.inlineData.mimeType.match(/rate=(\d+)/)?.[1] || 24000);
   const pcm = b64ToF32(part.inlineData.data); const buf = pcmToBuffer(pcm, rate); TTS_CACHE.set(key, buf); idbSet(key, { pcm, rate }); return buf;

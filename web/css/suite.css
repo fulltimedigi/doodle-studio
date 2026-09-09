@@ -111,3 +111,5 @@ dialog h2{margin:0 0 10px;font-size:17px}
 .frame .scaler>*{position:absolute;left:0;top:0;transform-origin:0 0}
 .frame .n{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;border-radius:999px;padding:1px 8px}
 .frame.sel{outline:3px solid var(--accent2)}
+
+header.top #spendChip{font-size:12px;white-space:nowrap}header.top #spendChip small{opacity:.6;font-size:11px}@media(max-width:640px){header.top #spendChip small{display:none}}
