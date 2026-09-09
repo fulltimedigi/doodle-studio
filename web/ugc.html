@@ -13,6 +13,7 @@
   .clip textarea{min-height:52px;font-size:14px}
   .clip .notes{font-size:12px;color:var(--muted);margin-top:4px;direction:ltr;text-align:left}
   .clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .clips .c.err{background:#fff4f4;color:#9b1c1c;border-color:#f0c4c4;padding:10px;text-align:center}.clips .c.err small{display:block;margin-top:6px;font-size:12px;line-height:1.5;white-space:normal}.clips .c.err .re{position:absolute;bottom:8px;left:8px}
   .clips .c{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#000;position:relative;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
   .clips .c video{width:100%;height:100%;object-fit:cover}
   .clips .c .n{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border-radius:999px;padding:1px 8px;font-size:11px}
@@ -68,7 +69,7 @@
 const { $, esc, say, toast, copyText, geminiJSON, generateImage, veoGenerate, VEO_PRICE, IMG_PRICE, brandContext, loadBrand, lib, needKey, chatEdit, readFile, q, sleep, pmap, settings, DIALECT_NOTE, DIALECTS } = Suite;
 Suite.mountHeader('إعلان UGC');
 const B = loadBrand();
-let DATA = null, PRODUCT = '', CREATOR = '', CLIPS = {}, ID = q.get('id'), FINAL = null, FINAL_EXT = 'mp4';
+let DATA = null, PRODUCT = '', CREATOR = '', CLIPS = {}, ERR = {}, ID = q.get('id'), FINAL = null, FINAL_EXT = 'mp4';
 async function pickProduct(f) { if (!f) return; PRODUCT = await readFile(f); toast('✅ صورة المنتج جاهزة'); }
 const res = () => ($('tier').value === 'lite' ? '720p' : '1080p');
 function clipCost() { const t = $('tier').value; return (VEO_PRICE[t] || VEO_PRICE.fast)[res()] * 8; }
@@ -97,7 +98,7 @@ function renderScript() {
 }
 function renderClips() {
   const any = Object.keys(CLIPS).length;
-  $('clips').innerHTML = DATA.clips.map((c, i) => CLIPS[i] ? `<div class="c"><video src="${URL.createObjectURL(CLIPS[i])}" controls playsinline></video><span class="n">${i + 1}</span><button class="soft small re" onclick="shootOne(${i})">🔁</button></div>` : `<div class="c"><span>لقطة ${i + 1}<br><small class="muted">لم تُصوَّر بعد</small></span></div>`).join('');
+  $('clips').innerHTML = DATA.clips.map((c, i) => CLIPS[i] ? `<div class="c"><video src="${URL.createObjectURL(CLIPS[i])}" controls playsinline></video><span class="n">${i + 1}</span><button class="soft small re" onclick="shootOne(${i})">🔁</button></div>` : ERR[i] ? `<div class="c err"><span>لقطة ${i + 1}<br><small>${esc(ERR[i])}</small></span><button class="soft small re" onclick="shootOne(${i})">🔁 أعد</button></div>` : `<div class="c"><span>لقطة ${i + 1}<br><small class="muted">لم تُصوَّر بعد</small></span></div>`).join('');
   $('assembleRow').hidden = !(any && Object.keys(CLIPS).length === DATA.clips.length);
 }
 async function chat() {
@@ -117,8 +118,9 @@ function veoPrompt(c) {
 async function shootOne(i) {
   if (!needKey('msg2')) return; await ensureCreator();
   const c = DATA.clips[i]; say('msg2', `🎬 تصوير اللقطة ${i + 1}…`);
+  delete ERR[i];
   try { CLIPS[i] = await veoGenerate({ prompt: veoPrompt(c), refs: [CREATOR, PRODUCT].filter(Boolean), tier: $('tier').value, aspect: '9:16', resolution: res(), duration: 8, negative: 'text, captions, subtitles, watermark, logo, cartoon, blurry, distorted hands', onStatus: (m) => say('msg2', `لقطة ${i + 1}: ${m}`) }); renderClips(); say('msg2', `✅ اللقطة ${i + 1} جاهزة`); await save(true); }
-  catch (e) { say('msg2', `❌ لقطة ${i + 1}: ${e.message}`, true); }
+  catch (e) { ERR[i] = e.message; renderClips(); say('msg2', `❌ لقطة ${i + 1}: ${e.message}`, true); }
 }
 async function shoot() {
   if (!DATA) return; if (!needKey('msg2')) return;
@@ -127,7 +129,7 @@ async function shoot() {
   try {
     await ensureCreator(); let done = 0; $('bar').style.width = '5%';
     await pmap(DATA.clips.map((c, i) => i), 4, async (i) => { await shootOne(i); done++; $('bar').style.width = Math.round(done / DATA.clips.length * 100) + '%'; });
-    say('msg2', Object.keys(CLIPS).length === DATA.clips.length ? '✅ كل اللقطات جاهزة — اضغط «جمّع الإعلان النهائي»' : '⚠️ بعض اللقطات فشلت — أعد تصويرها بزر 🔁', Object.keys(CLIPS).length !== DATA.clips.length);
+    say('msg2', Object.keys(CLIPS).length === DATA.clips.length ? '✅ كل اللقطات جاهزة — اضغط «جمّع الإعلان النهائي»' : `⚠️ فشلت ${DATA.clips.length - Object.keys(CLIPS).length} لقطات — السبب: ${Object.values(ERR)[0] || 'غير معروف'}`, Object.keys(CLIPS).length !== DATA.clips.length);
   } finally { $('shootBtn').disabled = false; }
 }
 // ---------- assembly: clips + burned captions + logo + end card -> one MP4 (WebCodecs) ----------

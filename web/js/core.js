@@ -76,25 +76,51 @@
   const VEO_MODELS = { fast: 'veo-3.1-fast-generate-preview', standard: 'veo-3.1-generate-preview', lite: 'veo-3.1-lite-generate-preview' };
   const VEO_PRICE = { fast: { '720p': 0.10, '1080p': 0.12 }, standard: { '720p': 0.40, '1080p': 0.40 }, lite: { '720p': 0.05, '1080p': 0.08 } }; // per second
   const inline = (u) => ({ inlineData: { mimeType: u.match(/^data:([^;]+)/)[1], data: u.split(',')[1] } });
+  function veoError(status, text) {
+    let msg = text; try { const j = JSON.parse(text); msg = j.error?.message || text; } catch {}
+    if (status === 429) return 'تجاوزت حصة Veo — انتظر دقيقة ثم أعد المحاولة';
+    if (status === 403 || /permission|billing|not enabled|free tier|not available/i.test(msg)) return `Veo غير مفعّل لهذا المفتاح (${status}). Veo يعمل فقط على الباقة المدفوعة في Google AI Studio — تأكد أن المفتاح مرتبط بمشروع عليه فوترة. التفاصيل: ${msg.slice(0, 200)}`;
+    if (status === 404) return `نموذج Veo غير موجود لهذا المفتاح (404): ${msg.slice(0, 200)}`;
+    if (status === 400 && /location|region|country|not supported in/i.test(msg)) return `Veo غير متاح في منطقتك الجغرافية حسب Google: ${msg.slice(0, 200)}`;
+    return `Veo ${status}: ${msg.slice(0, 260)}`;
+  }
   async function veoGenerate({ prompt, refs = [], image = null, tier = 'fast', aspect = '9:16', resolution = '1080p', duration = 8, negative = '', onStatus }) {
     if (!settings.key) throw new Error('ضع مفتاح Gemini في الإعدادات أولًا (⚙️)');
     const model = VEO_MODELS[tier] || VEO_MODELS.fast;
-    const inst = { prompt }; if (image) inst.image = inline(image); if (refs.length) inst.referenceImages = refs.slice(0, 3).map((u) => ({ image: inline(u), referenceType: 'asset' }));
-    const params = { aspectRatio: aspect, resolution, durationSeconds: duration, personGeneration: 'allow_adult', numberOfVideos: 1 }; if (negative) params.negativePrompt = negative;
     const H = { 'content-type': 'application/json', 'x-goog-api-key': settings.key };
-    let r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning`, { method: 'POST', headers: H, body: JSON.stringify({ instances: [inst], parameters: params }) });
-    if (r.status === 400 && inst.referenceImages) { delete inst.referenceImages; r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning`, { method: 'POST', headers: H, body: JSON.stringify({ instances: [inst], parameters: params }) }); }
-    if (!r.ok) { const t = await r.text(); throw new Error(r.status === 429 ? 'تجاوزت حصة Veo — انتظر دقيقة' : `Veo ${r.status}: ${t.slice(0, 240)}`); }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning`;
+    const build = ({ withRefs, withNeg }) => {
+      const inst = { prompt: withNeg || !negative ? prompt : `${prompt} Avoid: ${negative}.` }; if (image) inst.image = inline(image);
+      if (withRefs && refs.length) inst.referenceImages = refs.slice(0, 3).map((u) => ({ image: inline(u), referenceType: 'asset' }));
+      const params = { aspectRatio: aspect, resolution, durationSeconds: inst.referenceImages || resolution !== '720p' ? 8 : duration, numberOfVideos: 1, personGeneration: 'allow_adult' };
+      if (withNeg && negative) params.negativePrompt = negative;
+      return JSON.stringify({ instances: [inst], parameters: params });
+    };
+    // Retry ladder for 400s: the public Gemini API is stricter than Vertex — drop optional fields one by one.
+    const ladder = [{ withRefs: true, withNeg: true }, { withRefs: true, withNeg: false }, { withRefs: false, withNeg: false }];
+    let r, lastText = '';
+    for (const step of ladder) {
+      if (!refs.length && !step.withRefs && ladder.indexOf(step) > 0 && !negative) break;
+      r = await fetch(url, { method: 'POST', headers: H, body: build(step) });
+      if (r.ok) break;
+      lastText = await r.text();
+      if (r.status !== 400) throw new Error(veoError(r.status, lastText));
+      if (/location|region|country/i.test(lastText)) throw new Error(veoError(400, lastText));
+      if (onStatus) onStatus('⚠️ Veo رفض بعض الخيارات — أعيد المحاولة بإعدادات أبسط…');
+    }
+    if (!r.ok) throw new Error(veoError(r.status, lastText));
     const op = await r.json(); let name = op.name; let tries = 0;
+    if (!name) throw new Error('Veo لم يُرجع رقم عملية: ' + JSON.stringify(op).slice(0, 200));
     while (true) {
       await sleep(8000); tries++; if (onStatus) onStatus(`⏳ Veo يُصوّر… ${tries * 8} ث`);
       const p = await fetch(`https://generativelanguage.googleapis.com/v1beta/${name}`, { headers: { 'x-goog-api-key': settings.key } });
-      if (!p.ok) throw new Error(`Veo poll ${p.status}`);
+      if (!p.ok) throw new Error(veoError(p.status, await p.text()));
       const j = await p.json();
       if (j.error) throw new Error('Veo: ' + (j.error.message || 'فشل التوليد'));
       if (j.done) {
         const s = j.response?.generateVideoResponse?.generatedSamples?.[0] || j.response?.generatedVideos?.[0];
-        const uri = s?.video?.uri; if (!uri) throw new Error('Veo لم يُرجع فيديو (ربما رفض الوصف أو الصورة)');
+        const uri = s?.video?.uri;
+        if (!uri) { const why = j.response?.generateVideoResponse?.raiMediaFilteredReasons?.[0] || j.response?.raiMediaFilteredReasons?.[0]; throw new Error(why ? `Veo رفض المحتوى: ${String(why).slice(0, 200)}` : 'Veo لم يُرجع فيديو (ربما رفض الوصف أو صورة المبدع/المنتج)'); }
         const v = await fetch(uri, { headers: { 'x-goog-api-key': settings.key } }); if (!v.ok) throw new Error(`تعذّر تنزيل الفيديو (${v.status})`);
         return await v.blob();
       }
