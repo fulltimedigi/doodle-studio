@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // doodle-studio CLI — free doodle / whiteboard videos from a JSON script.
 import { writeFileSync, mkdirSync, existsSync, cpSync, readFileSync } from 'node:fs';
-import { resolve, join, basename } from 'node:path';
+import { resolve, join, basename, dirname } from 'node:path';
 import { ROOT, loadProject, compile } from './project.mjs';
 import { renderVideo, renderStill } from './render.mjs';
+import { renderReel } from './reel.mjs';
 import { VOICES } from './tts.mjs';
 import { imageToStrokes } from './strokes.mjs';
 import { generateScript } from './ai.mjs';
@@ -25,6 +26,7 @@ doodle-studio — فيديوهات Doodle مجانية، بدون اشتراكا
 
   doodle render <script.json> [-o out.mp4] [--fps 30] [--draft] [--no-audio] [--quality good|best|draft]
   doodle still  <script.json> --at 3.5 [-o frame.png]      لقطة واحدة عند ثانية معينة (للمعاينة السريعة)
+  doodle reel   <reel.json> [-o out/] [--fps 30] [--music track.mp3]   ريل 1080x1920 + غلاف 4:5 + ملف ترجمة
   doodle ai     <brief.txt> [-o script.json] [--format 16:9|9:16|1:1] [--lang ar|en] [--model qwen2.5:7b]
   doodle new    <folder>                                      مشروع جديد يحتوي مثالًا جاهزًا
   doodle hand   <photo.jpg> [-o assets/hands/my-hand.png]     قصّ يدك من صورة (يحتاج rembg: pip install "rembg[cpu,cli]")
@@ -79,6 +81,19 @@ async function main() {
     const p = loadProject(pos[0]); const c = await compile(p, { cacheDir: CACHE, noAudio: true, log });
     const out = flags.out || 'output/still.png';
     await renderStill(c, +(flags.at || 0), out); log(`✅ ${out}`); return;
+  }
+  if (cmd === 'reel') {
+    if (!pos[0]) throw new Error('reel.json path is required');
+    const file = resolve(pos[0]);
+    const spec = JSON.parse(readFileSync(file, 'utf8'));
+    log(`📝 ${spec.scenes.length} scenes`);
+    const r = await renderReel(spec, {
+      out: flags.out || 'output', dir: dirname(file), cacheDir: CACHE,
+      fps: +(flags.fps || 30), music: flags.music ? resolve(flags.music) : null,
+      musicVolume: +(flags['music-volume'] || 0.12), log,
+    });
+    log(`✅ ${r.mp4}  ${r.seconds}s · ${r.frames} frames · ${r.voiceLines} voice lines`);
+    log(`   ${r.cover}\n   ${r.srt}`); return;
   }
   if (cmd === 'render') {
     if (!pos[0]) throw new Error('script.json path is required');
