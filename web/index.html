@@ -19,6 +19,14 @@
   .swatches i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.08);display:inline-block}
   .logoDrop{width:84px;height:84px;border:2px dashed var(--line);border-radius:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:#fff;font-size:12px;color:var(--muted);text-align:center}
   .logoDrop img{width:100%;height:100%;object-fit:contain}
+  .bdrop{border:1.5px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;background:#fff;margin-top:6px}
+  .bdrop:hover,.bdrop.over{border-color:var(--ink);color:var(--ink);background:var(--soft)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chips .c{display:flex;align-items:center;gap:6px;background:var(--soft);border-radius:999px;padding:4px 6px 4px 12px;font-size:12.5px}
+  .chips .c img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+  .chips .c b{font-weight:600;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chips .c span{color:var(--muted);font-variant-numeric:tabular-nums}
+  .chips .c button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:15px;padding:0 2px;line-height:1}
 </style>
 </head>
 <body>
@@ -54,6 +62,12 @@
     <div class="note">اختصار: اكتب وصفًا سريعًا لنشاطك (أو الصق نص صفحتك) واضغط «املأ تلقائيًا»، ثم راجع الحقول.</div>
     <div class="row"><button class="soft fix" onclick="presetFTD()">⚡ هوية FullTimeDigi الجاهزة (الدليل الكامل + الألوان + الشعار)</button></div>
     <div class="row"><textarea id="b_desc" style="min-height:64px" placeholder="مثال: متجر عطور نيش في الرياض، عملاؤنا سيدات ٢٥–٤٥، توصيل خلال ٢٤ ساعة، نبرة فاخرة وهادئة"></textarea><button class="fix" onclick="autoBrand()">✨ املأ تلقائيًا</button></div>
+    <label class="f">أو ارفع دليل الهوية — ملف PDF، أو صور تُظهر الألوان والخطوط وأسلوب الصور</label>
+    <div id="brandDrop" class="bdrop">
+      <span>اسحب الملفات هنا أو اضغط للاختيار — PDF وصور، حتى ٦ ملفات</span>
+      <input type="file" id="brandFiles" accept="application/pdf,image/*" multiple style="display:none" onchange="addBrandFiles(this.files)">
+    </div>
+    <div id="brandChips" class="chips"></div>
     <div id="b_msg" class="msg"></div>
     <div class="grid2">
       <div><label class="f">اسم البراند</label><input id="b_name"></div>
@@ -142,17 +156,55 @@ function saveBrandForm() {
   if (!b.name || !b.sells) return say('b_msg', 'اسم البراند وما تبيعه مطلوبان', true);
   saveBrand(b); $('brandDlg').close(); renderBrand(); toast('✅ حُفظت هوية البراند'); document.querySelector('.brandChip .n').textContent = b.name; document.querySelector('.brandChip .dot').innerHTML = b.logo ? `<img src="${b.logo}" alt="">` : esc(b.name.slice(0, 1));
 }
+// A brand guide can arrive as a document rather than a paragraph. Gemini reads PDFs and images
+// through the same inline channel, so both go to the model as they are — a PDF keeps its own
+// text, and identity images are where the palette actually lives.
+let BFILES = [];
+const MAX_FILES = 6, MAX_BYTES = 14 * 1024 * 1024;   // the request carries them inline; keep it under the API's ceiling
+
+async function addBrandFiles(list) {
+  for (const f of [...list]) {
+    if (BFILES.length >= MAX_FILES) { say('b_msg', `الحد ${MAX_FILES} ملفات`, true); break; }
+    if (!/^(application\/pdf|image\/)/.test(f.type)) { say('b_msg', `${f.name}: PDF أو صورة فقط`, true); continue; }
+    const url = await readFile(f);
+    const bytes = Math.round((url.length - url.indexOf(',') - 1) * 0.75);
+    if (BFILES.reduce((a, x) => a + x.bytes, 0) + bytes > MAX_BYTES) { say('b_msg', 'الملفات كبيرة جدًا — احذف واحدًا', true); break; }
+    BFILES.push({ name: f.name, url, bytes, pdf: f.type === 'application/pdf' });
+  }
+  drawBrandFiles();
+}
+function dropBrandFile(i) { BFILES.splice(i, 1); drawBrandFiles(); }
+function drawBrandFiles() {
+  $('brandChips').innerHTML = BFILES.map((f, i) =>
+    `<span class="c">${f.pdf ? '📄' : `<img src="${f.url}" alt="">`}<b>${f.name.replace(/[<>&]/g, '')}</b>` +
+    `<span>${f.bytes < 1048576 ? Math.round(f.bytes / 1024) + 'ك' : (f.bytes / 1048576).toFixed(1) + 'م'}</span><button title="احذف" onclick="dropBrandFile(${i})">×</button></span>`).join('');
+}
+(function wireDrop() {
+  const d = $('brandDrop');
+  d.onclick = () => $('brandFiles').click();
+  d.ondragover = (e) => { e.preventDefault(); d.classList.add('over'); };
+  d.ondragleave = () => d.classList.remove('over');
+  d.ondrop = (e) => { e.preventDefault(); d.classList.remove('over'); addBrandFiles(e.dataTransfer.files); };
+})();
+
 async function autoBrand() {
-  const desc = $('b_desc').value.trim(); if (!desc) return say('b_msg', 'اكتب وصفًا أولًا', true);
+  const desc = $('b_desc').value.trim();
+  if (!desc && !BFILES.length) return say('b_msg', 'اكتب وصفًا أو ارفع دليل الهوية', true);
   if (!needKey('b_msg')) return;
-  say('b_msg', '✨ جارٍ التحليل…');
+  say('b_msg', BFILES.length ? `✨ جارٍ قراءة ${BFILES.length} ملف…` : '✨ جارٍ التحليل…');
   try {
     const sys = await (await fetch('assets/prompts/brand.md')).text();
-    const out = await geminiJSON(sys, desc, { temperature: 0.3, onWait: (m) => say('b_msg', m) });
+    const ask = [desc, BFILES.length ? `ATTACHED: ${BFILES.length} file(s) — ${BFILES.map((f) => f.name).join('، ')}. Read them as the brand's own identity material.` : '']
+      .filter(Boolean).join('\n\n') || 'استخرج الهوية من الملفات المرفقة.';
+    const out = await geminiJSON(sys, ask, { temperature: 0.3, images: BFILES.map((f) => f.url), onWait: (m) => say('b_msg', m) });
     if (out.name) $('b_name').value = out.name; if (out.sells) $('b_sells').value = out.sells; if (out.usp) $('b_usp').value = out.usp; if (out.audience) $('b_aud').value = out.audience; if (out.cta) $('b_cta').value = out.cta; if (out.hashtags) $('b_tags').value = out.hashtags; if (out.banned) $('b_banned').value = out.banned; if (out.brief) $('b_brief').value = out.brief; if (out.visual) $('b_visual').value = out.visual;
+    const hex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim()) && v.trim();
+    if (hex(out.colors?.primary)) $('b_c1').value = hex(out.colors.primary);
+    if (hex(out.colors?.accent)) $('b_c2').value = hex(out.colors.accent);
+    if (hex(out.colors?.bg)) $('b_c3').value = hex(out.colors.bg);
     if (out.dialect && DIALECTS[out.dialect]) document.querySelector(`input[name=dialect][value=${out.dialect}]`).checked = true;
     if (Array.isArray(out.tones)) document.querySelectorAll('input[name=tone]').forEach((x) => { x.checked = out.tones.includes(x.value); });
-    say('b_msg', '✅ راجع الحقول ثم احفظ');
+    say('b_msg', BFILES.length ? '✅ قُرئت الملفات — راجع الحقول والألوان ثم احفظ' : '✅ راجع الحقول ثم احفظ');
   } catch (e) { say('b_msg', '❌ ' + e.message, true); }
 }
 const KIND = { reel: ['🎬', 'ريلز', 'reels.html'], reelvideo: ['🎞️', 'ريل مركّب', 'reel.html'], plan: ['🗓️', 'خطة شهر', 'plan.html'], carousel: ['🖼️', 'كاروسيل', 'carousel.html'], ad: ['📣', 'إعلان', 'ad.html'], doodle: ['✍️', 'Doodle', 'doodle.html'], motion: ['💬', 'موشن', 'doodle.html?mode=motion'], ugc: ['🎥', 'UGC', 'ugc.html'], magnet: ['📘', 'كتيّب', 'magnet.html'], logo: ['🔷', 'شعار', 'logo.html'] };
