@@ -113,3 +113,6 @@ dialog h2{margin:0 0 10px;font-size:17px}
 .frame.sel{outline:3px solid var(--accent2)}
 
 header.top #spendChip{font-size:12px;white-space:nowrap}header.top #spendChip small{opacity:.6;font-size:11px}@media(max-width:640px){header.top #spendChip small{display:none}}
+
+/* a .pane that starts hidden must stay hidden — display:grid above outranks the UA [hidden] rule */
+[hidden]{display:none!important}
