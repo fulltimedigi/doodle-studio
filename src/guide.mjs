@@ -6,8 +6,9 @@
 // available, Chromium prints the pages directly instead: vector text, embedded fonts, a much
 // smaller file. Same design system either way — assets/print/guide.css.
 import { chromium } from 'playwright';
-import { readFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { ROOT, dataUrl } from './project.mjs';
 import { browserOptions } from './reel.mjs';
 
@@ -40,16 +41,27 @@ export async function renderGuidePdf(html, { out, baseDir = null, title = 'دل�
   mkdirSync(dirname(out), { recursive: true });
   const doc = (typeof html === 'string' && /<html[\s>]/i.test(html)) ? html : guideHtml(html, { title });
   const browser = await chromium.launch(browserOptions());
+  let tmp = null;
   try {
     const page = await browser.newPage();
-    // A base URL lets a document reference its own local images; without one, everything the
-    // document needs must already be inline.
-    await page.setContent(doc, { waitUntil: 'load', ...(baseDir ? { baseURL: `file://${baseDir}/` } : {}) });
+    // A page built with setContent has an about:blank origin, and Chromium refuses to load
+    // file:// subresources into one — a <base> tag does not change that. So when the document
+    // references its own local images, write it beside them and navigate to it for real.
+    if (baseDir) {
+      tmp = join(baseDir, `.guide-${Date.now()}.html`);
+      writeFileSync(tmp, doc, 'utf8');
+      await page.goto(pathToFileURL(tmp).href, { waitUntil: 'load' });
+    } else {
+      await page.setContent(doc, { waitUntil: 'load' });
+    }
     await page.evaluate(() => document.fonts.ready);
     const pages = await page.evaluate(() => document.querySelectorAll('.page').length);
     // The document owns its own @page size and margins, so Chromium adds none.
     await page.pdf({ path: out, printBackground: true, preferCSSPageSize: true, margin: { top: 0, right: 0, bottom: 0, left: 0 } });
     log(`📄 ${pages} pages`);
     return { out, bytes: statSync(out).size, pages };
-  } finally { await browser.close(); }
+  } finally {
+    await browser.close();
+    if (tmp) { try { unlinkSync(tmp); } catch {} }
+  }
 }

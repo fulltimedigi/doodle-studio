@@ -162,6 +162,9 @@ export function sceneFrames(sc, overlay) {
   const kind = sc.type || 'title';
   const dur = +(sc.duration ?? 3.5);
   const ov = overlayHtml(sc.overlay === undefined ? overlay : sc.overlay);
+  // .overlay and .top occupy the same box by design — the hook replaces the scene's own heading
+  // for as long as it is up, rather than the two printing over each other.
+  const head = (s) => (ov ? '' : topHtml(s));
   const tag = sc.tag ? `<div class="tag">${esc(sc.tag)}</div>` : '';
   const entrance = 0.5, steps = Math.max(2, Math.round(entrance * 12));
   const out = [];
@@ -229,8 +232,8 @@ export function sceneFrames(sc, overlay) {
       return s;
     };
     const move = +(sc.move_seconds ?? 1.6), ms = Math.max(2, Math.round(move * 12));
-    for (let i = 0; i < ms; i++) { const p = (i + 1) / ms; add(`${ov}${topHtml(sc)}${stairs(p)}${tag}`, move / ms, p); }
-    add(`${ov}${topHtml(sc)}${stairs(1)}${tag}`, Math.max(0.3, dur - move));
+    for (let i = 0; i < ms; i++) { const p = (i + 1) / ms; add(`${ov}${head(sc)}${stairs(p)}${tag}`, move / ms, p); }
+    add(`${ov}${head(sc)}${stairs(1)}${tag}`, Math.max(0.3, dur - move));
 
   } else if (kind === 'walk') {
     const FLOOR = +(sc.floor ?? 1400);
@@ -250,8 +253,8 @@ export function sceneFrames(sc, overlay) {
       return s;
     };
     const move = +(sc.move_seconds ?? 2.4), ms = Math.max(2, Math.round(move * 12));
-    for (let i = 0; i < ms; i++) { const p = (i + 1) / ms; add(`${ov}${topHtml(sc)}${walk(p)}${tag}`, move / ms, p); }
-    add(`${ov}${topHtml(sc)}${walk(1)}${tag}`, Math.max(0.3, dur - move));
+    for (let i = 0; i < ms; i++) { const p = (i + 1) / ms; add(`${ov}${head(sc)}${walk(p)}${tag}`, move / ms, p); }
+    add(`${ov}${head(sc)}${walk(1)}${tag}`, Math.max(0.3, dur - move));
 
   } else if (kind === 'product' || kind === 'report') {
     const items = sc.rows || [], n = Math.max(1, items.length);
@@ -276,9 +279,9 @@ export function sceneFrames(sc, overlay) {
     const rs = Math.max(n, Math.round(reveal * 8));
     for (let i = 0; i < rs; i++) {
       const p = (i + 1) / rs, k = Math.max(1, Math.min(n, Math.round(p * n)));
-      add(`${ov}${topHtml(sc)}${body(k)}${p > 0.9 ? cta : ''}${tag}`, reveal / rs, Math.min(1, p * 2));
+      add(`${ov}${head(sc)}${body(k)}${p > 0.9 ? cta : ''}${tag}`, reveal / rs, Math.min(1, p * 2));
     }
-    add(`${ov}${topHtml(sc)}${body(n)}${cta}${tag}`, Math.max(0.3, dur - reveal));
+    add(`${ov}${head(sc)}${body(n)}${cta}${tag}`, Math.max(0.3, dur - reveal));
 
   } else {
     throw new Error(`unknown scene type: ${kind}`);
@@ -313,8 +316,10 @@ async function prepareVoices(spec, { dir, cacheDir, log }) {
 }
 
 const srtTime = (x) => {
-  const h = Math.floor(x / 3600), m = Math.floor((x % 3600) / 60), s = x % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(Math.floor(s)).padStart(2, '0')},${String(Math.round((s % 1) * 1000)).padStart(3, '0')}`;
+  // Round to whole milliseconds first: rounding the fraction on its own can carry to 1000.
+  const ms = Math.max(0, Math.round(x * 1000));
+  const p2 = (n) => String(n).padStart(2, '0');
+  return `${p2(Math.floor(ms / 3600000))}:${p2(Math.floor(ms / 60000) % 60)}:${p2(Math.floor(ms / 1000) % 60)},${String(ms % 1000).padStart(3, '0')}`;
 };
 
 const ff = (args) => new Promise((ok, bad) => {
@@ -339,6 +344,7 @@ export async function renderReel(spec, { out, fps = 30, music = null, musicVolum
   // ---- frames ----
   const overlaySeconds = +(spec.overlay?.seconds ?? 3.5);
   const shots = [];              // { buf, frames }
+  let emitted = 0;               // frames pushed so far, so rounding never accumulates
   const srt = [], voices = [];
   let t = 0;
 
@@ -352,9 +358,16 @@ export async function renderReel(spec, { out, fps = 30, music = null, musicVolum
       const here = t < overlaySeconds - 0.01 ? spec.overlay : null;
       for (const { html, seconds } of sceneFrames(sc, here)) {
         await page_.evaluate((h) => { document.documentElement.querySelector('body').outerHTML = h; }, html);
+        // Fonts are re-resolved against the new body; without this the first frames of a scene
+        // can bake in a fallback face.
+        await page_.evaluate(() => document.fonts.ready);
         const buf = await page_.screenshot({ type: 'jpeg', quality: 94 });
-        shots.push({ buf, frames: Math.max(1, Math.round(seconds * fps)) });
         t += seconds;
+        // Round against the running clock, not per shot: per-shot rounding drifts, and the
+        // narration offsets and SRT cues are all computed from t.
+        const target = Math.max(emitted + 1, Math.round(t * fps));
+        shots.push({ buf, frames: target - emitted });
+        emitted = target;
       }
       if (sc.spoken) srt.push([start, t, sc.spoken]);
       if (sc._voice) voices.push([start, sc._voice]);
@@ -371,13 +384,18 @@ export async function renderReel(spec, { out, fps = 30, music = null, musicVolum
       '-pix_fmt', 'yuv420p', '-movflags', '+faststart', silent], { stdio: ['pipe', 'ignore', 'ignore'] });
     p.on('close', (c) => (c === 0 ? ok() : bad(new Error(`ffmpeg exited with ${c}`))));
     p.on('error', bad);
+    // If ffmpeg dies early the pipe breaks mid-write; without this the EPIPE is unhandled and
+    // takes the whole studio server down instead of failing this one render.
+    p.stdin.on('error', bad);
     (async () => {
-      for (const { buf, frames } of shots) {
-        for (let i = 0; i < frames; i++) {
-          if (!p.stdin.write(buf)) await new Promise((r) => p.stdin.once('drain', r));
+      try {
+        for (const { buf, frames } of shots) {
+          for (let i = 0; i < frames; i++) {
+            if (!p.stdin.write(buf)) await new Promise((r) => p.stdin.once('drain', r));
+          }
         }
-      }
-      p.stdin.end();
+        p.stdin.end();
+      } catch (e) { bad(e); }
     })();
   });
 

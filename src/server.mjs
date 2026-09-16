@@ -27,6 +27,10 @@ const jobs = new Map();
 const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
 const body = (req) => new Promise((ok, bad) => { let b = ''; req.on('data', (d) => { b += d; if (b.length > 80e6) bad(new Error('too large')); }); req.on('end', () => { try { ok(b ? JSON.parse(b) : {}); } catch (e) { bad(e); } }); });
 const safe = (p) => { const r = resolve(WORK, p.replace(/^\/+/, '')); if (!r.startsWith(WORK)) throw new Error('bad path'); return r; };
+// Same containment check for paths served out of the repo: a decoded request path can still
+// carry ../ segments, so resolve first and refuse anything that lands outside the base.
+const under = (base, p) => { const r = resolve(base, p.replace(/^\/+/, '')); return r.startsWith(base + '/') || r === base ? r : null; };
+const serveUnder = (res, base, p) => { const f = under(base, p); if (!f) { res.writeHead(403); return res.end('forbidden'); } return sendFile(res, f); };
 const slug = (s) => String(s || 'file').replace(/[^\w.\-؀-ۿ]+/g, '-').slice(0, 80);
 
 function sendFile(res, file) {
@@ -62,10 +66,11 @@ async function handle(req, res) {
     // The suite pages (carousel/reel/ad/…) are written against the static build's layout, where
     // prompts and assets sit under assets/. Map that layout onto the source tree so the same
     // pages work unchanged when the server is the one serving them.
-    if (req.method === 'GET' && path.startsWith('/web/assets/prompts/')) return sendFile(res, join(ROOT, 'prompts', decodeURIComponent(path.slice(20))));
+    if (req.method === 'GET' && path.startsWith('/web/assets/prompts/')) return serveUnder(res, join(ROOT, 'prompts'), decodeURIComponent(path.slice(20)));
     if (req.method === 'GET' && path.startsWith('/web/assets/')) {
       const rel = decodeURIComponent(path.slice(12));
-      const direct = join(ROOT, 'assets', rel);
+      const direct = under(join(ROOT, 'assets'), rel);
+      if (!direct) { res.writeHead(403); return res.end('forbidden'); }
       if (existsSync(direct)) return sendFile(res, direct);
       // The webfonts are copied out of @fontsource by the static build; serve them from the
       // package so the suite pages look the same before a build has ever run.
@@ -73,9 +78,9 @@ async function handle(req, res) {
       if (m) return sendFile(res, join(ROOT, 'node_modules/@fontsource', m[2], 'files', m[1]));
       res.writeHead(404); return res.end('not found');
     }
-    if (req.method === 'GET' && path.startsWith('/web/')) return sendFile(res, join(ROOT, path.slice(1)));
+    if (req.method === 'GET' && path.startsWith('/web/')) return serveUnder(res, join(ROOT, 'web'), decodeURIComponent(path.slice(5)));
     if (req.method === 'GET' && path.startsWith('/files/')) return sendFile(res, safe(decodeURIComponent(path.slice(7))));
-    if (req.method === 'GET' && path.startsWith('/assets/')) return sendFile(res, join(ROOT, decodeURIComponent(path.slice(1))));
+    if (req.method === 'GET' && path.startsWith('/assets/')) return serveUnder(res, join(ROOT, 'assets'), decodeURIComponent(path.slice(8)));
     if (req.method === 'GET' && path === '/api/meta') return json(res, 200, meta());
     if (req.method === 'GET' && path.startsWith('/api/jobs/')) { const j = jobs.get(path.split('/').pop()); return j ? json(res, 200, j) : json(res, 404, { error: 'no such job' }); }
 

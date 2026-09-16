@@ -120,7 +120,13 @@ async function render() {
   if (!DATA || !SERVER) return;
   $('render').disabled = true; say('msg2', '🎬 جارٍ التركيب…'); $('result').innerHTML = '';
   try {
-    const spec = { ...DATA, voice_name: $('voice').value };
+    // Map the studio's brand identity onto the renderer's palette. Anything the brand does not
+    // state keeps the reel's own default.
+    const brand = {};
+    if (B.colors?.accent) { brand.green = B.colors.accent; brand.greenSoft = `color-mix(in srgb, ${B.colors.accent} 14%, #fff)`; }
+    if (B.colors?.primary) { brand.navy = B.colors.primary; brand.ink = B.colors.primary; }
+    if (B.colors?.bg) brand.bg = B.colors.bg;
+    const spec = { ...DATA, voice_name: $('voice').value, brand };
     const r = await fetch('/api/reel', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ spec }) });
     const { id, error } = await r.json(); if (error) throw new Error(error);
     for (;;) {
@@ -146,7 +152,7 @@ async function render() {
 
 function copyJson() { copyText(JSON.stringify(DATA, null, 2)); toast('📋 نُسخ الـ JSON — شغّله بـ: doodle reel spec.json'); }
 async function save() {
-  const item = await lib.save({ id: ID || undefined, type: 'reel', title: DATA.topic || DATA.slug, data: DATA });
+  const item = await lib.save({ id: ID || undefined, type: 'reelvideo', title: DATA.topic || DATA.slug, data: DATA });
   ID = item.id; toast('💾 حُفظ في المكتبة');
 }
 </script>
