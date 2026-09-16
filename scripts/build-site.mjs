@@ -1,51 +1,43 @@
 // Builds the fully static, browser-only version of Doodle Studio into ./site (deployable to Vercel/Netlify/GitHub Pages).
 // Everything (script agent, voice, drawing, video encoding) runs in the visitor's browser; no server is needed.
-import { mkdirSync, cpSync, readFileSync, writeFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
+//
+// What goes where is described in src/site-map.mjs, which src/server.mjs reads too, so the static
+// build and the served source tree cannot disagree about the layout the pages are written against.
+import { mkdirSync, cpSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { ASSETS, SCRIPTS, GENERATED, catalog } from '../src/site-map.mjs';
+import { ROOT } from '../src/project.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = join(ROOT, 'site');
 rmSync(SITE, { recursive: true, force: true });
 mkdirSync(join(SITE, 'js'), { recursive: true });
 mkdirSync(join(SITE, 'assets'), { recursive: true });
 
-// page
+// pages
 cpSync(join(ROOT, 'web/index.html'), join(SITE, 'index.html'));
 cpSync(join(ROOT, 'web/app.html'), join(SITE, 'doodle.html'));
 for (const f of ['reels.html', 'carousel.html', 'ad.html', 'ugc.html', 'magnet.html', 'logo.html', 'reel.html', 'plan.html']) cpSync(join(ROOT, 'web', f), join(SITE, f));
 cpSync(join(ROOT, 'web/css'), join(SITE, 'css'), { recursive: true });
-cpSync(join(ROOT, 'web/js/core.js'), join(SITE, 'js/core.js'));
-cpSync(join(ROOT, 'node_modules/html-to-image/dist/html-to-image.js'), join(SITE, 'js/html-to-image.js'));
-cpSync(join(ROOT, 'node_modules/jszip/dist/jszip.min.js'), join(SITE, 'js/jszip.min.js'));
-cpSync(join(ROOT, 'node_modules/jspdf/dist/jspdf.umd.min.js'), join(SITE, 'js/jspdf.umd.min.js'));
-mkdirSync(join(SITE, 'assets/prompts'), { recursive: true });
-for (const f of readdirSync(join(ROOT, 'prompts'))) cpSync(join(ROOT, 'prompts', f), join(SITE, 'assets/prompts', f));
-// engine + tracing (plain scripts)
-cpSync(join(ROOT, 'src/renderer/engine.js'), join(SITE, 'js/engine.js'));
-cpSync(join(ROOT, 'src/renderer/strokes-core.js'), join(SITE, 'js/strokes-core.js'));
-writeFileSync(join(SITE, 'js/trace_skeleton.js'), readFileSync(join(ROOT, 'node_modules/skeleton-tracing-js/trace_skeleton.vanilla.js'), 'utf8').replace(/export\s+default\s+TraceSkeleton\s*;?/, ';(typeof self !== "undefined" ? self : window).TraceSkeleton = TraceSkeleton;'));
-writeFileSync(join(SITE, 'js/shapes.js'), readFileSync(join(ROOT, 'src/shapes.mjs'), 'utf8').replace('export function shapeSvg', 'window.shapeSvg = function shapeSvg'));
-cpSync(join(ROOT, 'node_modules/mp4-muxer/build/mp4-muxer.js'), join(SITE, 'js/mp4-muxer.js'));
-cpSync(join(ROOT, 'node_modules/webm-muxer/build/webm-muxer.js'), join(SITE, 'js/webm-muxer.js'));
+
+// scripts — copied, or rewritten from a module source into a plain script
+for (const [name, s] of Object.entries(SCRIPTS)) {
+  const from = join(ROOT, s.from);
+  if (!existsSync(from)) throw new Error(`missing script source: ${s.from}`);
+  const to = join(SITE, 'js', name);
+  if (s.rewrite) writeFileSync(to, s.rewrite(readFileSync(from, 'utf8')));
+  else cpSync(from, to);
+}
+
 // assets
-for (const d of ['fonts', 'hands', 'icons', 'illustrations', 'brand']) cpSync(join(ROOT, 'assets', d), join(SITE, 'assets', d), { recursive: true });
-for (const [pkg, files] of [['cairo', ['cairo-arabic-400-normal', 'cairo-arabic-700-normal', 'cairo-arabic-900-normal']], ['tajawal', ['tajawal-arabic-400-normal', 'tajawal-arabic-700-normal', 'tajawal-arabic-800-normal']]]) for (const f of files) cpSync(join(ROOT, 'node_modules/@fontsource', pkg, 'files', f + '.woff2'), join(SITE, 'assets/fonts', f + '.woff2'));
-cpSync(join(ROOT, 'assets/hand.svg'), join(SITE, 'assets/hand.svg'));
-cpSync(join(ROOT, 'examples/art'), join(SITE, 'assets/art'), { recursive: true });
-cpSync(join(ROOT, 'examples/demo-ar.json'), join(SITE, 'assets/demo-ar.json'));
-cpSync(join(ROOT, 'prompts/script-writer.md'), join(SITE, 'assets/script-writer.md'));
-const tab = join(ROOT, 'node_modules/@tabler/icons/icons/outline');
-if (existsSync(tab)) cpSync(tab, join(SITE, 'assets/tabler'), { recursive: true });
-// catalog for the UI
-const catalog = {
-  icons: readFileSync(join(ROOT, 'assets/icons/INDEX.txt'), 'utf8').trim().split(/,\s*/),
-  doodles: readdirSync(join(ROOT, 'assets/illustrations/open-doodles')).map((f) => f.replace('.svg', '')),
-  peeps: readdirSync(join(ROOT, 'assets/illustrations/peeps')).map((f) => f.replace('.svg', '')),
-  tabler: existsSync(tab) ? readdirSync(tab).map((f) => f.replace('.svg', '')) : [],
-  hands: JSON.parse(readFileSync(join(ROOT, 'assets/hands/hands.json'), 'utf8')),
-  art: readdirSync(join(ROOT, 'examples/art')),
-};
-writeFileSync(join(SITE, 'assets/catalog.json'), JSON.stringify(catalog));
+for (const a of ASSETS) {
+  const from = join(ROOT, a.from);
+  if (!existsSync(from)) { if (a.optional) continue; throw new Error(`missing asset source: ${a.from}`); }
+  const to = join(SITE, 'assets', a.to);
+  mkdirSync(dirname(to), { recursive: true });
+  cpSync(from, to, a.dir ? { recursive: true } : {});
+}
+for (const [name, build] of Object.entries(GENERATED)) writeFileSync(join(SITE, 'assets', name), build());
+
 cpSync(join(ROOT, 'deploy/netlify.toml'), join(SITE, 'netlify.toml'));
-console.log(`✅ site built: ${SITE} (tabler icons: ${catalog.tabler.length}, doodles: ${catalog.doodles.length}, peeps: ${catalog.peeps.length})`);
+const c = catalog();
+console.log(`✅ site built: ${SITE} (tabler icons: ${c.tabler.length}, doodles: ${c.doodles.length}, peeps: ${c.peeps.length})`);

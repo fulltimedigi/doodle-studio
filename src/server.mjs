@@ -11,6 +11,7 @@ import { renderVideo, renderStill } from './render.mjs';
 import { renderReel } from './reel.mjs';
 import { VOICES, synthesize } from './tts.mjs';
 import { generateScript } from './ai.mjs';
+import { catalog, GENERATED, assetSource, scriptSource } from './site-map.mjs';
 
 const PORT = +(process.env.PORT || 7860);
 const WORK = process.env.DOODLE_WORKSPACE || join(ROOT, 'workspace');
@@ -46,17 +47,36 @@ function sendFile(res, file) {
   createReadStream(file).pipe(res);
 }
 
+// A published js/… path: copied straight through, or rewritten from a module source the way the
+// static build rewrites it.
+function sendScript(res, name) {
+  const s = scriptSource(name);
+  if (!s) { res.writeHead(404); return res.end('not found'); }
+  if (!s.rewrite) return sendFile(res, s.file);
+  res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-cache' });
+  return res.end(s.rewrite(readFileSync(s.file, 'utf8')));
+}
+
+// A published assets/… path: generated (catalog.json) or resolved to its source file.
+function sendAsset(res, rel) {
+  const gen = GENERATED[rel.replace(/^\/+/, '')];
+  if (gen) {
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-cache' });
+    return res.end(gen());
+  }
+  const file = assetSource(rel);
+  if (!file) { res.writeHead(404); return res.end('not found'); }
+  return sendFile(res, file);
+}
+
 function scriptFromBody(b) {
   // scripts edited in the UI live in workspace/scripts; assets resolve relative to the workspace
   const p = JSON.parse(JSON.stringify(b.script)); p.__dir = WORK; return p;
 }
 
 function meta() {
-  const doodles = readdirSync(join(ROOT, 'assets/illustrations/open-doodles')).map((f) => f.replace('.svg', ''));
-  const icons = readFileSync(join(ROOT, 'assets/icons/INDEX.txt'), 'utf8').trim().split(/,\s*/);
-  const tab = join(ROOT, 'node_modules/@tabler/icons/icons/outline');
-  const tabler = existsSync(tab) ? readdirSync(tab).map((f) => f.replace('.svg', '')) : [];
-  const hands = Object.keys(JSON.parse(readFileSync(join(ROOT, 'assets/hands/hands.json'), 'utf8')));
+  const { doodles, icons, tabler, hands: handSet } = catalog();
+  const hands = Object.keys(handSet);
   const userHands = readdirSync(join(WORK, 'hands')).filter((f) => /\.png$/i.test(f)).map((f) => 'hands/' + f);
   const art = readdirSync(join(WORK, 'art')).filter((f) => /\.(png|jpe?g|svg|webp)$/i.test(f)).map((f) => 'art/' + f);
   const outputs = readdirSync(join(WORK, 'output')).filter((f) => f.endsWith('.mp4')).sort((a, b) => statSync(join(WORK, 'output', b)).mtimeMs - statSync(join(WORK, 'output', a)).mtimeMs).slice(0, 20);
@@ -70,52 +90,14 @@ async function handle(req, res) {
   const path = url.pathname;
   try {
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) return sendFile(res, join(ROOT, 'web/local.html'));
-    // The suite pages (carousel/reel/ad/…) are written against the static build's layout, where
-    // prompts and assets sit under assets/. Map that layout onto the source tree so the same
-    // pages work unchanged when the server is the one serving them.
-    // The suite pages load their vendored scripts from js/, which only exists after the static
-    // build has copied them out of node_modules and src. Serve them from where they really live,
-    // otherwise every export (images, ZIP, PDF, video muxing) is dead under this server.
-    if (req.method === 'GET' && path.startsWith('/web/js/') && path !== '/web/js/core.js') {
-      const name = decodeURIComponent(path.slice(8));
-      const copy = {
-        'html-to-image.js': 'node_modules/html-to-image/dist/html-to-image.js',
-        'jszip.min.js': 'node_modules/jszip/dist/jszip.min.js',
-        'jspdf.umd.min.js': 'node_modules/jspdf/dist/jspdf.umd.min.js',
-        'engine.js': 'src/renderer/engine.js',
-        'strokes-core.js': 'src/renderer/strokes-core.js',
-        'mp4-muxer.js': 'node_modules/mp4-muxer/build/mp4-muxer.js',
-        'webm-muxer.js': 'node_modules/webm-muxer/build/webm-muxer.js',
-      }[name];
-      if (copy) return sendFile(res, join(ROOT, copy));
-      // These two are module sources the build rewrites into plain scripts; do the same here so
-      // the two paths cannot drift apart.
-      const rewrite = {
-        'trace_skeleton.js': ['node_modules/skeleton-tracing-js/trace_skeleton.vanilla.js',
-          (t) => t.replace(/export\s+default\s+TraceSkeleton\s*;?/, ';(typeof self !== "undefined" ? self : window).TraceSkeleton = TraceSkeleton;')],
-        'shapes.js': ['src/shapes.mjs', (t) => t.replace('export function shapeSvg', 'window.shapeSvg = function shapeSvg')],
-      }[name];
-      if (rewrite && existsSync(join(ROOT, rewrite[0]))) {
-        res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-cache' });
-        return res.end(rewrite[1](readFileSync(join(ROOT, rewrite[0]), 'utf8')));
-      }
-      res.writeHead(404); return res.end('not found');
-    }
-    if (req.method === 'GET' && path.startsWith('/web/assets/prompts/')) return serveUnder(res, join(ROOT, 'prompts'), decodeURIComponent(path.slice(20)));
-    if (req.method === 'GET' && path.startsWith('/web/assets/')) {
-      const rel = decodeURIComponent(path.slice(12));
-      const direct = under(join(ROOT, 'assets'), rel);
-      if (!direct) { res.writeHead(403); return res.end('forbidden'); }
-      if (existsSync(direct)) return sendFile(res, direct);
-      // The webfonts are copied out of @fontsource by the static build; serve them from the
-      // package so the suite pages look the same before a build has ever run.
-      const m = rel.match(/^fonts\/((cairo|tajawal)-[\w-]+\.woff2)$/);
-      if (m) return sendFile(res, join(ROOT, 'node_modules/@fontsource', m[2], 'files', m[1]));
-      res.writeHead(404); return res.end('not found');
-    }
+    // The suite pages are written against the static build's layout — scripts under js/, assets
+    // (prompts, art, the demo script, the webfonts) under assets/. Neither exists in the source
+    // tree, so serve both through the same description the build copies from: src/site-map.mjs.
+    if (req.method === 'GET' && path.startsWith('/web/js/')) return sendScript(res, decodeURIComponent(path.slice(8)));
+    if (req.method === 'GET' && path.startsWith('/web/assets/')) return sendAsset(res, decodeURIComponent(path.slice(12)));
     if (req.method === 'GET' && path.startsWith('/web/')) return serveUnder(res, join(ROOT, 'web'), decodeURIComponent(path.slice(5)));
     if (req.method === 'GET' && path.startsWith('/files/')) return sendFile(res, safe(decodeURIComponent(path.slice(7))));
-    if (req.method === 'GET' && path.startsWith('/assets/')) return serveUnder(res, join(ROOT, 'assets'), decodeURIComponent(path.slice(8)));
+    if (req.method === 'GET' && path.startsWith('/assets/')) return sendAsset(res, decodeURIComponent(path.slice(8)));
     if (req.method === 'GET' && path === '/api/meta') return json(res, 200, meta());
     if (req.method === 'GET' && path.startsWith('/api/jobs/')) { const j = jobs.get(path.split('/').pop()); return j ? json(res, 200, j) : json(res, 404, { error: 'no such job' }); }
 
