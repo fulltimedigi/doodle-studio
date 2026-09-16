@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>خطة الشهر — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗓️</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .occ{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .occ span{background:var(--soft);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--ink)}
+  .occ span.approx{border:1px dashed var(--line);background:#fff;color:var(--muted)}
+
+  .angles{display:grid;gap:8px;margin:10px 0 14px}
+  .angle{border-inline-start:4px solid var(--ink);padding:6px 12px;background:var(--soft);border-radius:0 8px 8px 0}
+  .angle b{display:block;font-size:14px}
+  .angle span{font-size:12.5px;color:var(--muted)}
+
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
+  .cal .dow{font-size:11px;color:var(--muted);text-align:center;padding:2px 0}
+  .cell{min-height:64px;border:1px solid var(--line);border-radius:8px;padding:4px;font-size:11px;background:#fff}
+  .cell.out{background:#fafafa;border-style:dashed}
+  .cell .d{color:var(--muted);font-variant-numeric:tabular-nums}
+  .cell .d em{font-style:normal;color:var(--ink);font-weight:700}
+  .cell .o{display:block;color:#8a6d1f;font-size:10px;margin-top:1px;line-height:1.3}
+  .pin{display:block;margin-top:3px;padding:2px 5px;border-radius:5px;background:var(--soft);cursor:pointer;line-height:1.35}
+  .pin:hover{outline:1px solid var(--ink)}
+  .pin b{display:block;font-size:10.5px}
+  .pin i{font-style:normal;font-size:9.5px;color:var(--muted)}
+
+  .post{border-top:1px dashed var(--line);padding:9px 0;display:grid;grid-template-columns:76px 1fr auto;gap:10px;align-items:start}
+  .post .when{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .post .when b{display:block;color:var(--ink);font-size:13px}
+  .post .what b{font-size:14px}
+  .post .what p{margin:2px 0 0;font-size:13px;color:var(--muted);line-height:1.6}
+  .badge{font-size:10.5px;background:var(--soft);border-radius:999px;padding:2px 9px;margin-inline-start:6px;color:var(--ink)}
+  .badge.sell{background:#fdecec;color:#a33}
+  .badge.occ{background:#fff6e5;color:#8a6d1f}
+  @media (max-width:640px){ .cal{display:none} .post{grid-template-columns:64px 1fr} .post .go{grid-column:2} }
+</style>
+</head>
+<body>
+<main>
+  <div><h1 class="page">🗓️ خطة الشهر</h1><p class="lead">شهر كامل من المحتوى مبني على محاور، موزّع على أيامه ومناسباته الحقيقية — وكل بند يفتح الأداة المناسبة وهو جاهز.</p></div>
+
+  <div class="pane">
+    <section class="card sticky">
+      <label class="f" for="month">الشهر</label>
+      <input type="month" id="month" onchange="showOccasions()">
+      <label class="f" for="goal">هدف الشهر</label>
+      <select id="goal">
+        <option value="awareness">تعريف بالبراند</option>
+        <option value="education">تعليم الجمهور</option>
+        <option value="launch">إطلاق منتج أو خدمة</option>
+        <option value="leads">جمع عملاء محتملين</option>
+        <option value="sales">مبيعات</option>
+      </select>
+      <label class="f">مناسبات الشهر</label>
+      <div id="occ" class="occ"></div>
+      <div class="row2" style="margin-top:12px"><button id="go" onclick="generate()">🗓️ خطّط الشهر</button></div>
+      <p id="msg" class="msg"></p>
+      <div id="side" hidden>
+        <label class="f" style="margin-top:14px">ملاحظة الشهر</label>
+        <p id="notes" class="lead" style="margin:0"></p>
+        <div class="row2" style="margin-top:12px">
+          <button class="ghost" onclick="copyPlan()">نسخ الخطة</button>
+          <button class="ghost" onclick="save()">💾 حفظ</button>
+        </div>
+        <p id="msg2" class="msg"></p>
+      </div>
+    </section>
+
+    <section class="card" id="out" hidden>
+      <div class="row2"><h2 style="margin:0">المحاور</h2><span id="cnt" class="muted"></span></div>
+      <div id="angles" class="angles"></div>
+      <div id="cal" class="cal"></div>
+      <h2 style="margin:18px 0 0">البنود</h2>
+      <div id="posts"></div>
+    </section>
+  </div>
+</main>
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, q } = Suite;
+Suite.mountHeader('خطة الشهر');
+const B = loadBrand();
+let DATA = null, ID = q.get('id');
+
+// ---------- occasions ----------
+// Fixed civil dates for this market. Hijri ones are not listed here: they move every year, so
+// they are computed below from the Umm al-Qura calendar the Kingdom itself uses, rather than
+// carried as a table that silently rots.
+const FIXED = [
+  { m: 1,  d: 1,  t: 'رأس السنة الميلادية' },
+  { m: 2,  d: 22, t: 'يوم التأسيس السعودي' },
+  { m: 3,  d: 21, t: 'عيد الأم' },
+  { m: 9,  d: 23, t: 'اليوم الوطني السعودي' },
+  { m: 12, d: 2,  t: 'اليوم الوطني الإماراتي' },
+  { m: 12, d: 18, t: 'اليوم العالمي للغة العربية' },
+];
+
+const hijri = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const hParts = (dt) => {
+  const p = Object.fromEntries(hijri.formatToParts(dt).map((x) => [x.type, x.value]));
+  return { d: +p.day, m: +p.month, y: parseInt(p.year, 10) };
+};
+
+// A Hijri month begins on a sighting, so a computed date can be a day out either way. Every
+// Hijri occasion is therefore marked approximate and the UI never prints it as a firm day.
+const HIJRI = { 9: { d: 1, t: 'بداية رمضان' }, 10: { d: 1, t: 'عيد الفطر' }, 12: { d: 10, t: 'عيد الأضحى' } };
+
+function occasionsOf(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const out = [];
+  for (const f of FIXED) if (f.m === m) out.push({ day: f.d, title: f.t, approx: false });
+  for (let d = 1; d <= days; d++) {
+    const h = hParts(new Date(Date.UTC(y, m - 1, d)));
+    const hit = HIJRI[h.m];
+    if (hit && h.d === hit.d) out.push({ day: d, title: hit.t, approx: true });
+  }
+  // White Friday is the last Friday of November — a retail date, not a civil one.
+  if (m === 11) { let d = days; while (new Date(Date.UTC(y, 10, d)).getUTCDay() !== 5) d--; out.push({ day: d, title: 'الجمعة البيضاء', approx: false }); }
+  return out.sort((a, b) => a.day - b.day);
+}
+
+function showOccasions() {
+  const list = occasionsOf($('month').value);
+  $('occ').innerHTML = list.length
+    ? list.map((o) => `<span class="${o.approx ? 'approx' : ''}">${o.day} — ${esc(o.title)}${o.approx ? ' (تقريبي)' : ''}</span>`).join('')
+    : '<span class="approx">لا مناسبات بارزة هذا الشهر</span>';
+}
+
+// ---------- generate ----------
+async function generate() {
+  const ym = $('month').value; if (!ym) return say('msg', 'اختر الشهر أولًا', true);
+  if (!needKey('msg')) return;
+  $('go').disabled = true; say('msg', '🗓️ جارٍ التخطيط…');
+  try {
+    const occ = occasionsOf(ym);
+    const sys = (await (await fetch('assets/prompts/plan.md')).text()) + '\n\n' + brandContext(B);
+    const goal = $('goal').selectedOptions[0].textContent;
+    const input = [
+      `month: ${ym}`,
+      `goal for the month: ${goal}`,
+      `occasions (the only dates you may treat as occasions):`,
+      ...(occ.length ? occ.map((o) => `- ${ym}-${String(o.day).padStart(2, '0')} — ${o.title}${o.approx ? ' (approximate, moon-dependent)' : ''}`) : ['- none']),
+      '', 'Return ONLY the JSON.',
+    ].join('\n');
+    DATA = await geminiJSON(sys, input, { onWait: (m) => say('msg', m) });
+    DATA.month = ym; ID = null; draw();
+    say('msg', '✅ الخطة جاهزة — اضغط أي بند ليفتح أداته');
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+
+// ---------- render ----------
+const UNIT = {
+  carousel: ['carousel.html', '🖼️', 'كاروسيل'], reel: ['reel.html', '🎞️', 'ريل مركّب'],
+  reels: ['reels.html', '🎬', 'سكريبت تصوير'], ad: ['ad.html', '📣', 'إعلان ثابت'],
+  magnet: ['magnet.html', '📘', 'كتيّب'], ugc: ['ugc.html', '🎥', 'UGC'],
+  doodle: ['doodle.html', '✍️', 'Doodle'],
+};
+const unitOf = (f) => UNIT[f] || UNIT.carousel;
+const openUnit = (i) => {
+  const p = DATA.posts[i], [href] = unitOf(p.format);
+  location.href = `${href}?topic=${encodeURIComponent(p.topic || p.hook || '')}`;
+};
+const DOW = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+function draw() {
+  if (!DATA) return;
+  $('out').hidden = false; $('side').hidden = false;
+  const posts = (DATA.posts || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const sells = posts.filter((p) => p.sells).length;
+  $('cnt').textContent = `${(DATA.angles || []).length} محاور · ${posts.length} بند · ${sells} منها بيعي`;
+  $('angles').innerHTML = (DATA.angles || []).map((a) =>
+    `<div class="angle"><b>${esc(a.title)}</b><span>${esc(a.why || '')}</span></div>`).join('');
+
+  // month grid
+  const [y, m] = DATA.month.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const occ = Object.fromEntries(occasionsOf(DATA.month).map((o) => [o.day, o]));
+  const byDay = {};
+  posts.forEach((p, i) => { const d = +String(p.date).slice(-2); (byDay[d] ||= []).push({ p, i: posts.indexOf(p), src: i }); });
+  let cells = DOW.map((d) => `<div class="dow">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) cells += '<div class="cell out"></div>';
+  for (let d = 1; d <= days; d++) {
+    const o = occ[d];
+    const pins = (byDay[d] || []).map(({ p, src }) => {
+      const [, ic, label] = unitOf(p.format);
+      return `<span class="pin" onclick="openUnit(${src})" title="${esc(p.topic || '')}"><b>${ic} ${esc(p.hook || '')}</b><i>${label}</i></span>`;
+    }).join('');
+    cells += `<div class="cell"><span class="d"><em>${d}</em></span>${o ? `<span class="o">${esc(o.title)}${o.approx ? ' ~' : ''}</span>` : ''}${pins}</div>`;
+  }
+  $('cal').innerHTML = cells;
+
+  $('posts').innerHTML = posts.map((p, i) => {
+    const [, ic, label] = unitOf(p.format);
+    const dt = new Date(p.date + 'T00:00:00Z');
+    const dow = isNaN(dt) ? '' : DOW[dt.getUTCDay()];
+    return `<div class="post">
+      <div class="when"><b>${esc(String(p.date).slice(-2))} ${esc(dow)}</b>${ic} ${esc(label)}</div>
+      <div class="what"><b>${esc(p.hook || '')}</b>${p.occasion ? `<span class="badge occ">${esc(p.occasion)}</span>` : ''}${p.sells ? '<span class="badge sell">بيعي</span>' : ''}
+        <p>${esc(p.topic || '')}</p></div>
+      <button class="go" onclick="openUnit(${i})">اصنعها ←</button>
+    </div>`;
+  }).join('');
+  $('notes').textContent = DATA.notes || '';
+}
+
+function copyPlan() {
+  const lines = (DATA.posts || []).map((p) => `${p.date}\t${unitOf(p.format)[2]}\t${p.hook}\t${p.topic}`);
+  copyText([`خطة ${DATA.month}`, '', ...lines, '', DATA.notes || ''].join('\n'));
+  toast('📋 نُسخت الخطة');
+}
+async function save() {
+  const item = await lib.save({ id: ID || undefined, type: 'plan', title: `خطة ${DATA.month}`, data: DATA });
+  ID = item.id; toast('💾 حُفظت في المكتبة');
+}
+
+(async () => {
+  const now = new Date();
+  $('month').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  showOccasions();
+  if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; $('month').value = DATA.month; showOccasions(); draw(); } }
+})();
+</script>
+</body>
+</html>

@@ -81,6 +81,8 @@ const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, l
 Suite.mountHeader('كتيّب جذب عملاء');
 const B = loadBrand();
 let DATA = null, COVER = '', ID = q.get('id');
+// A plan item hands the brief over in the URL; land it in this unit's own input.
+if (q.get('topic') && $('topic')) $('topic').value = q.get('topic');
 async function generate() {
   const topic = $('topic').value.trim(); if (!topic) return say('msg', 'اكتب الموضوع أولًا', true);
   if (!needKey('msg')) return; $('go').disabled = true; say('msg', '✍️ جارٍ الكتابة (يستغرق نحو دقيقة)…');

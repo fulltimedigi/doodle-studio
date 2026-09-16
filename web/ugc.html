@@ -72,6 +72,8 @@ const { $, esc, say, toast, copyText, geminiJSON, generateImage, veoGenerate, VE
 Suite.mountHeader('إعلان UGC');
 const B = loadBrand();
 let DATA = null, PRODUCT = '', CREATOR = '', CLIPS = {}, KEYS = {}, ERR = {}, ID = q.get('id'), FINAL = null, FINAL_EXT = 'mp4';
+// A plan item hands the brief over in the URL; land it in this unit's own input.
+if (q.get('topic') && $('brief')) $('brief').value = q.get('topic');
 async function pickProduct(f) { if (!f) return; PRODUCT = await readFile(f); $('prodPrev').src = PRODUCT; $('prodPrev').hidden = false; toast('✅ صورة المنتج جاهزة'); if (DATA) save(true); }
 const FORM = ['brief', 'persona', 'count', 'tier', 'place'];
 function formSave() { try { localStorage.setItem('ugc_form', JSON.stringify(Object.fromEntries(FORM.map((k) => [k, $(k).value])))); } catch {} }

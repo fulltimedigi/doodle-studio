@@ -114,6 +114,8 @@ const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, l
 Suite.mountHeader('إعلان ثابت');
 const B = loadBrand();
 let DATA = null, SEL = 0, ID = q.get('id'), IMG = {}, OWN = '';
+// A plan item hands the brief over in the URL; land it in this unit's own input.
+if (q.get('topic') && $('brief')) $('brief').value = q.get('topic');
 const sizes = () => [...document.querySelectorAll('input[name=size]:checked')].map((x) => x.value);
 const SIZE_NAME = { s11: '1:1', s45: '4:5', s916: '9:16' };
 async function ownImage(f) { if (!f) return; OWN = await readFile(f); toast('✅ ستُستخدم صورتك كخلفية'); if (DATA) { DATA.variants.forEach((v, i) => { IMG[i] = OWN; }); render(); } }

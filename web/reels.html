@@ -80,6 +80,8 @@
 const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, chatEdit, q } = Suite;
 Suite.mountHeader('سكريبتات ريلز');
 let DATA = null, CUR = 0, ID = q.get('id');
+// A plan item hands the brief over in the URL; land it in this unit's own input.
+if (q.get('topic') && $('topic')) $('topic').value = q.get('topic');
 async function generate() {
   const topic = $('topic').value.trim(); if (!topic) return say('msg', 'اكتب الموضوع أولًا', true);
   if (!needKey('msg')) return;

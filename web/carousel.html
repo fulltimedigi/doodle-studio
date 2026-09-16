@@ -136,6 +136,8 @@ const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, l
 Suite.mountHeader('كاروسيل');
 const B = loadBrand(); $('sw-bold').style.background = B.colors.primary; $('sw-brand').style.boxShadow = `inset 0 -8px 0 ${B.colors.accent}`;
 let DATA = null, SEL = 0, ID = q.get('id'), BG = {}; // BG: slide index -> dataURL
+// A plan item hands the brief over in the URL; land it in this unit's own input.
+if (q.get('topic') && $('topic')) $('topic').value = q.get('topic');
 const tpl = () => document.querySelector('input[name=tpl]:checked').value;
 document.querySelectorAll('input[name=tpl]').forEach((x) => x.addEventListener('change', render));
 async function generate() {

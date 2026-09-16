@@ -92,6 +92,7 @@ const { $, esc, loadBrand, saveBrand, brandReady, DIALECTS, TONES, lib, say, toa
 Suite.mountHeader('');
 const TOOLS = [
   { href: 'doodle.html', ic: '✍️', t: 'فيديو Doodle', d: 'يد ترسم وتشرح فكرتك مع تعليق صوتي وموسيقى', cost: '≈ ٠٫٥$ للفيديو' },
+  { href: 'plan.html', ic: '🗓️', t: 'خطة الشهر', d: 'محاور الشهر وبنوده موزّعة على أيامه ومناسباته — وكل بند يفتح أداته جاهزة', cost: 'مجاني' },
   { href: 'reels.html', ic: '🎬', t: 'سكريبتات ريلز', d: 'ثلاثة سيناريوهات جاهزة للتصوير مع بحث الترند', cost: 'شبه مجاني' },
   { href: 'reel.html', ic: '🎞️', t: 'ريل مركّب', d: 'فيديو 1080×1920 بتعليق عربي وغلاف وترجمة — التركيب يحتاج تشغيل الخادم', cost: 'مجاني' },
   { href: 'carousel.html', ic: '🖼️', t: 'كاروسيل إنستجرام', d: '٧ شرائح مصمّمة بألوان براندك، جاهزة للرفع', cost: 'مجاني · +٠٫٠٧$ للخلفية' },
@@ -154,7 +155,7 @@ async function autoBrand() {
     say('b_msg', '✅ راجع الحقول ثم احفظ');
   } catch (e) { say('b_msg', '❌ ' + e.message, true); }
 }
-const KIND = { reel: ['🎬', 'ريلز', 'reels.html'], reelvideo: ['🎞️', 'ريل مركّب', 'reel.html'], carousel: ['🖼️', 'كاروسيل', 'carousel.html'], ad: ['📣', 'إعلان', 'ad.html'], doodle: ['✍️', 'Doodle', 'doodle.html'], motion: ['💬', 'موشن', 'doodle.html?mode=motion'], ugc: ['🎥', 'UGC', 'ugc.html'], magnet: ['📘', 'كتيّب', 'magnet.html'], logo: ['🔷', 'شعار', 'logo.html'] };
+const KIND = { reel: ['🎬', 'ريلز', 'reels.html'], reelvideo: ['🎞️', 'ريل مركّب', 'reel.html'], plan: ['🗓️', 'خطة شهر', 'plan.html'], carousel: ['🖼️', 'كاروسيل', 'carousel.html'], ad: ['📣', 'إعلان', 'ad.html'], doodle: ['✍️', 'Doodle', 'doodle.html'], motion: ['💬', 'موشن', 'doodle.html?mode=motion'], ugc: ['🎥', 'UGC', 'ugc.html'], magnet: ['📘', 'كتيّب', 'magnet.html'], logo: ['🔷', 'شعار', 'logo.html'] };
 async function renderLib() {
   const items = await lib.list();
   $('libCount').textContent = items.length ? `${items.length} عنصر` : ''; $('libEmpty').style.display = items.length ? 'none' : '';

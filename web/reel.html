@@ -71,6 +71,8 @@ const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, 
 Suite.mountHeader('ريل مركّب');
 const B = loadBrand();
 let DATA = null, ID = q.get('id'), SERVER = false;
+// A plan item hands the brief over in the URL; land it in this unit's own input.
+if (q.get('topic') && $('topic')) $('topic').value = q.get('topic');
 
 // The renderer lives on the server; the writing half works anywhere.
 (async () => {
