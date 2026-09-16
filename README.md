@@ -180,6 +180,7 @@ node src/cli.mjs ai brief.txt -o script.json --format 16:9 --lang ar     # Ollam
 |---|---|---|
 | إعلان فيديو UGC | `ugc.html` | سكريبت ← صورة مبدع ثابتة ← لقطات Veo 3.1 (مع صورة المنتج كمرجع) ← تجميع مع ترجمة وشعار وبطاقة ختامية (WebCodecs) |
 | كتيّب جذب عملاء | `magnet.html` | دليل PDF بصفحات A4 (jsPDF + html-to-image) |
+| كتيّب بجودة الطباعة | `doodle pdf` (CLI) | نفس الصفحات لكن بنص حقيقي قابل للتحديد والبحث بدل صور — يحتاج خادمًا |
 | شعار | `logo.html` | ٤ اتجاهات بخلفية شفافة، اعتماد مباشر في هوية البراند |
 
 ## هوية FullTimeDigi (Brand Brief)

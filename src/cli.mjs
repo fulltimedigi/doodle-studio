@@ -5,6 +5,7 @@ import { resolve, join, basename, dirname } from 'node:path';
 import { ROOT, loadProject, compile } from './project.mjs';
 import { renderVideo, renderStill } from './render.mjs';
 import { renderReel } from './reel.mjs';
+import { renderGuidePdf } from './guide.mjs';
 import { VOICES } from './tts.mjs';
 import { imageToStrokes } from './strokes.mjs';
 import { generateScript } from './ai.mjs';
@@ -27,6 +28,7 @@ doodle-studio — فيديوهات Doodle مجانية، بدون اشتراكا
   doodle render <script.json> [-o out.mp4] [--fps 30] [--draft] [--no-audio] [--quality good|best|draft]
   doodle still  <script.json> --at 3.5 [-o frame.png]      لقطة واحدة عند ثانية معينة (للمعاينة السريعة)
   doodle reel   <reel.json> [-o out/] [--fps 30] [--music track.mp3]   ريل 1080x1920 + غلاف 4:5 + ملف ترجمة
+  doodle pdf    <guide.html> [-o guide.pdf]                ملف PDF مقاس A4 بنص حقيقي قابل للتحديد والبحث
   doodle ai     <brief.txt> [-o script.json] [--format 16:9|9:16|1:1] [--lang ar|en] [--model qwen2.5:7b]
   doodle new    <folder>                                      مشروع جديد يحتوي مثالًا جاهزًا
   doodle hand   <photo.jpg> [-o assets/hands/my-hand.png]     قصّ يدك من صورة (يحتاج rembg: pip install "rembg[cpu,cli]")
@@ -94,6 +96,13 @@ async function main() {
     });
     log(`✅ ${r.mp4}  ${r.seconds}s · ${r.frames} frames · ${r.voiceLines} voice lines`);
     log(`   ${r.cover}\n   ${r.srt}`); return;
+  }
+  if (cmd === 'pdf') {
+    if (!pos[0]) throw new Error('guide.html path is required');
+    const src = resolve(pos[0]);
+    const out = flags.out || src.replace(/\.html?$/i, '') + '.pdf';
+    const r = await renderGuidePdf(readFileSync(src, 'utf8'), { out, baseDir: dirname(src), log });
+    log(`✅ ${r.out}  ${(r.bytes / 1024).toFixed(0)} KB`); return;
   }
   if (cmd === 'render') {
     if (!pos[0]) throw new Error('script.json path is required');
