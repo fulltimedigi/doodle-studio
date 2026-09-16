@@ -35,7 +35,8 @@ export function guideHtml(pagesHtml, { title = 'دليل', head = '' } = {}) {
 /**
  * Render HTML to a print-ready A4 PDF. `html` is either a full document or an array of
  * `.page` blocks, which are wrapped in the print stylesheet for you.
- * Returns { out, bytes, pages }.
+ * Returns { out, bytes, pages, missing } — `missing` lists subresources that never loaded, so a
+ * guide that quietly printed without its logo says so instead of looking fine.
  */
 export async function renderGuidePdf(html, { out, baseDir = null, title = 'دليل', log = () => {} } = {}) {
   mkdirSync(dirname(out), { recursive: true });
@@ -44,6 +45,9 @@ export async function renderGuidePdf(html, { out, baseDir = null, title = 'دل�
   let tmp = null;
   try {
     const page = await browser.newPage();
+    const failed = [];
+    page.on('requestfailed', (r) => failed.push(r.url()));
+    page.on('response', (r) => { if (r.status() >= 400) failed.push(r.url()); });
     // A page built with setContent has an about:blank origin, and Chromium refuses to load
     // file:// subresources into one — a <base> tag does not change that. So when the document
     // references its own local images, write it beside them and navigate to it for real.
@@ -56,10 +60,15 @@ export async function renderGuidePdf(html, { out, baseDir = null, title = 'دل�
     }
     await page.evaluate(() => document.fonts.ready);
     const pages = await page.evaluate(() => document.querySelectorAll('.page').length);
+    // A blocked file:// subresource never even becomes a failed request, so ask the document
+    // itself which of its images have no pixels.
+    const blank = await page.evaluate(() => [...document.images].filter((i) => !i.complete || !i.naturalWidth).map((i) => i.currentSrc || i.getAttribute('src') || '(unnamed image)'));
+    const missing = [...new Set([...failed, ...blank])];
     // The document owns its own @page size and margins, so Chromium adds none.
     await page.pdf({ path: out, printBackground: true, preferCSSPageSize: true, margin: { top: 0, right: 0, bottom: 0, left: 0 } });
     log(`📄 ${pages} pages`);
-    return { out, bytes: statSync(out).size, pages };
+    for (const u of missing) log(`⚠️ missing asset: ${u}`);
+    return { out, bytes: statSync(out).size, pages, missing };
   } finally {
     await browser.close();
     if (tmp) { try { unlinkSync(tmp); } catch {} }

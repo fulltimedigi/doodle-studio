@@ -10,6 +10,8 @@
     "setup": "npx playwright install chromium",
     "demo": "node src/cli.mjs render examples/demo-ar.json -o output/demo-ar.mp4",
     "demo:draft": "node src/cli.mjs render examples/demo-ar.json --draft -o output/demo-ar-draft.mp4",
+    "test": "node --test \"test/*.test.mjs\"",
+    "test:fast": "node --test test/site-map.test.mjs test/server.test.mjs",
     "icons": "node scripts/make-icons.mjs",
     "doodles": "node scripts/extract-doodles.mjs",
     "start": "node src/server.mjs",

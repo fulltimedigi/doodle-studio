@@ -1,0 +1,21 @@
+# Every push: run the suite, then build the static site the same way the deploy does.
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: install chromium
+        run: npx playwright install --with-deps chromium
+      - run: npm test
+      - name: the static build still builds
+        run: npm run build:site
