@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="css/suite.css">
 <style>
   /* ---- slide design system (1080 x 1350) ---- */
-  .slide{width:1080px;height:1350px;position:relative;overflow:hidden;direction:rtl;font-family:"Cairo",sans-serif;--p:#1d1d1d;--a:#e63946;--bg:#fff;background:var(--bg);color:var(--p)}
+  .slide{width:1080px;height:var(--h,1350px);position:relative;overflow:hidden;direction:rtl;font-family:"Cairo",sans-serif;--p:#1d1d1d;--a:#e63946;--bg:#fff;background:var(--bg);color:var(--p)}
   .slide .bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   .slide .veil{position:absolute;inset:0}
   .slide .in{position:absolute;inset:0;padding:96px 88px;display:flex;flex-direction:column}
@@ -58,6 +58,13 @@
   .slide.t-brand .pill{display:flex;align-items:center;gap:22px;background:#f2f4f3;border-radius:999px;padding:18px 26px;font-size:40px;font-weight:600;color:#1d1d1d}
   .slide.t-brand .pill i{width:64px;height:64px;border-radius:50%;background:color-mix(in srgb,var(--a) 18%,#fff);color:var(--a);display:inline-flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;font-style:normal;flex:none}
   .slide.t-brand .card{background:color-mix(in srgb,var(--a) 10%,#fff);border-radius:32px;padding:34px 40px;text-align:center;font-size:44px;font-weight:800;color:#111;margin-top:18px}
+  /* Same design at three canvases. Only the vertical rhythm changes: a story is viewed
+     full-screen with the platform's own UI over the top and bottom, so its content belongs in
+     the middle; a square has less room, so it gives some padding back. */
+  .slide.tall .mid{justify-content:center!important;padding-top:0!important}
+  .slide.tall .in{padding-top:120px;padding-bottom:120px}
+  .slide.sq .in{padding-top:56px;padding-bottom:48px}
+  .slide.sq .mid{padding-top:24px!important;gap:16px}
   /* stat: one sourced number carrying the slide */
   .slide .stat{display:flex;flex-direction:column;align-items:center;gap:10px;margin:8px 0 6px}
   .slide .stat .big{font-size:230px;line-height:1;font-weight:900;color:var(--a);letter-spacing:-4px}
@@ -89,7 +96,7 @@
   .tpl label i{width:22px;height:28px;border-radius:5px;display:inline-block}
   .tpl label:has(input:checked){border-color:var(--accent2)}
   .tpl input{display:none}
-  #exportBox{position:fixed;left:0;top:0;width:1080px;height:1350px;opacity:0;pointer-events:none;z-index:-1;overflow:hidden}
+  #exportBox{position:fixed;left:0;top:0;width:1080px;height:var(--h,1350px);opacity:0;pointer-events:none;z-index:-1;overflow:hidden}
 </style>
 </head>
 <body>
@@ -129,6 +136,10 @@
 </main>
 <div id="exportBox"></div>
 <script src="js/html-to-image.js"></script>
+<div id="sizes" style="margin-top:10px">
+  <label class="f">مقاسات التصدير</label>
+  <div class="tabs" id="sizeTabs"></div>
+</div>
 <script src="js/jszip.min.js"></script>
 <script src="js/core.js"></script>
 <script>
@@ -203,19 +214,47 @@ async function chat() {
   try { const out = await chatEdit(DATA, ins, 'Instagram carousel (7 slides)', (m) => say('msg2', m)); if (out.slides?.length) { DATA = out; render(); $('chatIn').value = ''; say('msg2', '✅ تم التعديل'); } }
   catch (e) { say('msg2', '❌ ' + e.message, true); }
 }
-async function renderPng(i) {
-  const box = $('exportBox'); box.innerHTML = slideHTML(DATA.slides[i], i, DATA.slides.length); const node = box.firstElementChild;
+// One design, several canvases. They share a width, so nothing about the layout is re-tuned
+// per size: the slide simply gets taller or shorter and the flex column redistributes.
+const SIZES = [
+  { id: '1x1', h: 1080, label: '1:1 مربع' },
+  { id: '4x5', h: 1350, label: '4:5 عمودي', on: true },
+  { id: '9x16', h: 1920, label: '9:16 ستوري' },
+];
+const chosen = () => SIZES.filter((z) => $('sz-' + z.id).classList.contains('on'));
+
+function drawSizes() {
+  $('sizeTabs').innerHTML = SIZES.map((z) =>
+    `<button type="button" id="sz-${z.id}" class="${z.on ? 'on' : ''}" onclick="this.classList.toggle('on')">${z.label}</button>`).join('');
+}
+drawSizes();
+
+async function renderPng(i, h = 1350) {
+  const box = $('exportBox');
+  box.style.setProperty('--h', h + 'px');
+  box.innerHTML = slideHTML(DATA.slides[i], i, DATA.slides.length);
+  const node = box.firstElementChild;
+  node.style.setProperty('--h', h + 'px');
+  node.classList.add(h >= 1600 ? 'tall' : h <= 1100 ? 'sq' : 'mid-h');
   await document.fonts.ready; await sleep(30);
   const blob = await nodeToPng(node, 1); box.innerHTML = ''; return blob;
 }
 async function exportAll() {
+  const sizes = chosen();
+  if (!sizes.length) return say('msg2', 'اختر مقاسًا واحدًا على الأقل', true);
   say('msg2', '⬇ تجهيز الصور…'); const files = [];
-  for (let i = 0; i < DATA.slides.length; i++) { say('msg2', `⬇ الشريحة ${i + 1}/${DATA.slides.length}…`); files.push([`slide-${String(i + 1).padStart(2, '0')}.png`, await renderPng(i)]); }
+  for (const z of sizes) {
+    for (let i = 0; i < DATA.slides.length; i++) {
+      say('msg2', `⬇ ${z.label} — الشريحة ${i + 1}/${DATA.slides.length}…`);
+      const name = `slide-${String(i + 1).padStart(2, '0')}.png`;
+      files.push([sizes.length > 1 ? `${z.id}/${name}` : name, await renderPng(i, z.h)]);
+    }
+  }
   files.push(['caption.txt', new Blob([(DATA.caption || '') + '\n\n' + (DATA.hashtags || []).join(' ')], { type: 'text/plain' })]);
-  download(await zipBlobs(files), `${(DATA.topic || 'carousel').slice(0, 40).replace(/[\\/:*?"<>|]/g, ' ')}.zip`); say('msg2', '✅ نُزّل ملف ZIP بالشرائح والكابشن');
+  download(await zipBlobs(files), `${(DATA.topic || 'carousel').slice(0, 40).replace(/[\\/:*?"<>|]/g, ' ')}.zip`); say('msg2', `✅ نُزّل ZIP فيه ${sizes.length * DATA.slides.length} صورة (${sizes.map((z) => z.label).join('، ')}) والكابشن`);
 }
 async function save() {
-  let thumb = ''; try { const b = await renderPng(0); thumb = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); }); } catch {}
+  let thumb = ''; try { const b = await renderPng(0, 1350); thumb = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); }); } catch {}
   const item = await lib.save({ id: ID || undefined, type: 'carousel', title: DATA.slides[0]?.title || DATA.topic, data: DATA, tpl: tpl(), bg: BG, thumb }); ID = item.id; toast('💾 حُفظ في المكتبة');
 }
 (async () => { if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; BG = it.bg || {}; $('topic').value = DATA.topic || ''; const t = document.querySelector(`input[name=tpl][value=${it.tpl}]`); if (t) t.checked = true; render(); } } })();

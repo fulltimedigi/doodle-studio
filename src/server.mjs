@@ -73,6 +73,34 @@ async function handle(req, res) {
     // The suite pages (carousel/reel/ad/…) are written against the static build's layout, where
     // prompts and assets sit under assets/. Map that layout onto the source tree so the same
     // pages work unchanged when the server is the one serving them.
+    // The suite pages load their vendored scripts from js/, which only exists after the static
+    // build has copied them out of node_modules and src. Serve them from where they really live,
+    // otherwise every export (images, ZIP, PDF, video muxing) is dead under this server.
+    if (req.method === 'GET' && path.startsWith('/web/js/') && path !== '/web/js/core.js') {
+      const name = decodeURIComponent(path.slice(8));
+      const copy = {
+        'html-to-image.js': 'node_modules/html-to-image/dist/html-to-image.js',
+        'jszip.min.js': 'node_modules/jszip/dist/jszip.min.js',
+        'jspdf.umd.min.js': 'node_modules/jspdf/dist/jspdf.umd.min.js',
+        'engine.js': 'src/renderer/engine.js',
+        'strokes-core.js': 'src/renderer/strokes-core.js',
+        'mp4-muxer.js': 'node_modules/mp4-muxer/build/mp4-muxer.js',
+        'webm-muxer.js': 'node_modules/webm-muxer/build/webm-muxer.js',
+      }[name];
+      if (copy) return sendFile(res, join(ROOT, copy));
+      // These two are module sources the build rewrites into plain scripts; do the same here so
+      // the two paths cannot drift apart.
+      const rewrite = {
+        'trace_skeleton.js': ['node_modules/skeleton-tracing-js/trace_skeleton.vanilla.js',
+          (t) => t.replace(/export\s+default\s+TraceSkeleton\s*;?/, ';(typeof self !== "undefined" ? self : window).TraceSkeleton = TraceSkeleton;')],
+        'shapes.js': ['src/shapes.mjs', (t) => t.replace('export function shapeSvg', 'window.shapeSvg = function shapeSvg')],
+      }[name];
+      if (rewrite && existsSync(join(ROOT, rewrite[0]))) {
+        res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-cache' });
+        return res.end(rewrite[1](readFileSync(join(ROOT, rewrite[0]), 'utf8')));
+      }
+      res.writeHead(404); return res.end('not found');
+    }
     if (req.method === 'GET' && path.startsWith('/web/assets/prompts/')) return serveUnder(res, join(ROOT, 'prompts'), decodeURIComponent(path.slice(20)));
     if (req.method === 'GET' && path.startsWith('/web/assets/')) {
       const rel = decodeURIComponent(path.slice(12));
