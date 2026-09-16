@@ -69,6 +69,7 @@
     </div>
     <div id="brandChips" class="chips"></div>
     <div id="b_msg" class="msg"></div>
+    <div id="b_stale" class="note" hidden></div>
     <div class="grid2">
       <div><label class="f">اسم البراند</label><input id="b_name"></div>
       <div><label class="f">الدعوة للفعل الافتراضية</label><input id="b_cta" placeholder="اطلب الآن / احجز / جرّب مجانًا"></div>
@@ -133,6 +134,7 @@ function openBrand() {
   $('b_dialect').innerHTML = Object.entries(DIALECTS).map(([k, v]) => `<label><input type="radio" name="dialect" value="${k}" ${b.dialect === k ? 'checked' : ''}>${v}</label>`).join('');
   $('b_tones').innerHTML = TONES.map((t) => `<label><input type="checkbox" name="tone" value="${esc(t)}" ${(b.tones || []).includes(t) ? 'checked' : ''}>${t}</label>`).join('');
   $('logoDrop').innerHTML = (LOGO ? `<img src="${LOGO}">` : 'شعار') + '<input type="file" accept="image/*" style="display:none" onchange="pickLogo(this.files[0])">';
+  STALE = []; $('b_stale').hidden = true; say('b_msg', '');
   $('brandDlg').showModal();
 }
 async function presetFTD() {
@@ -187,6 +189,29 @@ function drawBrandFiles() {
   d.ondrop = (e) => { e.preventDefault(); d.classList.remove('over'); addBrandFiles(e.dataTransfer.files); };
 })();
 
+const BRAND_FIELDS = [
+  ['name', 'b_name', 'اسم البراند'], ['sells', 'b_sells', 'ماذا تبيع'], ['usp', 'b_usp', 'الوعد الأساسي'],
+  ['audience', 'b_aud', 'الجمهور'], ['cta', 'b_cta', 'الدعوة للفعل'], ['hashtags', 'b_tags', 'الهاشتاجات'],
+  ['banned', 'b_banned', 'الممنوعات'], ['brief', 'b_brief', 'دليل الهوية'], ['visual', 'b_visual', 'قواعد الصور'],
+];
+
+let STALE = [];
+function showStale(stale) {
+  STALE = stale;
+  const box = $('b_stale');
+  box.hidden = !stale.length;
+  if (!stale.length) return;
+  box.innerHTML = `⚠️ التحليل لم يستخرج: <b>${stale.map(esc).join('، ')}</b> — والقيم القديمة ما زالت مكتوبة في هذه الحقول.`
+    + ` إن كنت تصف براندًا مختلفًا فامسحها، وإن كنت تحسّن نفس البراند فاتركها.`
+    + ` <button class="soft small" type="button" onclick="clearStale()">امسح هذه الحقول</button>`;
+}
+
+function clearStale() {
+  for (const [, id, label] of BRAND_FIELDS) if (STALE.includes(label)) $(id).value = '';
+  STALE = []; $('b_stale').hidden = true;
+  say('b_msg', '🧹 مُسحت الحقول التي لم يستخرجها التحليل — راجع الباقي ثم احفظ');
+}
+
 async function autoBrand() {
   const desc = $('b_desc').value.trim();
   if (!desc && !BFILES.length) return say('b_msg', 'اكتب وصفًا أو ارفع دليل الهوية', true);
@@ -197,13 +222,24 @@ async function autoBrand() {
     const ask = [desc, BFILES.length ? `ATTACHED: ${BFILES.length} file(s) — ${BFILES.map((f) => f.name).join('، ')}. Read them as the brand's own identity material.` : '']
       .filter(Boolean).join('\n\n') || 'استخرج الهوية من الملفات المرفقة.';
     const out = await geminiJSON(sys, ask, { temperature: 0.3, images: BFILES.map((f) => f.url), onWait: (m) => say('b_msg', m) });
-    if (out.name) $('b_name').value = out.name; if (out.sells) $('b_sells').value = out.sells; if (out.usp) $('b_usp').value = out.usp; if (out.audience) $('b_aud').value = out.audience; if (out.cta) $('b_cta').value = out.cta; if (out.hashtags) $('b_tags').value = out.hashtags; if (out.banned) $('b_banned').value = out.banned; if (out.brief) $('b_brief').value = out.brief; if (out.visual) $('b_visual').value = out.visual;
+    // A field the analysis could not extract is left empty on purpose — it does not invent one.
+    // Keeping whatever was in the box is right when you are refining the same brand, and wrong
+    // when you just described a different one: the old guide, the old banned words and the old
+    // visual rules would keep steering every post written afterwards, invisibly. So keep them,
+    // but say exactly which boxes the analysis did not touch.
+    const stale = [];
+    for (const [key, id, label] of BRAND_FIELDS) {
+      const el = $(id);
+      if (out[key]) el.value = out[key];
+      else if (el.value.trim()) stale.push(label);
+    }
     const hex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim()) && v.trim();
     if (hex(out.colors?.primary)) $('b_c1').value = hex(out.colors.primary);
     if (hex(out.colors?.accent)) $('b_c2').value = hex(out.colors.accent);
     if (hex(out.colors?.bg)) $('b_c3').value = hex(out.colors.bg);
-    if (out.dialect && DIALECTS[out.dialect]) document.querySelector(`input[name=dialect][value=${out.dialect}]`).checked = true;
+    if (out.dialect && DIALECTS[out.dialect]) { const dl = document.querySelector(`input[name=dialect][value=${out.dialect}]`); if (dl) dl.checked = true; }
     if (Array.isArray(out.tones)) document.querySelectorAll('input[name=tone]').forEach((x) => { x.checked = out.tones.includes(x.value); });
+    showStale(stale);
     say('b_msg', BFILES.length ? '✅ قُرئت الملفات — راجع الحقول والألوان ثم احفظ' : '✅ راجع الحقول ثم احفظ');
   } catch (e) { say('b_msg', '❌ ' + e.message, true); }
 }
