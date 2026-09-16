@@ -7,7 +7,7 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { mkdirSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
-import { join, isAbsolute, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
 import { ROOT, dataUrl } from './project.mjs';
 import { synthesize, audioDuration } from './tts.mjs';
@@ -32,6 +32,23 @@ export function browserOptions() {
 }
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// A spec is untrusted input (the API accepts one verbatim), so anything that lands somewhere
+// other than a text node needs its own guard — esc() only makes text safe.
+
+// class attributes: keep the vocabulary the layouts actually use, drop everything else.
+const cls = (s) => String(s ?? '').replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 64);
+
+// A brand colour is interpolated into a <style> block, where a crafted value could close the
+// rule and add one of its own (url() in a headless browser reaches the network). Only plain
+// colour syntax is accepted; anything else falls back to the default.
+const COLOR = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}|(rgb|hsl)a?\([0-9a-zA-Z.,%\s/]{1,60}\))$/;
+const color = (v, fallback) => (typeof v === 'string' && COLOR.test(v.trim()) ? v.trim() : fallback);
+
+// The renderer writes <slug>.mp4 into `out`; a slug is not a path.
+const fileSlug = (s) => (String(s ?? '').replace(/[^\w\u0600-\u06FF.-]+/g, '-').replace(/^[.-]+/, '').slice(0, 80) || 'reel');
+
+const MAX_SCENES = 40, MAX_SECONDS = 600;
 
 // Wrap each highlight substring in the accent colour. Longest first, so a phrase wins over a word.
 function mark(text, highlight) {
@@ -183,13 +200,13 @@ export function sceneFrames(sc, overlay) {
 
   } else if (kind === 'chat') {
     const bubbles = sc.bubbles || [];
-    const hdr = sc.header ? `<div class="header ${sc.header_variant || ''}"><span class="pill">${esc(sc.header)}</span></div>` : '';
+    const hdr = sc.header ? `<div class="header ${cls(sc.header_variant)}"><span class="pill">${esc(sc.header)}</span></div>` : '';
     const per = dur / Math.max(1, bubbles.length);
     const bubble = (b) => {
       let extra = '';
       if (b.stamp) extra += `<div class="stamp">${esc(b.stamp)}</div>`;
       if (b.check) extra += '<div class="check">✓</div>';
-      return `<div class="b ${b.who || 'bot'} ${b.variant || ''}">${mark(b.text || '', b.highlight)}${extra}</div>`;
+      return `<div class="b ${cls(b.who || 'bot')} ${cls(b.variant)}">${mark(b.text || '', b.highlight)}${extra}</div>`;
     };
     for (let k = 0; k < bubbles.length; k++) {
       const shown = bubbles.slice(0, k).map(bubble).join('');
@@ -225,7 +242,7 @@ export function sceneFrames(sc, overlay) {
       const k0 = +(sc.from ?? 0), k1 = +(sc.to ?? k0), k = k0 + (k1 - k0) * p;
       const mx = L + k * w + w / 2 - 35, my = topY(k) - 128;
       const state = sc.state || '';
-      if (!sc.logo_big) s += `<div class="man ${state}" style="left:${Math.round(mx)}px;top:${Math.round(my)}px"><div class="h"></div><div class="bd"></div></div>`;
+      if (!sc.logo_big) s += `<div class="man ${cls(state)}" style="left:${Math.round(mx)}px;top:${Math.round(my)}px"><div class="h"></div><div class="bd"></div></div>`;
       if (state === 'bad') s += `<div class="q" style="left:${Math.round(mx + 60)}px;top:${Math.round(my - 70)}px">؟</div>`;
       if ((sc.tags || []).length) s += `<div class="tags" style="left:${L}px;top:${Math.round(topY(n - 1) + 20)}px">${sc.tags.map((t) => `<div class="t">${esc(t)}</div>`).join('')}</div>`;
       if (sc.logo_big) s += `<div class="biglogo" style="left:${Math.round(Math.min(R - 230, L + (n - 1) * w + w / 2 - 115))}px;top:${Math.round(topY(n - 1) - 236)}px"></div>`;
@@ -247,7 +264,7 @@ export function sceneFrames(sc, overlay) {
       const nxt = kf[Math.min(i + 1, kf.length - 1)];
       const x = kf[i].x + (nxt.x - kf[i].x) * f;
       const cur = f > 0.5 ? nxt : kf[i];
-      s += `<div class="man big ${cur.state || ''}${cur.fade ? ' fade' : ''}" style="left:${Math.round(x - 75)}px;top:${FLOOR - 270}px"><div class="h"></div><div class="bd"></div></div>`;
+      s += `<div class="man big ${cls(cur.state)}${cur.fade ? ' fade' : ''}" style="left:${Math.round(x - 75)}px;top:${FLOOR - 270}px"><div class="h"></div><div class="bd"></div></div>`;
       if (cur.state === 'bad') s += `<div class="q" style="left:${Math.round(x + 60)}px;top:${FLOOR - 360}px">؟</div>`;
       if (p >= 0.999 && sc.end_pill) s += `<div class="tagpill" style="left:${Math.round(Math.min(W - 440, x - 210))}px;top:${FLOOR - 470}px">${esc(sc.end_pill)}</div>`;
       return s;
@@ -297,7 +314,11 @@ async function prepareVoices(spec, { dir, cacheDir, log }) {
     if (!sc.voice) continue;
     let file;
     if (typeof sc.voice === 'string') {
-      file = isAbsolute(sc.voice) ? sc.voice : resolve(dir, sc.voice);
+      // A caller-supplied path must stay under `dir`: the rendered video is downloadable, so an
+      // escaping path would let any decodable file on the host be read out through it.
+      const root = resolve(dir);
+      file = resolve(root, sc.voice);
+      if (file !== root && !file.startsWith(root + sep)) throw new Error(`voice file outside the workspace: ${sc.voice}`);
       if (!existsSync(file)) throw new Error(`voice file not found: ${sc.voice}`);
     } else {
       log(`🎙 ${String(sc.voice.text).slice(0, 40)}…`);
@@ -335,11 +356,20 @@ const ff = (args) => new Promise((ok, bad) => {
 export async function renderReel(spec, { out, fps = 30, music = null, musicVolume = 0.12, dir = process.cwd(), cacheDir = join(ROOT, '.cache'), log = () => {} } = {}) {
   mkdirSync(out, { recursive: true });
   mkdirSync(join(cacheDir, 'tts'), { recursive: true });
-  const slug = spec.slug || 'reel';
-  const B = { ...REEL_BRAND, ...(spec.brand || {}) };
+  const slug = fileSlug(spec.slug);
+  const b = spec.brand || {};
+  const B = { ...REEL_BRAND };
+  for (const k of Object.keys(REEL_BRAND)) B[k] = color(b[k], REEL_BRAND[k]);
+  // greenSoft is derived rather than taken, so a caller only ever supplies plain colours.
+  if (b.green && B.green !== REEL_BRAND.green) B.greenSoft = `color-mix(in srgb, ${B.green} 14%, #fff)`;
+
+  if (!Array.isArray(spec.scenes) || !spec.scenes.length) throw new Error('spec has no scenes');
+  if (spec.scenes.length > MAX_SCENES) throw new Error(`too many scenes (max ${MAX_SCENES})`);
   const logo = dataUrl(join(ROOT, 'assets/brand/fd-logo.png'));
 
   const { tempo } = await prepareVoices(spec, { dir, cacheDir: join(cacheDir, 'tts'), log });
+  const total = spec.scenes.reduce((a, sc) => a + Math.max(0, +(sc.duration ?? 3.5) || 0), 0);
+  if (total > MAX_SECONDS) throw new Error(`reel too long: ${Math.round(total)}s (max ${MAX_SECONDS}s)`);
 
   // ---- frames ----
   const overlaySeconds = +(spec.overlay?.seconds ?? 3.5);

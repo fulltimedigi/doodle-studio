@@ -24,6 +24,13 @@ if (existsSync(ENV_FILE)) for (const line of readFileSync(ENV_FILE, 'utf8').spli
 
 const MIME = { '.md': 'text/markdown; charset=utf-8', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.ttf': 'font/ttf' };
 const jobs = new Map();
+// Finished jobs are only needed until the client has polled them; without a sweep the map is a
+// slow leak for the life of the process.
+const JOB_TTL = 60 * 60 * 1000;
+setInterval(() => {
+  const cut = Date.now() - JOB_TTL;
+  for (const [id, j] of jobs) if (j.started < cut) jobs.delete(id);
+}, 10 * 60 * 1000).unref();
 const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
 const body = (req) => new Promise((ok, bad) => { let b = ''; req.on('data', (d) => { b += d; if (b.length > 80e6) bad(new Error('too large')); }); req.on('end', () => { try { ok(b ? JSON.parse(b) : {}); } catch (e) { bad(e); } }); });
 const safe = (p) => { const r = resolve(WORK, p.replace(/^\/+/, '')); if (!r.startsWith(WORK)) throw new Error('bad path'); return r; };

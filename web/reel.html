@@ -122,8 +122,9 @@ async function render() {
   try {
     // Map the studio's brand identity onto the renderer's palette. Anything the brand does not
     // state keeps the reel's own default.
+    // Plain colours only — the renderer validates each one and derives its own soft tint.
     const brand = {};
-    if (B.colors?.accent) { brand.green = B.colors.accent; brand.greenSoft = `color-mix(in srgb, ${B.colors.accent} 14%, #fff)`; }
+    if (B.colors?.accent) brand.green = B.colors.accent;
     if (B.colors?.primary) { brand.navy = B.colors.primary; brand.ink = B.colors.primary; }
     if (B.colors?.bg) brand.bg = B.colors.bg;
     const spec = { ...DATA, voice_name: $('voice').value, brand };
