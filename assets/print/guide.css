@@ -1,0 +1,95 @@
+/* FullTimeDigi print guide — A4, Arabic RTL, brand system */
+@font-face{font-family:Almarai;src:url(../fonts/Almarai-ExtraBold.ttf);font-weight:800}
+@font-face{font-family:Almarai;src:url(../fonts/Almarai-Bold.ttf);font-weight:700}
+@font-face{font-family:Almarai;src:url(../fonts/Almarai-Regular.ttf);font-weight:400}
+@font-face{font-family:Plex;src:url(../fonts/IBMPlexSansArabic-Regular.ttf);font-weight:400}
+@font-face{font-family:Plex;src:url(../fonts/IBMPlexSansArabic-SemiBold.ttf);font-weight:600}
+
+:root{
+  --ink:#0b2a33; --navy:#004d5b; --green:#0e9a7a; --soft:#e3f5ef;
+  --muted:#5c6f75; --line:#e6ecea; --bad:#c0392b; --grey:#f4f7f6;
+}
+@page{size:A4;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;direction:rtl;font-family:Plex,Almarai,sans-serif;color:var(--ink);
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+.page{position:relative;width:210mm;height:297mm;padding:20mm 18mm 22mm;page-break-after:always;overflow:hidden}
+.page:last-child{page-break-after:auto}
+
+/* running header + footer */
+.rh{position:absolute;top:11mm;right:18mm;left:18mm;display:flex;justify-content:space-between;
+  align-items:center;font-size:8.5pt;color:var(--muted)}
+.rh .mark{display:flex;align-items:center;gap:3mm;font-weight:600}
+.rh .mark img{width:7mm;height:7mm;object-fit:contain}
+.rf{position:absolute;bottom:11mm;right:18mm;left:18mm;display:flex;justify-content:space-between;
+  font-size:8.5pt;color:var(--muted);border-top:1px solid var(--line);padding-top:3mm}
+
+/* type */
+h1{font-family:Almarai;font-weight:800;font-size:26pt;line-height:1.3;color:var(--navy);margin:0 0 3.5mm}
+h2{font-family:Almarai;font-weight:800;font-size:14.5pt;line-height:1.45;color:var(--navy);margin:5.5mm 0 2.5mm}
+h3{font-family:Almarai;font-weight:700;font-size:12pt;color:var(--ink);margin:5mm 0 2mm}
+p{font-size:11.5pt;line-height:1.8;margin:0 0 2.8mm}
+.lead{font-size:12.5pt;line-height:1.75;color:var(--muted)}
+strong{font-weight:600;color:var(--navy)}
+.kicker{display:inline-block;font-family:Almarai;font-weight:800;font-size:9pt;color:var(--green);
+  background:var(--soft);padding:1.6mm 5mm;border-radius:20mm;margin-bottom:4mm}
+.step{position:absolute;top:20mm;left:18mm;font-family:Almarai;font-weight:800;font-size:44pt;
+  color:var(--grey);line-height:1}
+
+/* the number box: one real, sourced figure per page */
+.fact{background:var(--soft);border-radius:4mm;padding:4.5mm 6mm;margin:3.5mm 0}
+.fact .n{font-family:Almarai;font-weight:800;font-size:23pt;color:var(--green);line-height:1.2;
+  display:block;margin-bottom:1.5mm}
+.fact .txt{font-size:11pt;line-height:1.75;color:var(--ink);margin:0}
+.fact .src{font-size:8.5pt;color:var(--muted);margin:2.5mm 0 0;unicode-bidi:plaintext}
+
+/* lists */
+ul.do{list-style:none;padding:0;margin:3mm 0}
+ul.do li{position:relative;padding:0 8mm 0 0;margin-bottom:2.4mm;font-size:11.5pt;line-height:1.75}
+ul.do li::before{content:"";position:absolute;right:0;top:3.2mm;width:3mm;height:3mm;
+  border-radius:50%;background:var(--green)}
+ul.no li::before{background:var(--bad)}
+
+/* the do-now block */
+.now{border:1.2pt solid var(--green);border-radius:4mm;padding:4mm 5.5mm;margin-top:4mm}
+.now h4{font-family:Almarai;font-weight:800;font-size:10.5pt;color:var(--green);margin:0 0 2mm}
+.now ol{margin:0;padding-right:5mm;font-size:10pt;line-height:1.6}
+.now li{margin-bottom:1.2mm}
+
+/* two columns */
+.cols{display:flex;gap:6mm;margin:3.5mm 0}
+.col{flex:1;background:var(--grey);border-radius:4mm;padding:5mm}
+.col h4{font-family:Almarai;font-weight:800;font-size:10.5pt;margin:0 0 2.5mm}
+.col.good h4{color:var(--green)} .col.bad h4{color:var(--bad)}
+.col p{font-size:10pt;line-height:1.7;margin:0}
+
+/* cover */
+.cover{background:var(--navy);color:#fff;display:flex;flex-direction:column;justify-content:center}
+.cover h1{color:#fff;font-size:34pt;line-height:1.35}
+.cover .sub{font-size:14pt;line-height:1.8;color:rgba(255,255,255,.85);margin-top:5mm;max-width:130mm}
+.cover .chip{display:inline-block;font-family:Almarai;font-weight:800;font-size:10pt;color:#7fe0c6;
+  border:1pt solid #7fe0c6;padding:2mm 6mm;border-radius:20mm;margin-bottom:8mm}
+.cover .foot{position:absolute;bottom:20mm;right:18mm;left:18mm;display:flex;justify-content:space-between;
+  align-items:flex-end;font-size:9.5pt;color:rgba(255,255,255,.75)}
+.cover .foot img{width:14mm;height:14mm;object-fit:contain;background:#fff;border-radius:3mm;padding:1.5mm}
+
+/* contents */
+.toc{list-style:none;padding:0;margin:6mm 0 0}
+.toc li{display:flex;align-items:baseline;gap:3mm;padding:3.2mm 0;border-bottom:1px solid var(--line);
+  font-size:11.5pt}
+.toc .i{font-family:Almarai;font-weight:800;color:var(--green);width:8mm}
+.toc .pg{margin-right:auto;color:var(--muted);font-size:10pt}
+
+/* checklist */
+table.ck{width:100%;border-collapse:collapse;font-size:10.5pt;margin-top:3mm}
+table.ck td{padding:2.2mm 2mm;border-bottom:1px solid var(--line);line-height:1.55}
+table.ck td.b{width:7mm;color:var(--green);font-weight:800}
+.note{font-size:9.5pt;color:var(--muted);line-height:1.7}
+
+/* two-column checklist */
+.cklist{display:flex;gap:7mm;margin-top:4mm}
+.ckcol{flex:1}
+.ckrow{display:flex;gap:2.5mm;align-items:flex-start;font-size:10pt;line-height:1.5;
+  padding:2.1mm 0;border-bottom:1px solid var(--line)}
+.ckrow .bx{color:var(--green);font-weight:800;flex:0 0 auto}

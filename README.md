@@ -170,6 +170,7 @@ node src/cli.mjs ai brief.txt -o script.json --format 16:9 --lang ar     # Ollam
 | كاروسيل | `carousel.html` | ٧ شرائح 1080×1350 بأربعة قوالب، تصدير ZIP |
 | إعلان ثابت | `ad.html` | ٣ اتجاهات × مقاسات 1:1 / 4:5 / 9:16 مع صورة مولّدة |
 | موشن نصي | `doodle.html?mode=motion` | كلمات متحركة بلون البراند مع موسيقى |
+| ريل مركّب | `reel.html` + `doodle reel` | فيديو 1080×1920 من مشاهد جاهزة + تعليق صوتي عربي + غلاف 4:5 + ملف ترجمة — **الكتابة تعمل في المتصفح، والتركيب يحتاج تشغيل الخادم** (`npm start`) |
 
 الطبقة المشتركة في `web/js/core.js` (عميل Gemini، هوية البراند، مكتبة IndexedDB، التعديل بالدردشة) و`web/css/suite.css`.
 التصدير للصور عبر `html-to-image` (MIT) و`jszip` (MIT)؛ الخطوط Cairo وTajawal (OFL).
@@ -179,6 +180,7 @@ node src/cli.mjs ai brief.txt -o script.json --format 16:9 --lang ar     # Ollam
 |---|---|---|
 | إعلان فيديو UGC | `ugc.html` | سكريبت ← صورة مبدع ثابتة ← لقطات Veo 3.1 (مع صورة المنتج كمرجع) ← تجميع مع ترجمة وشعار وبطاقة ختامية (WebCodecs) |
 | كتيّب جذب عملاء | `magnet.html` | دليل PDF بصفحات A4 (jsPDF + html-to-image) |
+| كتيّب بجودة الطباعة | `doodle pdf` (CLI) | نفس الصفحات لكن بنص حقيقي قابل للتحديد والبحث بدل صور — يحتاج خادمًا |
 | شعار | `logo.html` | ٤ اتجاهات بخلفية شفافة، اعتماد مباشر في هوية البراند |
 
 ## هوية FullTimeDigi (Brand Brief)

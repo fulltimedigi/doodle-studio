@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ريل مركّب — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎞️</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  .needs{background:#fff6e5;border:1px solid #f0d199;border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.7}
+  .needs code{background:#fff;padding:1px 6px;border-radius:5px}
+  .scene{border-top:1px dashed var(--line);padding:10px 0}
+  .scene .h{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .scene .h b{color:var(--ink);font-size:14px}
+  .scene .h .t{margin-inline-start:auto;font-variant-numeric:tabular-nums}
+  .scene textarea{width:100%;font-size:14px;min-height:52px;margin-top:6px}
+  .scene .screen{font-size:13px;color:var(--muted);margin-top:4px}
+  .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .log{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:120px;overflow:auto}
+  video{width:100%;max-width:300px;border-radius:12px;background:#000}
+</style>
+</head>
+<body>
+<main>
+  <div><h1 class="page">🎞️ ريل مركّب</h1><p class="lead">اكتب الموضوع، والأداة تكتب الخطّاف والمشاهد والتعليق الصوتي — ثم تركّب الفيديو جاهزًا للرفع: 1080×1920 مع غلاف 4:5 وملف ترجمة.</p></div>
+
+  <div class="pane" id="offline" hidden>
+    <div class="needs">
+      <b>هذه الأداة تحتاج تشغيل الاستوديو على جهازك أو على خادم.</b><br>
+      تركيب الفيديو يتم بمتصفح وffmpeg، وهذا لا يعمل داخل صفحة ساكنة. شغّله مرة واحدة:<br>
+      <code>npm install &amp;&amp; npm run setup &amp;&amp; npm start</code><br>
+      ثم افتح <code>http://localhost:7860/web/reel.html</code>. الكتابة أدناه تعمل هنا على أي حال، ويمكنك نسخ الـ JSON وتشغيله بـ <code>doodle reel</code>.
+    </div>
+  </div>
+
+  <div class="pane">
+    <label for="topic">الموضوع</label>
+    <textarea id="topic" rows="3" placeholder="مثال: الفحص المجاني لكتالوج المتجر — للتجار على سلة وزد وشوبيفاي"></textarea>
+    <div class="row2" style="margin-top:8px">
+      <label for="voice" style="margin:0">الصوت</label>
+      <select id="voice">
+        <option value="ar-SA-Hamed">حامد — سعودي</option>
+        <option value="ar-SA-Zariyah">زارية — سعودية</option>
+        <option value="ar-AE-Hamdan">حمدان — إماراتي</option>
+        <option value="ar-KW-Fahed">فهد — كويتي</option>
+        <option value="ar-QA-Moaz">معاذ — قطري</option>
+        <option value="ar-EG-Shakir">شاكر — مصري</option>
+      </select>
+      <button id="go" onclick="generate()">✍️ اكتب الريل</button>
+    </div>
+    <p id="msg" class="msg"></p>
+  </div>
+
+  <div class="pane" id="out" hidden>
+    <div class="row2"><h2 style="margin:0">المشاهد</h2><span id="cnt" class="muted"></span></div>
+    <div id="scenes"></div>
+
+    <div class="row2" style="margin-top:12px">
+      <button id="render" onclick="render()">🎬 ركّب الفيديو</button>
+      <button class="ghost" onclick="copyJson()">نسخ JSON</button>
+      <button class="ghost" onclick="save()">💾 حفظ</button>
+    </div>
+    <p id="msg2" class="msg"></p>
+    <div id="log" class="log"></div>
+    <div id="result" style="margin-top:10px"></div>
+  </div>
+</main>
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, download, q, sleep } = Suite;
+Suite.mountHeader('ريل مركّب');
+const B = loadBrand();
+let DATA = null, ID = q.get('id'), SERVER = false;
+
+// The renderer lives on the server; the writing half works anywhere.
+(async () => {
+  try { const r = await fetch('/api/meta'); SERVER = r.ok; } catch { SERVER = false; }
+  $('offline').hidden = SERVER;
+  if (!SERVER) $('render').disabled = true;
+  if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; $('topic').value = DATA.topic || ''; draw(); } }
+})();
+
+async function generate() {
+  const topic = $('topic').value.trim(); if (!topic) return say('msg', 'اكتب الموضوع أولًا', true);
+  if (!needKey('msg')) return;
+  $('go').disabled = true; say('msg', '✍️ جارٍ الكتابة…');
+  try {
+    const sys = (await (await fetch('assets/prompts/reel.md')).text()) + '\n\n' + brandContext(B);
+    DATA = await geminiJSON(sys, `Topic: ${topic}\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
+    DATA.topic = topic; ID = null; draw();
+    say('msg', '✅ جاهز — راجع النص المنطوق قبل التركيب');
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+
+function draw() {
+  if (!DATA) return;
+  $('out').hidden = false;
+  const n = DATA.scenes.length;
+  const secs = DATA.scenes.reduce((a, s) => a + (+s.duration || 3.5), 0);
+  $('cnt').textContent = `${n} مشاهد · ~${Math.round(secs)} ثانية (تطول لتسع التعليق)`;
+  const hook = (DATA.overlay?.lines || []).join(' / ');
+  $('scenes').innerHTML =
+    `<div class="scene"><div class="h"><b>الخطّاف النصي</b><span>أول ${DATA.overlay?.seconds ?? 3.5} ثانية</span></div>
+       <div class="screen">${esc(hook)}</div></div>` +
+    DATA.scenes.map((s, i) => `<div class="scene">
+      <div class="h"><b>${i + 1}. ${esc(s.type || 'title')}</b><span class="t">${(+s.duration || 3.5).toFixed(1)}ث</span></div>
+      ${s.lines?.length ? `<div class="screen">على الشاشة: ${esc(s.lines.filter(Boolean).join(' / '))}</div>` : ''}
+      <textarea data-i="${i}" oninput="editVoice(this)" placeholder="النص المنطوق">${esc(s.voice?.text || '')}</textarea>
+    </div>`).join('');
+}
+
+function editVoice(el) {
+  const s = DATA.scenes[+el.dataset.i];
+  if (!s.voice) s.voice = {};
+  s.voice.text = el.value;
+}
+
+async function render() {
+  if (!DATA || !SERVER) return;
+  $('render').disabled = true; say('msg2', '🎬 جارٍ التركيب…'); $('result').innerHTML = '';
+  try {
+    // Map the studio's brand identity onto the renderer's palette. Anything the brand does not
+    // state keeps the reel's own default.
+    const brand = {};
+    if (B.colors?.accent) { brand.green = B.colors.accent; brand.greenSoft = `color-mix(in srgb, ${B.colors.accent} 14%, #fff)`; }
+    if (B.colors?.primary) { brand.navy = B.colors.primary; brand.ink = B.colors.primary; }
+    if (B.colors?.bg) brand.bg = B.colors.bg;
+    const spec = { ...DATA, voice_name: $('voice').value, brand };
+    const r = await fetch('/api/reel', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ spec }) });
+    const { id, error } = await r.json(); if (error) throw new Error(error);
+    for (;;) {
+      await sleep(1200);
+      const j = await (await fetch('/api/jobs/' + id)).json();
+      $('log').textContent = (j.log || []).join('\n');
+      if (j.status === 'done') {
+        say('msg2', `✅ ${j.duration.toFixed(1)} ثانية`);
+        $('result').innerHTML = `<video src="${j.url}" controls></video>
+          <div class="row2" style="margin-top:8px">
+            <a class="btn" href="${j.url}" download>⬇ الفيديو</a>
+            <a class="btn ghost" href="${j.cover}" download>⬇ الغلاف 4:5</a>
+            <a class="btn ghost" href="${j.srt}" download>⬇ الترجمة</a>
+          </div>`;
+        break;
+      }
+      if (j.status === 'error') throw new Error(j.error || 'فشل التركيب');
+      say('msg2', '🎬 جارٍ التركيب…');
+    }
+  } catch (e) { say('msg2', '❌ ' + e.message, true); }
+  $('render').disabled = false;
+}
+
+function copyJson() { copyText(JSON.stringify(DATA, null, 2)); toast('📋 نُسخ الـ JSON — شغّله بـ: doodle reel spec.json'); }
+async function save() {
+  const item = await lib.save({ id: ID || undefined, type: 'reelvideo', title: DATA.topic || DATA.slug, data: DATA });
+  ID = item.id; toast('💾 حُفظ في المكتبة');
+}
+</script>
+</body>
+</html>

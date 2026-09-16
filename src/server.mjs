@@ -8,6 +8,7 @@ import { join, extname, resolve, basename } from 'node:path';
 import { spawn } from 'node:child_process';
 import { ROOT, loadProject, compile } from './project.mjs';
 import { renderVideo, renderStill } from './render.mjs';
+import { renderReel } from './reel.mjs';
 import { VOICES, synthesize } from './tts.mjs';
 import { generateScript } from './ai.mjs';
 
@@ -21,11 +22,15 @@ const ENV_FILE = join(WORK, '.env');
 const SETTABLE = ['GEMINI_API_KEY', 'GOOGLE_TTS_KEY', 'AZURE_TTS_KEY', 'AZURE_TTS_REGION', 'TTS_ENDPOINT', 'TTS_KEY', 'TTS_MODEL', 'DOODLE_AI_ENDPOINT', 'DOODLE_AI_MODEL', 'DOODLE_AI_KEY', 'DOODLE_TTS'];
 if (existsSync(ENV_FILE)) for (const line of readFileSync(ENV_FILE, 'utf8').split('\n')) { const m = line.match(/^([A-Z_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2]; }
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.ttf': 'font/ttf' };
+const MIME = { '.md': 'text/markdown; charset=utf-8', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.ttf': 'font/ttf' };
 const jobs = new Map();
 const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
 const body = (req) => new Promise((ok, bad) => { let b = ''; req.on('data', (d) => { b += d; if (b.length > 80e6) bad(new Error('too large')); }); req.on('end', () => { try { ok(b ? JSON.parse(b) : {}); } catch (e) { bad(e); } }); });
 const safe = (p) => { const r = resolve(WORK, p.replace(/^\/+/, '')); if (!r.startsWith(WORK)) throw new Error('bad path'); return r; };
+// Same containment check for paths served out of the repo: a decoded request path can still
+// carry ../ segments, so resolve first and refuse anything that lands outside the base.
+const under = (base, p) => { const r = resolve(base, p.replace(/^\/+/, '')); return r.startsWith(base + '/') || r === base ? r : null; };
+const serveUnder = (res, base, p) => { const f = under(base, p); if (!f) { res.writeHead(403); return res.end('forbidden'); } return sendFile(res, f); };
 const slug = (s) => String(s || 'file').replace(/[^\w.\-؀-ۿ]+/g, '-').slice(0, 80);
 
 function sendFile(res, file) {
@@ -58,9 +63,24 @@ async function handle(req, res) {
   const path = url.pathname;
   try {
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) return sendFile(res, join(ROOT, 'web/local.html'));
-    if (req.method === 'GET' && path.startsWith('/web/')) return sendFile(res, join(ROOT, path.slice(1)));
+    // The suite pages (carousel/reel/ad/…) are written against the static build's layout, where
+    // prompts and assets sit under assets/. Map that layout onto the source tree so the same
+    // pages work unchanged when the server is the one serving them.
+    if (req.method === 'GET' && path.startsWith('/web/assets/prompts/')) return serveUnder(res, join(ROOT, 'prompts'), decodeURIComponent(path.slice(20)));
+    if (req.method === 'GET' && path.startsWith('/web/assets/')) {
+      const rel = decodeURIComponent(path.slice(12));
+      const direct = under(join(ROOT, 'assets'), rel);
+      if (!direct) { res.writeHead(403); return res.end('forbidden'); }
+      if (existsSync(direct)) return sendFile(res, direct);
+      // The webfonts are copied out of @fontsource by the static build; serve them from the
+      // package so the suite pages look the same before a build has ever run.
+      const m = rel.match(/^fonts\/((cairo|tajawal)-[\w-]+\.woff2)$/);
+      if (m) return sendFile(res, join(ROOT, 'node_modules/@fontsource', m[2], 'files', m[1]));
+      res.writeHead(404); return res.end('not found');
+    }
+    if (req.method === 'GET' && path.startsWith('/web/')) return serveUnder(res, join(ROOT, 'web'), decodeURIComponent(path.slice(5)));
     if (req.method === 'GET' && path.startsWith('/files/')) return sendFile(res, safe(decodeURIComponent(path.slice(7))));
-    if (req.method === 'GET' && path.startsWith('/assets/')) return sendFile(res, join(ROOT, decodeURIComponent(path.slice(1))));
+    if (req.method === 'GET' && path.startsWith('/assets/')) return serveUnder(res, join(ROOT, 'assets'), decodeURIComponent(path.slice(8)));
     if (req.method === 'GET' && path === '/api/meta') return json(res, 200, meta());
     if (req.method === 'GET' && path.startsWith('/api/jobs/')) { const j = jobs.get(path.split('/').pop()); return j ? json(res, 200, j) : json(res, 404, { error: 'no such job' }); }
 
@@ -96,6 +116,26 @@ async function handle(req, res) {
     if (req.method === 'POST' && path === '/api/save') {
       const b = await body(req); const name = slug(b.name || 'script') + '.json';
       writeFileSync(join(WORK, 'scripts', name), JSON.stringify(b.script, null, 2)); return json(res, 200, { ok: true, name });
+    }
+    if (req.method === 'POST' && path === '/api/reel') {
+      const b = await body(req); const id = Math.random().toString(36).slice(2, 10);
+      const job = { id, status: 'queued', progress: 0, log: [], url: null, started: Date.now() }; jobs.set(id, job);
+      const spec = b.spec || {};
+      spec.slug = slug(spec.slug || spec.title || 'reel');
+      (async () => {
+        try {
+          job.status = 'rendering';
+          const r = await renderReel(spec, {
+            out: join(WORK, 'output'), dir: WORK, cacheDir: CACHE, fps: +(b.fps || 30),
+            log: (m) => { job.log.push(m); if (job.log.length > 40) job.log.shift(); },
+          });
+          job.status = 'done'; job.progress = 100; job.duration = r.seconds;
+          job.url = '/files/output/' + basename(r.mp4);
+          job.cover = '/files/output/' + basename(r.cover);
+          job.srt = '/files/output/' + basename(r.srt);
+        } catch (e) { job.status = 'error'; job.error = e.message; job.log.push('❌ ' + e.message); }
+      })();
+      return json(res, 200, { id });
     }
     if (req.method === 'POST' && path === '/api/render') {
       const b = await body(req); const id = Math.random().toString(36).slice(2, 10);
