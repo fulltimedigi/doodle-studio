@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة المحتوى — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pane{align-items:start}   /* each card is as tall as its own content */
+  .stat{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .stat b{color:var(--ink)}
+
+  /* today */
+  /* the two-column pane must be allowed to shrink, or a long card overflows its neighbour */
+  .pane>.card{min-width:0}
+  .today{display:grid;gap:8px;min-width:0}
+  .today .none{color:var(--muted);font-size:13.5px}
+  .tcard{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#fff;min-width:0}
+  .tcard .when{font-size:12px;color:var(--muted);min-width:64px}
+  .tcard .when b{display:block;color:var(--ink);font-size:13px}
+  .tcard .t{flex:1 1 150px;min-width:0}
+  .tcard .t b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tcard .t span{font-size:12px;color:var(--muted)}
+
+  /* month grid */
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
+  .cal .dow{font-size:11px;color:var(--muted);text-align:center;padding:2px 0}
+  .cell{min-height:86px;border:1px solid var(--line);border-radius:8px;padding:4px;font-size:11px;background:#fff}
+  .cell.out{background:#fafafa;border-style:dashed}
+  .cell.now{border-color:var(--accent)}
+  .cell.over{background:#eefaf5;border-color:var(--accent)}
+  .cell .d{color:var(--muted);font-variant-numeric:tabular-nums}
+  .cell .d em{font-style:normal;color:var(--ink);font-weight:700}
+  .chip{display:block;margin-top:3px;padding:3px 6px;border-radius:6px;background:var(--soft);cursor:grab;line-height:1.35;border-inline-start:3px solid var(--muted)}
+  .chip:hover{outline:1px solid var(--ink)}
+  .chip b{display:block;font-size:10.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip i{font-style:normal;font-size:9.5px;color:var(--muted)}
+
+  /* list */
+  .item{border-top:1px dashed var(--line);padding:10px 0;display:grid;grid-template-columns:78px 1fr auto;gap:10px;align-items:start}
+  .item .when{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .item .when b{display:block;color:var(--ink);font-size:13px}
+  .item .what b{font-size:14px}
+  .item .what p{margin:2px 0 0;font-size:13px;color:var(--muted);line-height:1.6}
+  .item .acts{display:flex;gap:6px;flex-wrap:wrap}
+
+  .tag{font-size:10.5px;border-radius:999px;padding:2px 9px;margin-inline-start:6px;background:var(--soft);color:var(--ink);white-space:nowrap}
+  .tag.sell{background:#fdecec;color:#a33}
+  .tag.occ{background:#fff6e5;color:#8a6d1f}
+  .tag.has{background:#eefaf5;color:#0b3b33}
+
+  /* one colour per status, used by both views */
+  .s-idea{--s:#9aa4a0}
+  .s-writing{--s:#d99b2b}
+  .s-ready{--s:#00b478}
+  .s-scheduled{--s:#2b7fd9}
+  .s-published{--s:#0b3b33}
+  .chip{border-inline-start-color:var(--s,#9aa4a0)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--s,#9aa4a0);margin-inline-end:5px;vertical-align:1px}
+
+  .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px}
+  .filters select{width:auto;min-width:120px;padding:6px 10px}
+  .plat{display:flex;flex-wrap:wrap;gap:6px}
+  .plat label{display:inline-flex;align-items:center;gap:5px;background:var(--soft);border-radius:999px;padding:4px 10px;font-size:12.5px;cursor:pointer;border:1px solid transparent}
+  .plat label:has(input:checked){border-color:var(--accent2);background:#eefaf5}
+  .plat input{width:auto;margin:0}
+  .empty{color:var(--muted);font-size:13.5px;padding:10px 0}
+  @media (max-width:640px){ .cal{display:none} .item{grid-template-columns:64px 1fr} .item .acts{grid-column:2} }
+</style>
+</head>
+<body>
+<main class="wide">
+  <div><h1 class="page">🗂️ لوحة المحتوى</h1><p class="lead">كل ما ستنشره — على أي منصة وفي أي يوم — في مكان واحد: الفكرة، حالتها، والمادة الجاهزة مربوطة بها. يعمل بلا إنترنت ويُحفظ على جهازك.</p></div>
+
+  <div class="pane">
+    <section class="card">
+      <h2>📌 اليوم وغدًا <span class="grow"></span><span id="stat" class="stat"></span></h2>
+      <div id="today" class="today"></div>
+    </section>
+
+    <section class="card">
+      <h2>إضافة وتنظيم</h2>
+      <div class="row2">
+        <button class="primary" onclick="addCard()">➕ بند جديد</button>
+        <button class="soft" onclick="openImport()">🗓️ استورد خطة شهر</button>
+      </div>
+      <label class="f">تصدير ونسخ احتياطي</label>
+      <div class="row2">
+        <button class="soft small" onclick="exportCsv()">⬇ CSV</button>
+        <button class="soft small" onclick="exportIcs()">⬇ تقويم (ICS)</button>
+        <button class="soft small" onclick="exportJson()">⬇ نسخة احتياطية</button>
+        <label class="fix" style="margin:0"><button class="soft small" type="button" onclick="this.nextElementSibling.click()">⬆ استعادة</button><input type="file" accept="application/json" style="display:none" onchange="importJson(this.files[0])"></label>
+      </div>
+      <p id="msg" class="msg"></p>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>📅 <span id="monthLabel"></span>
+      <span class="grow"></span>
+      <button class="soft small" onclick="shiftMonth(-1)">◀ السابق</button>
+      <button class="soft small" onclick="today()">هذا الشهر</button>
+      <button class="soft small" onclick="shiftMonth(1)">التالي ▶</button>
+    </h2>
+    <div class="filters">
+      <select id="fStatus" onchange="draw()">
+        <option value="">كل الحالات</option>
+      </select>
+      <select id="fPlatform" onchange="draw()">
+        <option value="">كل المنصات</option>
+      </select>
+      <select id="fRange" onchange="draw()">
+        <option value="month">هذا الشهر فقط</option>
+        <option value="all">كل الشهور</option>
+        <option value="todo">الناقص فقط</option>
+      </select>
+    </div>
+    <div id="cal" class="cal"></div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<dialog id="cardDlg"><div class="body">
+  <h2 id="dlgTitle">بند</h2>
+  <div class="grid2">
+    <div><label class="f">التاريخ</label><input type="date" id="c_date"></div>
+    <div><label class="f">الحالة</label><select id="c_status"></select></div>
+  </div>
+  <label class="f">المنصات</label>
+  <div class="plat" id="c_plats"></div>
+  <div class="grid2">
+    <div><label class="f">نوع المادة</label><select id="c_format"></select></div>
+    <div><label class="f">بيعي؟</label><select id="c_sells"><option value="">لا — محتوى</option><option value="1">نعم — بيعي</option></select></div>
+  </div>
+  <label class="f">الخطّاف (السطر الذي يوقف التمرير)</label><input id="c_hook" placeholder="مثال: العميل يعرف احتياجه.. لا اسم المنتج">
+  <label class="f">الموضوع (ما الذي تقوله في هذا البند؟)</label><textarea id="c_topic" style="min-height:64px"></textarea>
+  <label class="f">ملاحظات</label><textarea id="c_notes" style="min-height:48px" placeholder="مواعيد، تفاصيل تصوير، رابط…"></textarea>
+  <label class="f">المادة المربوطة</label>
+  <select id="c_asset"></select>
+  <div class="row" style="margin-top:14px">
+    <button class="primary fix" onclick="saveCard()">حفظ</button>
+    <button class="soft fix" onclick="makeFromCard()">✨ اصنعها الآن</button>
+    <span class="grow"></span>
+    <button class="ghost fix" onclick="delCard()">حذف</button>
+    <button class="soft fix" onclick="cardDlg.close()">إغلاق</button>
+  </div>
+  <p id="dlgMsg" class="msg"></p>
+</div></dialog>
+
+<dialog id="importDlg"><div class="body">
+  <h2>استورد خطة شهر</h2>
+  <p class="muted" style="font-size:13.5px;margin:0 0 8px">كل بند في الخطة يصير بندًا في اللوحة، بحالة «فكرة». البنود المكرّرة (نفس اليوم ونفس الخطّاف) لا تُضاف مرتين.</p>
+  <label class="f">اختر خطة محفوظة</label>
+  <select id="planPick"></select>
+  <label class="f">المنصات الافتراضية لبنود هذه الخطة</label>
+  <div class="plat" id="i_plats"></div>
+  <div class="row" style="margin-top:14px">
+    <button class="primary fix" onclick="doImport()">استورد</button>
+    <button class="soft fix" onclick="importDlg.close()">إلغاء</button>
+  </div>
+  <p id="impMsg" class="msg"></p>
+</div></dialog>
+
+<script src="js/core.js"></script>
+<script>
+const { $, esc, say, toast, copyText, lib, download, q } = Suite;
+Suite.mountHeader('لوحة المحتوى');
+
+// ---------- vocabulary ----------
+const STATUS = {
+  idea: ['فكرة', 's-idea'], writing: ['قيد الكتابة', 's-writing'], ready: ['جاهزة', 's-ready'],
+  scheduled: ['مجدولة', 's-scheduled'], published: ['نُشرت', 's-published'],
+};
+const PLATFORMS = {
+  instagram: ['إنستجرام', '📸'], tiktok: ['تيك توك', '🎵'], x: ['إكس', '𝕏'], linkedin: ['لينكدإن', '💼'],
+  facebook: ['فيسبوك', '👥'], youtube: ['يوتيوب', '▶️'], snapchat: ['سناب', '👻'], threads: ['ثريدز', '🧵'],
+  whatsapp: ['واتساب', '💬'], email: ['نشرة بريدية', '✉️'],
+};
+// A format is what you make; every one of these has a unit in the studio, except `other`.
+const FORMATS = {
+  carousel: ['كاروسيل', '🖼️', 'carousel.html'], reel: ['ريل مركّب', '🎞️', 'reel.html'],
+  reels: ['سكريبت تصوير', '🎬', 'reels.html'], ad: ['إعلان ثابت', '📣', 'ad.html'],
+  magnet: ['كتيّب', '📘', 'magnet.html'], ugc: ['UGC', '🎥', 'ugc.html'],
+  doodle: ['Doodle', '✍️', 'doodle.html'], motion: ['موشن نصي', '💬', 'doodle.html?mode=motion'],
+  post: ['منشور نصي', '📝', ''], story: ['ستوري', '⚡', ''], other: ['أخرى', '📌', ''],
+};
+// The library types a unit saves under, so a finished piece can be attached to its card.
+const ASSET_KIND = { carousel: '🖼️ كاروسيل', reelvideo: '🎞️ ريل مركّب', reel: '🎬 سكريبت ريلز', ad: '📣 إعلان', magnet: '📘 كتيّب', ugc: '🎥 UGC', doodle: '✍️ Doodle', motion: '💬 موشن', logo: '🔷 شعار' };
+const DOW = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+// ---------- state ----------
+const BOARD_ID = 'board-main';
+let CARDS = [];          // the whole board, every month
+let ASSETS = [];         // library items available to attach
+let VIEW = ymOf(new Date());
+let EDITING = null;      // card id being edited, or null for a new one
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function ymOf(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+function iso(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+const TODAY = iso(new Date());
+const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return iso(d); };
+const statusOf = (c) => STATUS[c.status] ? c.status : 'idea';
+const formatOf = (c) => (FORMATS[c.format] ? c.format : 'other');
+const byDate = (a, b) => String(a.date).localeCompare(String(b.date)) || String(a.hook).localeCompare(String(b.hook));
+
+async function load() {
+  const it = await lib.get(BOARD_ID);
+  CARDS = (it?.data?.cards || []).map((c) => ({ ...c, id: c.id || uid() }));
+  ASSETS = (await lib.list()).filter((x) => ASSET_KIND[x.type]);
+  await consumeLink();
+  draw();
+}
+// Writes go straight through — a debounce here would lose the last edit whenever the board sends
+// you off to a unit, which is the most common thing it does. Chained so two quick edits cannot
+// race each other into the store.
+let writing = Promise.resolve();
+function persist() {
+  writing = writing.then(() => lib.save({ id: BOARD_ID, type: 'board', title: 'لوحة المحتوى', data: { cards: CARDS } })).catch(() => {});
+  return writing;
+}
+
+// A unit opened from a card records what it saved; attach it on the way back so the finished
+// piece and the day it belongs to never drift apart.
+async function consumeLink() {
+  let link;
+  try { link = JSON.parse(localStorage.getItem('board_link') || 'null'); } catch { link = null; }
+  try { localStorage.removeItem('board_link'); localStorage.removeItem('board_pending'); } catch {}
+  if (!link) return;
+  const card = CARDS.find((c) => c.id === link.card);
+  if (!card) return;
+  card.assetId = link.id; card.assetType = link.type;
+  if (statusOf(card) === 'idea') card.status = 'ready';
+  VIEW = String(card.date).slice(0, 7);   // come back to the month you were working in
+  await persist();
+  toast('📎 رُبطت المادة بالبند');
+}
+
+// ---------- draw ----------
+function draw() {
+  $('monthLabel').textContent = monthName(VIEW);
+  drawToday();
+  drawStat();
+  drawCal();
+  drawList();
+}
+
+function monthName(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('ar', { month: 'long', year: 'numeric' });
+}
+
+function drawStat() {
+  const mine = CARDS.filter((c) => String(c.date).startsWith(VIEW));
+  const ready = mine.filter((c) => ['ready', 'scheduled', 'published'].includes(statusOf(c))).length;
+  const sells = mine.filter((c) => c.sells).length;
+  $('stat').innerHTML = mine.length
+    ? `<span>هذا الشهر <b>${mine.length}</b> بند</span><span>جاهزة <b>${ready}</b></span><span>ناقصة <b>${mine.length - ready}</b></span><span>بيعي <b>${sells}</b></span>`
+    : '<span>لا بنود في هذا الشهر بعد</span>';
+}
+
+function drawToday() {
+  const t = tomorrow();
+  const now = CARDS.filter((c) => c.date === TODAY || c.date === t).sort(byDate);
+  $('today').innerHTML = now.length ? now.map((c) => {
+    const [label] = STATUS[statusOf(c)];
+    const [fname, fic] = FORMATS[formatOf(c)];
+    return `<div class="tcard ${STATUS[statusOf(c)][1]}">
+      <div class="when"><b>${c.date === TODAY ? 'اليوم' : 'غدًا'}</b>${fic} ${esc(fname)}</div>
+      <div class="t"><b>${esc(c.hook || c.topic || 'بلا عنوان')}</b><span><span class="dot"></span>${esc(label)} · ${platLabel(c)}</span></div>
+      ${c.assetId ? `<button class="soft small" onclick="openAsset('${c.id}')">افتح المادة</button>` : `<button class="soft small" onclick="makeCard('${c.id}')">✨ اصنعها</button>`}
+      <button class="ghost small" onclick="editCard('${c.id}')">تفاصيل</button>
+    </div>`;
+  }).join('') : '<div class="none">لا شيء مجدول لليوم ولا للغد. أضف بندًا أو استورد خطة شهر.</div>';
+}
+
+const platLabel = (c) => ((c.platforms || []).map((p) => (PLATFORMS[p] ? PLATFORMS[p][1] + ' ' + PLATFORMS[p][0] : p)).join('، ') || 'بلا منصة');
+
+function passes(c) {
+  const s = $('fStatus').value, p = $('fPlatform').value, r = $('fRange').value;
+  if (s && statusOf(c) !== s) return false;
+  if (p && !(c.platforms || []).includes(p)) return false;
+  if (r === 'month' && !String(c.date).startsWith(VIEW)) return false;
+  if (r === 'todo' && ['ready', 'scheduled', 'published'].includes(statusOf(c))) return false;
+  return true;
+}
+
+function drawCal() {
+  const [y, m] = VIEW.split('-').map(Number);
+  const first = new Date(y, m - 1, 1).getDay();
+  const days = new Date(y, m, 0).getDate();
+  const byDay = {};
+  for (const c of CARDS.filter((c) => String(c.date).startsWith(VIEW) && passes(c)).sort(byDate)) {
+    (byDay[+String(c.date).slice(-2)] ||= []).push(c);
+  }
+  let cells = DOW.map((d) => `<div class="dow">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) cells += '<div class="cell out"></div>';
+  for (let d = 1; d <= days; d++) {
+    const date = `${VIEW}-${String(d).padStart(2, '0')}`;
+    const chips = (byDay[d] || []).map((c) => {
+      const [, fic] = FORMATS[formatOf(c)];
+      return `<span class="chip ${STATUS[statusOf(c)][1]}" draggable="true" data-card="${c.id}" onclick="editCard('${c.id}')" title="${esc(c.topic || '')}">
+        <b>${fic} ${esc(c.hook || c.topic || 'بند')}</b><i>${esc(STATUS[statusOf(c)][0])}${c.assetId ? ' · 📎' : ''}</i></span>`;
+    }).join('');
+    cells += `<div class="cell ${date === TODAY ? 'now' : ''}" data-date="${date}" ondblclick="addCard('${date}')">
+      <span class="d"><em>${d}</em></span>${chips}</div>`;
+  }
+  $('cal').innerHTML = cells;
+  wireDrag();
+}
+
+function drawList() {
+  const rows = CARDS.filter(passes).sort(byDate);
+  $('list').innerHTML = rows.length ? rows.map((c) => {
+    const [fname, fic] = FORMATS[formatOf(c)];
+    const dt = new Date(c.date + 'T00:00:00');
+    const dow = isNaN(dt) ? '' : DOW[dt.getDay()];
+    return `<div class="item ${STATUS[statusOf(c)][1]}">
+      <div class="when"><b>${esc(String(c.date).slice(5))} ${esc(dow)}</b>${fic} ${esc(fname)}</div>
+      <div class="what"><b>${esc(c.hook || c.topic || 'بند')}</b>
+        <span class="tag"><span class="dot"></span>${esc(STATUS[statusOf(c)][0])}</span>
+        ${c.sells ? '<span class="tag sell">بيعي</span>' : ''}
+        ${c.occasion ? `<span class="tag occ">${esc(c.occasion)}</span>` : ''}
+        ${c.assetId ? '<span class="tag has">📎 المادة جاهزة</span>' : ''}
+        <p>${esc(c.topic || '')} <span class="muted">— ${esc(platLabel(c))}</span></p></div>
+      <div class="acts">
+        ${c.assetId ? `<button class="soft small" onclick="openAsset('${c.id}')">افتح المادة</button>` : `<button class="soft small" onclick="makeCard('${c.id}')">✨ اصنعها</button>`}
+        <button class="ghost small" onclick="editCard('${c.id}')">تعديل</button>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">لا بنود مطابقة. غيّر الفلاتر، أو أضف بندًا، أو استورد خطة شهر.</div>';
+}
+
+// ---------- month navigation ----------
+function shiftMonth(n) {
+  const [y, m] = VIEW.split('-').map(Number);
+  VIEW = ymOf(new Date(y, m - 1 + n, 1));
+  draw();
+}
+function today() { VIEW = ymOf(new Date()); draw(); }
+
+// ---------- drag a card to another day ----------
+function wireDrag() {
+  let dragging = null;
+  for (const chip of $('cal').querySelectorAll('.chip')) {
+    chip.ondragstart = (e) => { dragging = chip.dataset.card; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragging); };
+    chip.ondragend = () => { dragging = null; };
+  }
+  for (const cell of $('cal').querySelectorAll('.cell[data-date]')) {
+    cell.ondragover = (e) => { e.preventDefault(); cell.classList.add('over'); };
+    cell.ondragleave = () => cell.classList.remove('over');
+    cell.ondrop = (e) => {
+      e.preventDefault(); cell.classList.remove('over');
+      const id = dragging || e.dataTransfer.getData('text/plain');
+      const card = CARDS.find((c) => c.id === id);
+      if (!card) return;
+      card.date = cell.dataset.date;
+      persist().then(() => { draw(); toast('📅 نُقل إلى ' + card.date); });
+    };
+  }
+}
+
+// ---------- the card dialog ----------
+function fillSelect(el, entries, current) {
+  el.innerHTML = entries.map(([k, label]) => `<option value="${k}" ${k === current ? 'selected' : ''}>${label}</option>`).join('');
+}
+
+function openDialog(card) {
+  EDITING = card.id || null;
+  $('dlgTitle').textContent = EDITING ? 'تعديل بند' : 'بند جديد';
+  $('c_date').value = card.date || TODAY;
+  fillSelect($('c_status'), Object.entries(STATUS).map(([k, v]) => [k, v[0]]), statusOf(card));
+  fillSelect($('c_format'), Object.entries(FORMATS).map(([k, v]) => [k, `${v[1]} ${v[0]}`]), formatOf(card));
+  $('c_sells').value = card.sells ? '1' : '';
+  $('c_hook').value = card.hook || '';
+  $('c_topic').value = card.topic || '';
+  $('c_notes').value = card.notes || '';
+  $('c_plats').innerHTML = Object.entries(PLATFORMS).map(([k, [name, ic]]) =>
+    `<label><input type="checkbox" value="${k}" ${(card.platforms || []).includes(k) ? 'checked' : ''}>${ic} ${name}</label>`).join('');
+  $('c_asset').innerHTML = `<option value="">— بلا مادة —</option>` + ASSETS.map((a) =>
+    `<option value="${a.id}" ${a.id === card.assetId ? 'selected' : ''}>${esc(ASSET_KIND[a.type] || a.type)} — ${esc((a.title || '').slice(0, 60))}</option>`).join('');
+  say('dlgMsg', '');
+  $('cardDlg').showModal();
+}
+
+function readDialog() {
+  return {
+    date: $('c_date').value || TODAY,
+    status: $('c_status').value,
+    format: $('c_format').value,
+    sells: $('c_sells').value === '1',
+    hook: $('c_hook').value.trim(),
+    topic: $('c_topic').value.trim(),
+    notes: $('c_notes').value.trim(),
+    platforms: [...$('c_plats').querySelectorAll('input:checked')].map((x) => x.value),
+    assetId: $('c_asset').value,
+    assetType: ASSETS.find((a) => a.id === $('c_asset').value)?.type || '',
+  };
+}
+
+function addCard(date) { openDialog({ date: typeof date === 'string' ? date : TODAY, platforms: ['instagram'] }); }
+function editCard(id) { const c = CARDS.find((x) => x.id === id); if (c) openDialog(c); }
+
+async function saveCard() {
+  const data = readDialog();
+  if (!data.hook && !data.topic) return say('dlgMsg', 'اكتب الخطّاف أو الموضوع على الأقل', true);
+  if (EDITING) Object.assign(CARDS.find((c) => c.id === EDITING), data);
+  else CARDS.push({ id: uid(), ...data });
+  // Saving a card for another month would otherwise file it somewhere you are not looking.
+  VIEW = data.date.slice(0, 7);
+  await persist(); draw(); $('cardDlg').close(); toast('💾 حُفظ');
+}
+
+async function delCard() {
+  if (!EDITING) return $('cardDlg').close();
+  if (!confirm('تحذف هذا البند؟')) return;
+  CARDS = CARDS.filter((c) => c.id !== EDITING);
+  await persist(); draw(); $('cardDlg').close(); toast('🗑️ حُذف');
+}
+
+// ---------- make / open the material ----------
+async function makeFromCard() {
+  const data = readDialog();
+  if (EDITING) Object.assign(CARDS.find((c) => c.id === EDITING), data);
+  else { EDITING = uid(); CARDS.push({ id: EDITING, ...data }); }
+  await persist();
+  await makeCard(EDITING);
+}
+
+async function makeCard(id) {
+  const c = CARDS.find((x) => x.id === id);
+  if (!c) return;
+  const [, , href] = FORMATS[formatOf(c)];
+  if (!href) return toast('هذا النوع يُكتب بيدك — لا أداة له');
+  // The unit reports back what it saved, and the board attaches it on return.
+  try { localStorage.setItem('board_pending', c.id); } catch {}
+  await persist();   // the card must be in the store before we leave the page
+  const brief = c.topic || c.hook || '';
+  location.href = href + (href.includes('?') ? '&' : '?') + 'topic=' + encodeURIComponent(brief);
+}
+
+function openAsset(id) {
+  const c = CARDS.find((x) => x.id === id);
+  const a = ASSETS.find((x) => x.id === c?.assetId);
+  if (!a) return toast('المادة غير موجودة في المكتبة');
+  const href = { carousel: 'carousel.html', reelvideo: 'reel.html', reel: 'reels.html', ad: 'ad.html', magnet: 'magnet.html', ugc: 'ugc.html', doodle: 'doodle.html', motion: 'doodle.html?mode=motion', logo: 'logo.html' }[a.type];
+  if (!href) return toast('لا أعرف أي أداة تفتح هذه المادة');
+  location.href = href + (href.includes('?') ? '&' : '?') + 'id=' + encodeURIComponent(a.id);
+}
+
+// ---------- import a month plan ----------
+async function openImport() {
+  const plans = await lib.list('plan');
+  if (!plans.length) { say('msg', 'لا توجد خطة محفوظة بعد — اصنع واحدة في «خطة الشهر» واحفظها', true); return; }
+  $('planPick').innerHTML = plans.map((p) => `<option value="${p.id}">${esc(p.title || p.id)}</option>`).join('');
+  $('i_plats').innerHTML = Object.entries(PLATFORMS).map(([k, [name, ic]]) =>
+    `<label><input type="checkbox" value="${k}" ${k === 'instagram' ? 'checked' : ''}>${ic} ${name}</label>`).join('');
+  say('impMsg', '');
+  $('importDlg').showModal();
+}
+
+async function doImport() {
+  const it = await lib.get($('planPick').value);
+  const posts = it?.data?.posts || [];
+  if (!posts.length) return say('impMsg', 'هذه الخطة بلا بنود', true);
+  const plats = [...$('i_plats').querySelectorAll('input:checked')].map((x) => x.value);
+  const seen = new Set(CARDS.map((c) => `${c.date}|${c.hook}`));
+  let added = 0;
+  for (const p of posts) {
+    const key = `${p.date}|${p.hook || ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    CARDS.push({
+      id: uid(), date: p.date, status: 'idea', format: FORMATS[p.format] ? p.format : 'other',
+      hook: p.hook || '', topic: p.topic || '', notes: '', platforms: plats.slice(),
+      sells: !!p.sells, occasion: p.occasion || '', angle: p.angle || '', assetId: '', assetType: '',
+    });
+    added++;
+  }
+  await persist();
+  if (posts[0]?.date) VIEW = String(posts[0].date).slice(0, 7);
+  draw();
+  $('importDlg').close();
+  toast(added ? `🗓️ أُضيف ${added} بند` : 'كل بنود هذه الخطة موجودة بالفعل');
+}
+
+// ---------- export / backup ----------
+const rowsForExport = () => CARDS.filter(passes).sort(byDate);
+
+function exportCsv() {
+  const rows = rowsForExport();
+  if (!rows.length) return say('msg', 'لا بنود للتصدير', true);
+  const head = ['التاريخ', 'المنصات', 'النوع', 'الحالة', 'بيعي', 'الخطّاف', 'الموضوع', 'ملاحظات'];
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const body = rows.map((c) => [c.date, platLabel(c), FORMATS[formatOf(c)][0], STATUS[statusOf(c)][0], c.sells ? 'نعم' : '', c.hook, c.topic, c.notes].map(cell).join(','));
+  // The BOM is what makes Excel read Arabic correctly.
+  download(new Blob(['\uFEFF' + [head.map(cell).join(','), ...body].join('\n')], { type: 'text/csv;charset=utf-8' }), `content-board-${VIEW}.csv`);
+  toast('⬇ نُزّل CSV');
+}
+
+function exportIcs() {
+  const rows = rowsForExport();
+  if (!rows.length) return say('msg', 'لا بنود للتصدير', true);
+  const fold = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (m) => '\\' + m);
+  const stamp = new Date().toISOString().replace(/[-:]|\.\d{3}/g, '');
+  const day = (d, plus = 0) => { const x = new Date(d + 'T00:00:00'); x.setDate(x.getDate() + plus); return iso(x).replace(/-/g, ''); };
+  const events = rows.map((c) => [
+    'BEGIN:VEVENT', `UID:${c.id}@fulltimedigi-board`, `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${day(c.date)}`, `DTEND;VALUE=DATE:${day(c.date, 1)}`,
+    `SUMMARY:${fold(`${FORMATS[formatOf(c)][1]} ${c.hook || c.topic || 'بند'} — ${platLabel(c)}`)}`,
+    `DESCRIPTION:${fold([c.topic, c.notes, `الحالة: ${STATUS[statusOf(c)][0]}`].filter(Boolean).join('\n'))}`,
+    'END:VEVENT',
+  ].join('\r\n'));
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//FullTimeDigi//Content Board//AR', 'CALSCALE:GREGORIAN', ...events, 'END:VCALENDAR'].join('\r\n');
+  download(new Blob([ics], { type: 'text/calendar;charset=utf-8' }), `content-board-${VIEW}.ics`);
+  toast('⬇ نُزّل ملف التقويم');
+}
+
+function exportJson() {
+  download(new Blob([JSON.stringify({ kind: 'fulltimedigi-content-board', version: 1, cards: CARDS }, null, 2)], { type: 'application/json' }), 'content-board-backup.json');
+  toast('⬇ نُزّلت نسخة احتياطية');
+}
+
+async function importJson(file) {
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const cards = Array.isArray(data) ? data : data.cards;
+    if (!Array.isArray(cards)) throw new Error('ملف غير مفهوم');
+    const seen = new Set(CARDS.map((c) => `${c.date}|${c.hook}`));
+    let added = 0;
+    for (const c of cards) {
+      if (!c || !c.date || seen.has(`${c.date}|${c.hook || ''}`)) continue;
+      seen.add(`${c.date}|${c.hook || ''}`);
+      CARDS.push({ ...c, id: uid() });
+      added++;
+    }
+    await persist(); draw();
+    say('msg', `✅ استُعيد ${added} بند (المكرر تُرك كما هو)`);
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+}
+
+// ---------- start ----------
+fillSelect($('fStatus'), [['', 'كل الحالات'], ...Object.entries(STATUS).map(([k, v]) => [k, v[0]])], '');
+fillSelect($('fPlatform'), [['', 'كل المنصات'], ...Object.entries(PLATFORMS).map(([k, v]) => [k, `${v[1]} ${v[0]}`])], '');
+if (q.get('month')) VIEW = q.get('month');
+load();
+</script>
+</body>
+</html>

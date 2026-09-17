@@ -16,7 +16,7 @@ mkdirSync(join(SITE, 'assets'), { recursive: true });
 // pages
 cpSync(join(ROOT, 'web/index.html'), join(SITE, 'index.html'));
 cpSync(join(ROOT, 'web/app.html'), join(SITE, 'doodle.html'));
-for (const f of ['reels.html', 'carousel.html', 'ad.html', 'ugc.html', 'magnet.html', 'logo.html', 'reel.html', 'plan.html']) cpSync(join(ROOT, 'web', f), join(SITE, f));
+for (const f of ['reels.html', 'carousel.html', 'ad.html', 'ugc.html', 'magnet.html', 'logo.html', 'reel.html', 'plan.html', 'board.html']) cpSync(join(ROOT, 'web', f), join(SITE, f));
 cpSync(join(ROOT, 'web/css'), join(SITE, 'css'), { recursive: true });
 
 // scripts — copied, or rewritten from a module source into a plain script

@@ -66,6 +66,7 @@
         <div class="row2" style="margin-top:12px">
           <button class="ghost" onclick="copyPlan()">نسخ الخطة</button>
           <button class="ghost" onclick="save()">💾 حفظ</button>
+          <button class="ghost" onclick="toBoard()">🗂️ إلى لوحة المحتوى</button>
         </div>
         <p id="msg2" class="msg"></p>
       </div>
@@ -219,6 +220,13 @@ function copyPlan() {
 async function save() {
   const item = await lib.save({ id: ID || undefined, type: 'plan', title: `خطة ${DATA.month}`, data: DATA });
   ID = item.id; toast('💾 حُفظت في المكتبة');
+}
+
+// The plan is a document; the board is where the month is actually worked. Save first, so the
+// board has something to import.
+async function toBoard() {
+  if (DATA) await save();
+  location.href = `board.html?month=${encodeURIComponent(DATA?.month || '')}`;
 }
 
 (async () => {

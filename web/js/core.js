@@ -203,8 +203,19 @@
   // ---------- library (IndexedDB) ----------
   function idb() { return new Promise((ok, bad) => { const r = indexedDB.open('doodle-suite', 1); r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('library')) db.createObjectStore('library', { keyPath: 'id' }); if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets'); }; r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
   const tx = async (store, mode, fn) => { const db = await idb(); return new Promise((ok, bad) => { const t = db.transaction(store, mode); const req = fn(t.objectStore(store)); t.oncomplete = () => ok(req && req.result); t.onerror = () => bad(t.error); }); };
+  // The content board sends you to a unit with a card waiting for whatever you make. The unit
+  // knows nothing about the board; it just saves. So the save leaves a note, and the board picks
+  // it up when you come back and attaches the piece to that day.
+  function noteForBoard(item) {
+    try {
+      const card = localStorage.getItem('board_pending');
+      if (!card || item.type === 'board') return;
+      localStorage.setItem('board_link', JSON.stringify({ card, id: item.id, type: item.type }));
+    } catch {}
+  }
+
   const lib = {
-    async save(item) { item.id = item.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)); item.created = item.created || Date.now(); item.updated = Date.now(); await tx('library', 'readwrite', (s) => s.put(item)); return item; },
+    async save(item) { item.id = item.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)); item.created = item.created || Date.now(); item.updated = Date.now(); await tx('library', 'readwrite', (s) => s.put(item)); noteForBoard(item); return item; },
     async list(type) { const all = (await tx('library', 'readonly', (s) => s.getAll())) || []; return all.filter((x) => !type || x.type === type).sort((a, b) => b.updated - a.updated); },
     async get(id) { return tx('library', 'readonly', (s) => s.get(id)); },
     async del(id) { return tx('library', 'readwrite', (s) => s.delete(id)); },
