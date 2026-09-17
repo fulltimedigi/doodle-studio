@@ -25,8 +25,11 @@ describe('pages load clean', async () => {
     const problems = [];
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     page.on('pageerror', (e) => problems.push(`throw: ${e.message}`));
-    page.on('requestfailed', (r) => problems.push(`failed: ${r.url()}`));
-    page.on('response', (r) => { if (r.status() >= 400) problems.push(`${r.status()}: ${r.url()}`); });
+    // Only our own files are on trial here; a page may legitimately reference a third-party font,
+    // and whether this machine can reach it says nothing about the page.
+    const ours = (url) => url.startsWith(base) || url.startsWith('data:');
+    page.on('requestfailed', (r) => { if (ours(r.url())) problems.push(`failed: ${r.url()}`); });
+    page.on('response', (r) => { if (ours(r.url()) && r.status() >= 400) problems.push(`${r.status()}: ${r.url()}`); });
     try {
       await page.goto(base + p, { waitUntil: 'networkidle' });
       // The suite header is mounted by script; if it is there, the page's JS ran.

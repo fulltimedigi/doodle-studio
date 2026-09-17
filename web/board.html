@@ -182,12 +182,12 @@ const PLATFORMS = {
 const FORMATS = {
   carousel: ['كاروسيل', '🖼️', 'carousel.html'], reel: ['ريل مركّب', '🎞️', 'reel.html'],
   reels: ['سكريبت تصوير', '🎬', 'reels.html'], ad: ['إعلان ثابت', '📣', 'ad.html'],
-  magnet: ['كتيّب', '📘', 'magnet.html'], ugc: ['UGC', '🎥', 'ugc.html'],
+  magnet: ['كتيّب', '📘', 'magnet.html'], landing: ['صفحة هبوط', '🔗', 'landing.html'], ugc: ['UGC', '🎥', 'ugc.html'],
   doodle: ['Doodle', '✍️', 'doodle.html'], motion: ['موشن نصي', '💬', 'doodle.html?mode=motion'],
   post: ['منشور نصي', '📝', ''], story: ['ستوري', '⚡', ''], other: ['أخرى', '📌', ''],
 };
 // The library types a unit saves under, so a finished piece can be attached to its card.
-const ASSET_KIND = { carousel: '🖼️ كاروسيل', reelvideo: '🎞️ ريل مركّب', reel: '🎬 سكريبت ريلز', ad: '📣 إعلان', magnet: '📘 كتيّب', ugc: '🎥 UGC', doodle: '✍️ Doodle', motion: '💬 موشن', logo: '🔷 شعار' };
+const ASSET_KIND = { carousel: '🖼️ كاروسيل', reelvideo: '🎞️ ريل مركّب', reel: '🎬 سكريبت ريلز', ad: '📣 إعلان', magnet: '📘 كتيّب', landing: '🔗 صفحة هبوط', ugc: '🎥 UGC', doodle: '✍️ Doodle', motion: '💬 موشن', logo: '🔷 شعار' };
 const DOW = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
 // ---------- state ----------
@@ -445,7 +445,7 @@ function openAsset(id) {
   const c = CARDS.find((x) => x.id === id);
   const a = ASSETS.find((x) => x.id === c?.assetId);
   if (!a) return toast('المادة غير موجودة في المكتبة');
-  const href = { carousel: 'carousel.html', reelvideo: 'reel.html', reel: 'reels.html', ad: 'ad.html', magnet: 'magnet.html', ugc: 'ugc.html', doodle: 'doodle.html', motion: 'doodle.html?mode=motion', logo: 'logo.html' }[a.type];
+  const href = { carousel: 'carousel.html', reelvideo: 'reel.html', reel: 'reels.html', ad: 'ad.html', magnet: 'magnet.html', landing: 'landing.html', ugc: 'ugc.html', doodle: 'doodle.html', motion: 'doodle.html?mode=motion', logo: 'logo.html' }[a.type];
   if (!href) return toast('لا أعرف أي أداة تفتح هذه المادة');
   location.href = href + (href.includes('?') ? '&' : '?') + 'id=' + encodeURIComponent(a.id);
 }

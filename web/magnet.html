@@ -64,7 +64,7 @@
     </section>
 
     <section class="card" id="out" hidden>
-      <h2>الصفحات <span class="muted" id="cnt"></span><span class="grow"></span><button class="soft small" onclick="exportPdf()">⬇ تحميل PDF</button><button class="small" onclick="save()">💾 حفظ</button></h2>
+      <h2>الصفحات <span class="muted" id="cnt"></span><span class="grow"></span><button class="soft small" onclick="exportPdf()">⬇ تحميل PDF</button><button class="soft small" onclick="toLanding()">🔗 صفحة الهبوط</button><button class="small" onclick="save()">💾 حفظ</button></h2>
       <div class="frames" id="frames"></div>
       <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: «اختصر الفصل الثالث» أو «أضف فصلًا عن التوصيل»"><button class="fix" onclick="chat()">تعديل</button></div>
       <div class="landing" style="margin-top:12px"><b>نص الإعلان عن التحميل</b> <button class="ghost small" onclick="copyText(landingText())">📋 نسخ</button><div id="landing"></div></div>
@@ -124,6 +124,14 @@ async function exportPdf() {
   }
   pdf.save(`${(DATA.title || 'guide').slice(0, 50).replace(/[\\/:*?"<>|]/g, ' ')}.pdf`); say('msg2', '✅ نُزّل ملف PDF');
 }
+// A guide nobody can ask for is a file on your disk. Save it, then go build the page that
+// hands it out.
+async function toLanding() {
+  if (!DATA) return;
+  await save();
+  location.href = `landing.html?magnet=${encodeURIComponent(ID)}`;
+}
+
 async function save() { let thumb = ''; try { const box = $('exportBox'); box.innerHTML = pages()[0]; await sleep(30); thumb = await window.htmlToImage.toJpeg(box.firstElementChild, { pixelRatio: 0.25, quality: 0.7 }); box.innerHTML = ''; } catch {} const item = await lib.save({ id: ID || undefined, type: 'magnet', title: DATA.title, data: DATA, cover: COVER, thumb }); ID = item.id; toast('💾 حُفظ في المكتبة'); }
 (async () => { if (ID) { const it = await lib.get(ID); if (it) { DATA = it.data; COVER = it.cover || ''; $('topic').value = DATA.title || ''; render(); } } })();
 </script>
