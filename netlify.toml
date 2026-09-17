@@ -1,0 +1,28 @@
+# How Netlify builds and publishes this repo.
+#
+# Without this file a deploy of the repo publishes the repo — which has no index.html at its root,
+# because the browser-only version of the studio is assembled by scripts/build-site.mjs into site/.
+# (deploy/netlify.toml is a different thing: it is copied into site/ and carries the headers for a
+# drag-and-drop upload of that folder.)
+[build]
+  command = "npm run build:site"
+  publish = "site"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # The build only reads files out of node_modules; nothing here needs a browser or ffmpeg, and
+  # their install hooks would download hundreds of megabytes for nothing.
+  NPM_FLAGS = "--ignore-scripts"
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
+# The video units encode in the browser with WebCodecs behind SharedArrayBuffer.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "credentialless"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
