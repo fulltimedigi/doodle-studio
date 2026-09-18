@@ -65,4 +65,26 @@ describe('brand auto-fill', { timeout: 60000 }, () => {
     assert.match(after2.sells, /عطور/, 'clearing wiped a field the analysis did extract');
     assert.equal(after2.warned, false);
   });
+
+  // A script that mixes dialects reads as broken to every reader it was meant to cover, and the model
+  // will mix them unless it is told not to — "white Arabic" in particular invites it, because it is
+  // described as working in two countries at once. So the instruction has to travel with the dialect,
+  // on every prompt, not only the ones that happen to go through brandContext.
+  test('every prompt that carries the dialect carries the rule against mixing', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    await page.goto(base + '/web/index.html', { waitUntil: 'networkidle' });
+    const out = await page.evaluate(() => ({
+      white: Suite.dialectNote({ dialect: 'white' }),
+      gulf: Suite.dialectNote({ dialect: 'gulf' }),
+      unset: Suite.dialectNote({}),
+      full: Suite.brandContext({ name: 'X', sells: 'Y', dialect: 'white' }),
+      empty: Suite.brandContext({ dialect: 'gulf' }),
+    }));
+    for (const [where, text] of Object.entries(out)) {
+      assert.match(text, /Do not mix registers/, `the rule is missing from ${where}`);
+    }
+    assert.match(out.white, /عشان/, 'the white register should name the words it excludes');
+    assert.match(out.white, /وش/, 'the white register excludes the Gulf-only words too');
+    assert.doesNotMatch(out.white, /both the Gulf and Egypt/, 'describing it as a blend is what invites the mixing');
+  });
 });

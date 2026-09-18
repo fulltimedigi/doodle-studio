@@ -174,21 +174,27 @@
   const DIALECT_NOTE = {
     eg: 'Egyptian colloquial Arabic (مصري): natural spoken Cairo dialect as used by Egyptian marketers (دلوقتي، عايز، بيدخل، إزاي). Warm, witty, direct.',
     gulf: 'Gulf colloquial Arabic (خليجي، white dialect understood across KSA/UAE/Kuwait): الحين، أبي/أبغى، وش، شلون، ودّك. Polite, confident, premium feel.',
-    white: 'Modern "white" Arabic (عربية بيضاء عصرية): simple contemporary Arabic that reads naturally in both the Gulf and Egypt — light colloquial, short sentences, no heavy formal (فصحى) vocabulary, no strongly local words (avoid وش/شلون/إزاي/عايز; prefer ليش/كيف/تحتاج/تبي؟ → استخدم "تحتاج"). English market terms are used naturally in Latin letters when the audience uses them (AI, Catalog, Search, Conversion, eCommerce).',
+    white: 'Modern "white" Arabic (عربية بيضاء عصرية): simple contemporary Arabic that a reader in the Gulf and a reader in Egypt both accept — light colloquial, short sentences, no heavy formal (فصحى) vocabulary. It is ONE register of its own, NOT a blend: it works by leaving out the words that belong to a single country, not by taking some from each. Never write a sentence that mixes them. Banned because they are Egypt-only: مش، عشان/علشان، دلوقتي، إزاي، عايز/عاوز، بتاع، ده/دي، كده، تاني، حاجة. Banned because they are Gulf-only: وش، شلون، الحين، أبي/أبغى، ودّك، مو، زين. Use instead: ليس/لا/ما (negation), لأن, الآن, كيف, تحتاج, الخاص بـ, هذا/هذه, هكذا, آخر, شيء. English market terms are used naturally in Latin letters when the audience uses them (AI, Catalog, Search, Conversion, eCommerce).',
     msa: 'Simple Modern Standard Arabic (فصحى مبسّطة) with short sentences; no classical vocabulary.',
   };
+  // The register is a single choice, held to the last word. Mixing two of them is the fastest way to make
+  // Arabic copy sound machine-written — a Gulf negation next to an Egyptian conjunction reads as broken to
+  // every one of the readers it was supposed to cover, so it is worth repeating on every prompt.
+  const DIALECT_RULE = 'Write EVERY line in this one dialect and hold it to the last word. Do not mix registers: a word that belongs to another dialect anywhere in the text spoils the whole piece, even if each sentence on its own is fine. When a word exists in only one country, either use the one that belongs to the chosen dialect or choose a word that belongs to no country in particular.';
+  /** The dialect as it goes into a prompt: which one, and the rule that it is the only one. */
+  const dialectNote = (b = loadBrand()) => `${DIALECT_NOTE[b.dialect] || DIALECT_NOTE.eg}\n${DIALECT_RULE}`;
   const TONES = ['ودود', 'محترف', 'حماسي', 'فاخر', 'مرح', 'هادئ وواثق', 'صادق ومباشر', 'تعليمي'];
   const DEFAULT_BRAND = { name: '', sells: '', audience: '', dialect: 'eg', tones: ['ودود', 'واثق'], colors: { primary: '#1d1d1d', accent: '#e63946', bg: '#ffffff' }, font: 'Cairo', logo: '', cta: 'اطلب الآن', website: '', phone: '', banned: '', usp: '', hashtags: '', brief: '', visual: '' };
   function loadBrand() { try { return { ...DEFAULT_BRAND, ...JSON.parse(localStorage.getItem('brand') || '{}') }; } catch { return { ...DEFAULT_BRAND }; } }
   function saveBrand(b) { localStorage.setItem('brand', JSON.stringify(b)); }
   const brandReady = (b) => !!(b.name && b.sells);
   function brandContext(b = loadBrand()) {
-    if (!brandReady(b)) return `Dialect: ${DIALECT_NOTE[b.dialect] || DIALECT_NOTE.eg}`;
+    if (!brandReady(b)) return `Dialect: ${dialectNote(b)}`;
     return [
       `BRAND DNA (apply to everything you write):`,
       `- Brand: ${b.name}`, `- What it sells: ${b.sells}`, b.usp && `- Main promise / USP: ${b.usp}`,
       `- Audience: ${b.audience || 'general Arabic-speaking consumers'}`,
-      `- Dialect: ${DIALECT_NOTE[b.dialect] || DIALECT_NOTE.eg}`,
+      `- Dialect: ${dialectNote(b)}`,
       `- Tone: ${(b.tones || []).join('، ') || 'ودود'}`,
       `- Default call to action: ${b.cta || 'اطلب الآن'}`, b.website && `- Website: ${b.website}`, b.phone && `- Phone/WhatsApp: ${b.phone}`,
       b.banned && `- Never use these words/claims: ${b.banned}`, b.hashtags && `- Brand hashtags: ${b.hashtags}`,
@@ -274,5 +280,5 @@
   async function thumb(node, size = 320) { try { const b = await window.htmlToImage.toJpeg(node, { pixelRatio: size / Math.max(node.offsetWidth, 1), quality: 0.7 }); return b; } catch { return ''; } }
 
   window.Suite = { $, esc, sleep, settings, SCRIPT_MODELS, IMG_MODELS, IMG_PRICE, gemini, geminiAny, geminiJSON, generateImage, pmap, textOf, parseJSON,
-    VEO_MODELS, VEO_PRICE, veoGenerate, DIALECTS, DIALECT_NOTE, TONES, DEFAULT_BRAND, loadBrand, saveBrand, brandReady, brandContext, imageStyle, lib, spend, toast, say, copyText, download, readFile, fonts, mountHeader, openSettings, saveSettings, needKey, chatEdit, nodeToPng, zipBlobs, q, thumb };
+    VEO_MODELS, VEO_PRICE, veoGenerate, DIALECTS, DIALECT_NOTE, dialectNote, TONES, DEFAULT_BRAND, loadBrand, saveBrand, brandReady, brandContext, imageStyle, lib, spend, toast, say, copyText, download, readFile, fonts, mountHeader, openSettings, saveSettings, needKey, chatEdit, nodeToPng, zipBlobs, q, thumb };
 })();
