@@ -19,6 +19,7 @@ const FONTSOURCE = [
 /** Scripts published under `js/`. `rewrite` turns a module source into a plain script. */
 export const SCRIPTS = {
   'core.js': { from: 'web/js/core.js' },
+  'signal.js': { from: 'web/js/signal.js' },
   'html-to-image.js': { from: 'node_modules/html-to-image/dist/html-to-image.js' },
   'jszip.min.js': { from: 'node_modules/jszip/dist/jszip.min.js' },
   'jspdf.umd.min.js': { from: 'node_modules/jspdf/dist/jspdf.umd.min.js' },

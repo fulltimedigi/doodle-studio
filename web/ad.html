@@ -87,6 +87,8 @@
       <label class="f">أو صورة منتجك</label><input type="file" id="ownImg" accept="image/*" onchange="ownImage(this.files[0])">
       <button class="primary big" id="go" onclick="generate()">✨ اكتب وصمّم الإعلانات</button>
       <div id="msg" class="msg"></div>
+      <label class="f" style="margin-top:10px">إشارات المحتوى <small class="muted">(على كل إعلان)</small></label>
+      <div id="sigBox"></div>
       <div id="editBox" class="editor" hidden>
         <div class="muted">تعديل الاتجاه <b id="edN"></b></div>
         <label class="f">العنوان</label><input id="edH" oninput="edit('headline', this.value)">
@@ -109,6 +111,7 @@
 <script src="js/html-to-image.js"></script>
 <script src="js/jszip.min.js"></script>
 <script src="js/core.js"></script>
+<script src="js/signal.js"></script>
 <script>
 const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, loadBrand, lib, needKey, chatEdit, nodeToPng, zipBlobs, download, readFile, q, sleep, pmap } = Suite;
 Suite.mountHeader('إعلان ثابت');
@@ -124,7 +127,7 @@ async function generate() {
   if (!needKey('msg')) return; if (!sizes().length) return say('msg', 'اختر مقاسًا واحدًا على الأقل', true);
   $('go').disabled = true; say('msg', '✍️ جارٍ كتابة النصوص…');
   try {
-    const sys = (await (await fetch('assets/prompts/ad.md')).text()) + '\n\n' + brandContext(B);
+    const sys = (await (await fetch('assets/prompts/ad.md')).text()) + '\n\n' + brandContext(B) + Signal.PROMPT;
     DATA = await geminiJSON(sys, `Brief: ${brief}\nBrand colours: primary ${B.colors.primary}, accent ${B.colors.accent}.\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
     ID = null; IMG = {}; SEL = 0;
     if (OWN) DATA.variants.forEach((v, i) => { IMG[i] = OWN; });
@@ -150,28 +153,31 @@ function punch(h) { const w = String(h || '').split(' '); if (w.length < 3) retu
 function adHTML(v, i, size) {
   const long = (v.headline || '').length; const cls = long > 34 ? 'xlong' : long > 20 ? 'long' : '';
   const img = IMG[i];
+  // The brand look is a white canvas; every other look puts white copy over a photo or a gradient.
+  const sig = Signal.bar(DATA?.signal, { brand: B, dark: look() !== 'brand' });
   if (look() === 'brand') return `<div class="ad ${size} brand ${img ? '' : 'noimg'}" style="--p:${B.colors.primary};--a:${B.colors.accent}">
     ${img ? `<img class="bgimg" src="${img}">` : ''}
     <div class="in"><div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div>
       <div class="copy">${v.badge ? `<span class="badge">${esc(v.badge)}</span>` : ''}<h1 class="${cls}">${punch(v.headline)}</h1><div class="sub">${esc(v.sub || '')}</div><span class="cta">${esc(v.cta || B.cta || 'اطلب الآن')}</span></div>
-      <div class="foot"><span>${esc(B.website || (B.hashtags || '').split(/\s+/)[0] || '')}</span><span>${esc(B.phone || 'اسحب ←')}</span></div>
+      <div class="foot"><span>${esc(B.website || (B.hashtags || '').split(/\s+/)[0] || '')}</span><span>${esc(B.phone || 'اسحب ←')}</span></div>${sig}
     </div></div>`;
   return `<div class="ad ${size} ${img ? 'space-' + (v.space || 'bottom') : 'solid'}" style="--p:${B.colors.primary};--a:${B.colors.accent};--bg:${B.colors.primary}">
     ${img ? `<img class="bgimg" src="${img}"><div class="veil"></div>` : ''}
     <div class="in"><div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div>
-      <div class="copy">${v.badge ? `<span class="badge">${esc(v.badge)}</span>` : ''}<h1 class="${cls}">${esc(v.headline)}</h1><div class="sub">${esc(v.sub || '')}</div><span class="cta">${esc(v.cta || B.cta || 'اطلب الآن')}</span>${B.website || B.phone ? `<div class="contact">${esc(B.website || '')} ${esc(B.phone || '')}</div>` : ''}</div>
+      <div class="copy">${v.badge ? `<span class="badge">${esc(v.badge)}</span>` : ''}<h1 class="${cls}">${esc(v.headline)}</h1><div class="sub">${esc(v.sub || '')}</div><span class="cta">${esc(v.cta || B.cta || 'اطلب الآن')}</span>${B.website || B.phone ? `<div class="contact">${esc(B.website || '')} ${esc(B.phone || '')}</div>` : ''}</div>${sig}
     </div></div>`;
 }
 const H = { s11: 1080, s45: 1350, s916: 1920 };
 function render() {
   if (!DATA) return; $('out').hidden = false; const ss = sizes();
   $('frames').innerHTML = DATA.variants.flatMap((v, i) => ss.map((s) => `<div class="frame ${i === SEL ? 'sel' : ''}" onclick="select(${i})"><div class="scaler" style="aspect-ratio:1080/${H[s]}"><div class="inner">${adHTML(v, i, s)}</div></div><span class="n">${esc(v.name || '')} · ${SIZE_NAME[s]}</span><div class="tools"><button class="soft" onclick="event.stopPropagation();exportOne(${i},'${s}')">⬇ PNG</button></div></div>`)).join('');
-  fit(); $('cap').textContent = DATA.caption || ''; $('hash').textContent = (DATA.hashtags || []).join(' '); showEditor();
+  fit(); $('cap').textContent = DATA.caption || ''; $('hash').textContent = (DATA.hashtags || []).join(' '); showEditor(); drawSignal();
 }
 function fit() { document.querySelectorAll('.frame .scaler').forEach((sc) => { const k = sc.clientWidth / 1080; sc.querySelector('.inner').style.transform = `scale(${k})`; }); }
 window.addEventListener('resize', fit);
 document.querySelectorAll('input[name=size]').forEach((x) => x.addEventListener('change', () => DATA && render()));
 function select(i) { SEL = i; render(); }
+function drawSignal() { DATA.signal = DATA.signal || Signal.blank(); Signal.editor($('sigBox'), DATA.signal, () => render(), B); }
 function showEditor() { const v = DATA.variants[SEL]; $('editBox').hidden = false; $('edN').textContent = SEL + 1; $('edH').value = v.headline || ''; $('edS').value = v.sub || ''; $('edB').value = v.badge || ''; $('edC').value = v.cta || ''; }
 function edit(k, val) { DATA.variants[SEL][k] = val; document.querySelectorAll('.frame').forEach((f) => { const inner = f.querySelector('.inner'); const ad = inner.firstElementChild; const m = f.querySelector('.n').textContent; if (f.classList.contains('sel')) { const size = [...ad.classList].find((c) => /^s\d/.test(c)); inner.innerHTML = adHTML(DATA.variants[SEL], SEL, size); } }); }
 async function renderPng(i, size) { const box = $('exportBox'); box.innerHTML = adHTML(DATA.variants[i], i, size); await document.fonts.ready; await sleep(30); const b = await nodeToPng(box.firstElementChild, 1); box.innerHTML = ''; return b; }

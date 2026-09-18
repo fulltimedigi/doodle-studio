@@ -117,6 +117,8 @@
       <label class="f" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="aiCover" style="width:auto"> خلفية مولّدة بالذكاء الاصطناعي للغلاف (≈ ٠٫٠٧$)</label>
       <button class="primary big" id="go" onclick="generate()">✨ اكتب وصمّم الكاروسيل</button>
       <div id="msg" class="msg"></div>
+      <label class="f" style="margin-top:10px">إشارات المحتوى <small class="muted">(على كل شريحة)</small></label>
+      <div id="sigBox"></div>
       <div id="editBox" class="editor" hidden>
         <div class="muted">تعديل الشريحة <b id="edN"></b></div>
         <label class="f">العنوان</label><input id="edTitle" oninput="edit('title', this.value)">
@@ -142,6 +144,7 @@
 </div>
 <script src="js/jszip.min.js"></script>
 <script src="js/core.js"></script>
+<script src="js/signal.js"></script>
 <script>
 const { $, esc, say, toast, copyText, geminiJSON, generateImage, brandContext, loadBrand, lib, needKey, chatEdit, nodeToPng, zipBlobs, download, q, sleep } = Suite;
 Suite.mountHeader('كاروسيل');
@@ -156,7 +159,7 @@ async function generate() {
   if (!needKey('msg')) return;
   $('go').disabled = true; say('msg', '✍️ جارٍ الكتابة…');
   try {
-    const sys = (await (await fetch('assets/prompts/carousel.md')).text()) + '\n\n' + brandContext(B);
+    const sys = (await (await fetch('assets/prompts/carousel.md')).text()) + '\n\n' + brandContext(B) + Signal.PROMPT;
     DATA = await geminiJSON(sys, `Topic: ${topic}\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
     ID = null; BG = {}; SEL = 0; render();
     if ($('aiCover').checked) await aiBg(0);
@@ -164,7 +167,11 @@ async function generate() {
   } catch (e) { say('msg', '❌ ' + e.message, true); }
   $('go').disabled = false;
 }
+// The signal strip rides on every slide of the deck, not only the cover: a carousel is read one
+// slide at a time and half of them are seen on their own.
+const darkSlide = (i) => tpl() === 't-bold' || tpl() === 't-dark' || (!!BG[i] && tpl() !== 't-brand');
 function slideHTML(s, i, n) {
+  const sig = Signal.bar(DATA?.signal, { brand: B, dark: darkSlide(i) });
   const brand = `<div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span><span class="pg">${i + 1}/${n}</span></div>`;
   const dots = `<div class="dots">${Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>`;
   const cls = (t, a, b) => (t.length > b ? 'xlong' : t.length > a ? 'long' : '');
@@ -185,17 +192,20 @@ function slideHTML(s, i, n) {
   else if (s.role === 'chat') mid = `<div class="mid"><h2 class="${cls(s.title || '', 24, 999) ? 'long' : ''}">${esc(s.title)}</h2><div class="talk">${(s.messages || []).map((m) => `<div class="m ${m.who === 'them' ? 'them' : m.who === 'miss' ? 'us miss' : 'us'}">${esc(m.text)}</div>`).join('')}</div><p>${esc(s.body || '')}</p></div><div class="bot"><span class="swipe">${i < n - 1 ? 'التالي ←' : ''}</span>${dots}</div>`;
   else mid = `<div class="mid"><div class="num">${s.n || i}</div><h2 class="${cls(s.title || '', 24, 999) ? 'long' : ''}">${esc(s.title)}</h2><p>${esc(s.body || '')}</p></div><div class="bot"><span class="swipe">${i < n - 1 ? 'التالي ←' : ''}</span>${dots}</div>`;
   const bg = BG[i] ? `<img class="bgimg" src="${BG[i]}"><div class="veil"></div>` : '';
-  return `<div class="slide ${tpl()} r-${s.role} ${BG[i] ? 'hasimg' : ''}" style="--p:${B.colors.primary};--a:${B.colors.accent};--bg:${B.colors.bg}" data-i="${i}">${bg}<div class="in">${brand}${mid}</div></div>`;
+  return `<div class="slide ${tpl()} r-${s.role} ${BG[i] ? 'hasimg' : ''}" style="--p:${B.colors.primary};--a:${B.colors.accent};--bg:${B.colors.bg}" data-i="${i}">${bg}<div class="in">${brand}${mid}${sig}</div></div>`;
 }
 function render() {
   if (!DATA) return; $('out').hidden = false; const n = DATA.slides.length; $('cnt').textContent = `${n} شرائح`;
   $('frames').innerHTML = DATA.slides.map((s, i) => `<div class="frame ${i === SEL ? 'sel' : ''}" onclick="select(${i})"><div class="scaler" style="aspect-ratio:1080/1350"><div class="inner">${slideHTML(s, i, n)}</div></div><span class="n">${i + 1}</span></div>`).join('');
   fit(); $('cap').textContent = DATA.caption || ''; $('hash').textContent = (DATA.hashtags || []).join(' ');
-  showEditor();
+  showEditor(); drawSignal();
 }
 function fit() { document.querySelectorAll('.frame .scaler').forEach((sc) => { const k = sc.clientWidth / 1080; sc.querySelector('.inner').style.transform = `scale(${k})`; }); }
 window.addEventListener('resize', fit);
 function select(i) { SEL = i; document.querySelectorAll('.frame').forEach((f, k) => f.classList.toggle('sel', k === i)); showEditor(); }
+// Editing a signal line changes every slide at once, so this redraws the deck rather than the
+// one frame the slide editor touches.
+function drawSignal() { DATA.signal = DATA.signal || Signal.blank(); Signal.editor($('sigBox'), DATA.signal, () => render(), B); }
 function showEditor() { const s = DATA.slides[SEL]; $('editBox').hidden = false; $('edN').textContent = SEL + 1; $('edTitle').value = s.title || ''; $('edBodyL').textContent = s.role === 'cover' ? 'السطر الفرعي' : 'النص'; $('edBody').value = s.role === 'cover' ? (s.sub || '') : (s.body || ''); }
 function edit(k, v) { const s = DATA.slides[SEL]; if (k === 'title') s.title = v; else if (s.role === 'cover') s.sub = v; else s.body = v; const el = document.querySelector(`.frame:nth-child(${SEL + 1}) .inner`); el.innerHTML = slideHTML(s, SEL, DATA.slides.length); }
 async function aiBg(i) {

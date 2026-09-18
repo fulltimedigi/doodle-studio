@@ -71,7 +71,11 @@
       <div id="coverDrop" class="drop" onclick="coverInput.click()">اضغط لاختيار صورة — أو تُؤخذ تلقائيًا من غلاف الكتيّب</div>
       <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="pickCover(this.files[0])">
 
-      <h2 style="margin-top:16px">٣. أين تصل البيانات؟</h2>
+      <h2 style="margin-top:16px">٣. إشارات المحتوى</h2>
+      <p class="muted" style="font-size:12.5px;margin:0 0 8px">نفس الثلاثة أسطر اللي على الريلز والكاروسيل — تظهر تحت العنوان في الصفحة.</p>
+      <div id="sigBox"></div>
+
+      <h2 style="margin-top:16px">٤. أين تصل البيانات؟</h2>
       <label class="f">الحقول المطلوبة من الزائر</label>
       <div class="fields" id="fields">
         <label><input type="checkbox" value="name" onchange="render()"> الاسم</label>
@@ -114,6 +118,7 @@
 </main>
 
 <script src="js/core.js"></script>
+<script src="js/signal.js"></script>
 <script>
 const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, download, readFile, q } = Suite;
 Suite.mountHeader('صفحة الهبوط');
@@ -149,6 +154,7 @@ function buildPage({ preview = false } = {}) {
     fileName: PDF_NAME,
     cover: COVER,
     thanks: STATE.thanks || { title: 'تم ✅', body: 'الملف بدأ ينزل الآن. لو لم يبدأ، اضغط الزر مرة أخرى.' },
+    signal: STATE.signal || null,
     brand: { name: B.name || '', logo: B.logo || '', primary: B.colors?.primary || '#0b3b33', accent: B.colors?.accent || '#00b478', bg: B.colors?.bg || '#ffffff' },
   };
   // The config travels as JSON inside a script tag; a closing script tag in any field would end
@@ -208,6 +214,7 @@ ${preview ? [400, 700, 900].map((w) => `@font-face{font-family:"Cairo";font-weig
     <div>
       <h1>${esc(data.headline)}</h1>
       ${data.sub ? `<p class="sub">${esc(data.sub)}</p>` : ''}
+      ${Signal.bar(data.signal, { brand: B, scale: 0.5, css: true })}
       ${data.inside.length ? `<ul>${data.inside.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       ${data.objection ? `<p class="obj">${esc(data.objection)}</p>` : ''}
     </div>
@@ -268,7 +275,7 @@ ${preview ? [400, 700, 900].map((w) => `@font-face{font-family:"Cairo";font-weig
 }
 
 // ---------- studio side ----------
-const STATE = {};
+const STATE = { signal: Signal.blank() };
 
 function render() {
   // Same page both ways; the preview just reads the font from the studio instead of the CDN,
@@ -278,6 +285,7 @@ function render() {
   const kb = Math.round(new Blob([html]).size / 1024);
   $('size').textContent = `حجم الصفحة ${kb} كيلوبايت${PDF ? ' (الكتيّب مضمَّن داخلها)' : ''}`;
   $('noEndpoint').hidden = !!val('endpoint');
+  Signal.editor($('sigBox'), STATE.signal, () => render(), B);
   return html;
 }
 
@@ -315,7 +323,7 @@ async function writeCopy() {
   if (!needKey('msg')) return;
   $('write').disabled = true; say('msg', '✍️ جارٍ الكتابة…');
   try {
-    const sys = (await (await fetch('assets/prompts/landing.md')).text()) + '\n\n' + brandContext(B);
+    const sys = (await (await fetch('assets/prompts/landing.md')).text()) + '\n\n' + brandContext(B) + Signal.PROMPT;
     const ask = seed
       ? `The guide:\ntitle: ${seed.title}\nsubtitle: ${seed.subtitle || ''}\naudience: ${seed.audience || ''}\nchapters: ${(seed.chapters || []).map((c) => c.title).join(' | ')}\n\nReturn ONLY the JSON.`
       : `The guide: ${val('headline')}\n${val('sub')}\n\nReturn ONLY the JSON.`;
@@ -326,6 +334,7 @@ async function writeCopy() {
     if (out.objection) $('objection').value = out.objection;
     if (out.cta) $('cta').value = out.cta;
     if (out.privacy) $('privacy').value = out.privacy;
+    if (out.signal) STATE.signal = { ...Signal.blank(), ...out.signal };
     if (out.thanks?.title) STATE.thanks = out.thanks;
     render();
     say('msg', '✅ جاهز — راجع النص ثم حمّل الصفحة');
@@ -379,7 +388,7 @@ async function save() {
     id: ID || undefined, type: 'landing', title: val('headline') || 'صفحة هبوط',
     data: {
       headline: val('headline'), sub: val('sub'), inside: lines(val('inside')), objection: val('objection'),
-      cta: val('cta'), privacy: val('privacy'), fields: chosenFields(), endpoint: val('endpoint'),
+      cta: val('cta'), privacy: val('privacy'), fields: chosenFields(), endpoint: val('endpoint'), signal: STATE.signal,
       fileUrl: val('fileUrl'), fileName: PDF_NAME, thanks: STATE.thanks || null, magnetId: $('src').value || '',
     },
     cover: COVER, pdf: PDF,
@@ -394,6 +403,7 @@ function fill(d) {
   $('endpoint').value = d.endpoint || ''; $('fileUrl').value = d.fileUrl || '';
   PDF_NAME = d.fileName || 'guide.pdf';
   if (d.thanks) STATE.thanks = d.thanks;
+  if (d.signal) STATE.signal = { ...Signal.blank(), ...d.signal };
   for (const box of $('fields').querySelectorAll('input')) box.checked = (d.fields || ['email']).includes(box.value);
 }
 

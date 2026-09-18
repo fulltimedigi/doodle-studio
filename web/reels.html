@@ -61,6 +61,8 @@
       <div class="tabs" id="tabs"></div>
       <div id="view"></div>
       <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: مثلًا «خلّي الخطّاف أقوى» أو «قصّر الجمل»"><button class="fix" onclick="chat()">تعديل</button></div>
+      <label class="f" style="margin-top:10px">إشارات المحتوى <small class="muted">(تظهر على غلاف الريل)</small></label>
+      <div id="sigBox"></div>
       <div class="row" style="margin-top:12px">
         <button class="soft fix" onclick="copyAll()">📋 نسخ السيناريو كاملًا</button>
         <button class="soft fix" onclick="coverPng()">🖼️ غلاف الريل (PNG)</button>
@@ -76,6 +78,7 @@
 <div id="exportBox"></div>
 <script src="js/html-to-image.js"></script>
 <script src="js/core.js"></script>
+<script src="js/signal.js"></script>
 <script>
 const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, chatEdit, q } = Suite;
 Suite.mountHeader('سكريبتات ريلز');
@@ -87,7 +90,7 @@ async function generate() {
   if (!needKey('msg')) return;
   $('go').disabled = true; say('msg', $('trend').checked ? '🔎 بحث عن الترند ثم الكتابة…' : '✍️ جارٍ الكتابة…');
   try {
-    const sys = (await (await fetch('assets/prompts/reels.md')).text()) + '\n\n' + brandContext();
+    const sys = (await (await fetch('assets/prompts/reels.md')).text()) + '\n\n' + brandContext() + Signal.PROMPT;
     const user = `Topic: ${topic}\nGoal: ${document.querySelector('input[name=goal]:checked').value}\nDuration: ${$('dur').value} seconds\nNumber of ideas: ${$('count').value}\n${$('trend').checked ? 'Research what is currently trending on Instagram/TikTok around this topic and audience (formats, sounds, angles) and use it.' : ''}\nReturn ONLY the JSON.`;
     DATA = await geminiJSON(sys, user, { search: $('trend').checked, onWait: (m) => say('msg', m) });
     ID = null; CUR = 0; render(); say('msg', '✅ جاهز — راجع، عدّل بالدردشة، ثم احفظ');
@@ -110,6 +113,8 @@ function render() {
     <div class="res"><h3>الكابشن <button class="ghost small" onclick="copyText(DATA.ideas[CUR].caption + '\\n\\n' + (DATA.ideas[CUR].hashtags||[]).join(' '))">📋 نسخ</button></h3><div class="cap">${esc(it.caption || '')}</div><div class="hash">${(it.hashtags || []).map(esc).join(' ')}</div></div>
     ${DATA._sources?.length ? `<div class="src muted">المصادر: ${DATA._sources.map((s) => `<a href="${esc(s.uri)}" target="_blank">${esc(s.title || s.uri)}</a>`).join('')}</div>` : ''}`;
   $('topic').value = $('topic').value || DATA.topic || '';
+  DATA.signal = DATA.signal || Signal.blank();
+  Signal.editor($('sigBox'), DATA.signal, null, loadBrand());
 }
 async function chat() {
   const ins = $('chatIn').value.trim(); if (!ins || !DATA) return; if (!needKey('msg2')) return;
@@ -119,7 +124,7 @@ async function chat() {
 }
 function punch(h) { const w = String(h || '').split(' '); if (w.length < 3) return esc(h); const k = w.length > 5 ? 2 : 1; return esc(w.slice(0, -k).join(' ')) + ' <em>' + esc(w.slice(-k).join(' ')) + '</em>'; }
 function coverHTML(it) { const B = loadBrand(); const h = (it.beats?.[0]?.screen && it.beats[0].screen.length > 8 ? it.beats[0].screen : it.hook) || ''; const cls = h.length > 40 ? 'xlong' : h.length > 24 ? 'long' : '';
-  return `<div class="cover" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="in"><div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div><div class="mid"><span class="tag">${esc(DATA.topic || 'ريلز')}</span><h1 class="${cls}">${punch(h)}</h1><div class="sub">${esc(it.why || it.cta || '')}</div><div class="play">▶</div></div><div class="foot"><span>${esc((B.hashtags || '').split(/\s+/)[0] || '')}</span><span>شاهد الريل</span></div></div></div>`; }
+  return `<div class="cover" style="--p:${B.colors.primary};--a:${B.colors.accent}"><div class="in"><div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span></div><div class="mid"><span class="tag">${esc(DATA.topic || 'ريلز')}</span><h1 class="${cls}">${punch(h)}</h1><div class="sub">${esc(it.why || it.cta || '')}</div><div class="play">▶</div></div><div class="foot"><span>${esc((B.hashtags || '').split(/\s+/)[0] || '')}</span><span>شاهد الريل</span></div>${Signal.bar(DATA?.signal, { brand: B })}</div></div>`; }
 async function coverPng() { const it = DATA.ideas[CUR]; const box = $('exportBox'); box.innerHTML = coverHTML(it); await document.fonts.ready; await Suite.sleep(30); const blob = await Suite.nodeToPng(box.firstElementChild, 1); box.innerHTML = ''; Suite.download(blob, `reel-cover-${CUR + 1}.png`); toast('⬇ نُزّل غلاف الريل'); }
 function scriptText(it) { return [`🪝 ${it.hook}`, ...(it.beats || []).map((b) => `[${b.t}] ${b.say}${b.screen ? `  (على الشاشة: ${b.screen})` : ''}${b.show ? `  (الصورة: ${b.show})` : ''}`), `ختام: ${it.cta || ''}`, '', it.caption || '', (it.hashtags || []).join(' ')].join('\n'); }
 function copyAll() { copyText(scriptText(DATA.ideas[CUR])); }
