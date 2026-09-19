@@ -5,7 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ASSETS, SCRIPTS, GENERATED, catalog, assetSource, scriptSource } from '../src/site-map.mjs';
+import { readdirSync } from 'node:fs';
+import { ASSETS, PAGES, SCRIPTS, SERVER_ONLY, GENERATED, catalog, assetSource, scriptSource } from '../src/site-map.mjs';
 import { ROOT } from '../src/project.mjs';
 
 test('every published script has a source', () => {
@@ -56,4 +57,26 @@ test('the catalog is populated', () => {
   for (const k of ['icons', 'doodles', 'peeps', 'art']) assert.ok(c[k].length, `catalog.${k} is empty`);
   assert.ok(Object.keys(c.hands).length, 'catalog.hands is empty');
   assert.ok(JSON.parse(GENERATED['catalog.json']()).doodles.length);
+});
+
+// A page that exists in web/ but is missing from the build reaches nobody, and nothing complains:
+// the dev server reads web/ directly, so it looks right locally and is simply absent in the studio
+// people actually open. That is how a whole unit can be finished, committed and never shipped.
+test('every page in web/ is either published or deliberately left out', () => {
+  const published = new Set(PAGES.map((p) => p.from));
+  const excused = new Set(SERVER_ONLY);
+  for (const f of readdirSync(join(ROOT, 'web')).filter((f) => f.endsWith('.html'))) {
+    assert.ok(published.has(f) || excused.has(f),
+      `web/${f} is in neither PAGES nor SERVER_ONLY — it would never reach the published studio`);
+  }
+  for (const p of PAGES) assert.ok(existsSync(join(ROOT, 'web', p.from)), `PAGES names a missing file: web/${p.from}`);
+});
+
+// Every tile on the front page has to lead somewhere that gets built.
+test('the hub only links to pages that ship', () => {
+  const hub = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
+  const to = new Set(PAGES.map((p) => p.to));
+  const links = [...hub.matchAll(/href: '([a-z0-9-]+\.html)/g)].map((m) => m[1]);
+  assert.ok(links.length > 8, 'the hub tiles were not found — this test stopped checking anything');
+  for (const l of links) assert.ok(to.has(l), `the hub links to ${l}, which the build never publishes`);
 });

@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دراسة حالة — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<style>
+  /* ---- case-study slide (1080 wide, height by size) — the brand canvas: white, heavy black
+         headline, accent doing the pointing, and nothing competing with the numbers ---- */
+  .cs{width:1080px;height:var(--h,1350px);position:relative;overflow:hidden;direction:rtl;
+      font-family:"Cairo",sans-serif;background:#fff;color:#111;--p:#0b3b33;--a:#00b478}
+  .cs .in{position:absolute;inset:0;padding:76px 80px;display:flex;flex-direction:column}
+  .cs .top{display:flex;align-items:center;gap:14px;font-size:32px;font-weight:800;color:#111}
+  .cs .top img{height:70px;width:auto;max-width:220px;object-fit:contain}
+  .cs .top .kind{margin-inline-start:auto;font-size:26px;font-weight:700;color:var(--p);
+      background:color-mix(in srgb,var(--a) 14%,#fff);padding:8px 24px;border-radius:999px}
+  .cs .mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:26px;min-height:0}
+  .cs h1{font-size:104px;line-height:1.14;margin:0;font-weight:900;text-align:center}
+  .cs h1.long{font-size:86px}.cs h1.xlong{font-size:70px}
+  .cs h2{font-size:54px;line-height:1.2;margin:0;font-weight:900;color:var(--p)}
+  .cs p{font-size:40px;line-height:1.6;margin:0;color:#333}
+  .cs .who{text-align:center;font-size:40px;font-weight:700;color:#333;
+      background:#f2f4f3;padding:16px 38px;border-radius:999px;align-self:center;max-width:100%}
+  /* problems: a terracotta rule, the same colour the signal system gives a problem */
+  .cs .bullets{display:flex;flex-direction:column;gap:20px}
+  .cs .bullets div{font-size:42px;line-height:1.4;font-weight:600;padding-inline-start:26px;
+      border-inline-start:8px solid #c2603f;color:#1d1d1d}
+  /* steps: numbered, accent circles */
+  .cs .cs-steps{display:flex;flex-direction:column;gap:20px}
+  .cs .cs-steps div{display:flex;align-items:flex-start;gap:20px;font-size:38px;line-height:1.42;font-weight:600}
+  .cs .cs-steps i{width:58px;height:58px;border-radius:50%;background:color-mix(in srgb,var(--a) 16%,#fff);
+      color:var(--p);font-style:normal;font-weight:900;font-size:32px;display:flex;align-items:center;
+      justify-content:center;flex:none;margin-top:4px}
+  /* the numbers, each nailed to where it came from */
+  .cs .figs{display:flex;flex-direction:column;gap:22px}
+  .cs .fig{background:#f5f8f6;border-radius:28px;padding:26px 32px}
+  .cs .fig b{display:block;font-size:82px;line-height:1;font-weight:900;color:var(--p);letter-spacing:-2px}
+  .cs .fig b.long{font-size:58px}
+  .cs .fig span{display:block;font-size:34px;font-weight:700;color:#1d1d1d;margin-top:8px}
+  .cs .fig small{display:block;font-size:24px;color:#6b7370;margin-top:8px;font-weight:400}
+  .cs .quote{font-size:44px;line-height:1.5;font-weight:700;color:#111;border-inline-start:10px solid var(--a);padding-inline-start:28px}
+  .cs .quote small{display:block;font-size:30px;font-weight:400;color:#6b7370;margin-top:14px}
+  .cs .bot{display:flex;align-items:center;justify-content:space-between;font-size:28px;color:#555}
+  .cs .bot .dots{display:flex;gap:10px}
+  .cs .bot .dots i{width:13px;height:13px;border-radius:50%;background:#111;opacity:.25}
+  .cs .bot .dots i.on{opacity:1}
+  .cs.tall .in{padding-top:128px;padding-bottom:128px}
+  .cs.sq .in{padding-top:56px;padding-bottom:48px}
+  .cs.sq h1{font-size:88px}.cs.sq p{font-size:36px}.cs.sq .bullets div{font-size:38px}
+  /* studio chrome */
+  .frames{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+  #exportBox{position:fixed;left:0;top:0;width:1080px;height:var(--h,1350px);opacity:0;pointer-events:none;z-index:-1;overflow:hidden}
+  .met{display:grid;grid-template-columns:110px 1fr;gap:6px 8px;border:1px solid var(--line);
+       border-radius:12px;padding:10px;margin-bottom:8px;background:#fff}
+  .met .src{grid-column:1/-1;display:flex;align-items:center;gap:8px}
+  .met .src input{flex:1}
+  .met.bad{border-color:#e0b4a4;background:#fdf7f5}
+  .met .rm{background:none;color:var(--muted);padding:2px 8px;font-size:12px}
+  .prev{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;height:520px}
+  .prev iframe{width:100%;height:100%;border:0}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .tabs button{background:var(--soft);color:var(--ink);padding:7px 12px;font-size:13px}
+  .tabs button.on{background:var(--ink);color:#fff}
+</style>
+</head>
+<body>
+<main class="wide">
+  <div><h1 class="page">🔍 دراسة حالة</h1><p class="lead">حالة واحدة تكتبها مرة، فتخرج شرائح للإنستجرام وصفحة كاملة للموقع — وكل رقم فيها لا يُنشر إلا ومعه مصدره.</p></div>
+  <div class="pane">
+    <section class="card">
+      <label class="f">نوع الحالة</label>
+      <div class="opts" id="kind">
+        <label><input type="radio" name="kind" value="teardown" checked onchange="kindChanged()">تفكيك متجر</label>
+        <label><input type="radio" name="kind" value="results" onchange="kindChanged()">حالة بنتائج</label>
+      </div>
+      <div id="kindNote" class="note" style="margin:8px 0 0"></div>
+
+      <label class="f">الحالة — كل ما تعرفه، بالأرقام التي بين يديك فقط</label>
+      <textarea id="brief" style="min-height:120px" placeholder="مثال: متجر عطور سعودي على سلة. جردت ١٢٠ منتجًا فوجدت ٣٢ بلا وصف و٥٨ بأسماء تجارية فقط. بحثت عن «عطر هدية للعريس» فطلعت صفر نتائج مع أن عندهم ٤ عطور تناسبها."></textarea>
+      <button class="primary big" id="go" onclick="generate()">✨ اكتب دراسة الحالة</button>
+      <div id="msg" class="msg"></div>
+
+      <div id="editBox" hidden>
+        <label class="f">العنوان</label><input id="edTitle" oninput="edit('title',this.value)">
+        <label class="f">عن مَن</label><input id="edWho" oninput="edit('who',this.value)">
+        <label class="f">الموقف</label><textarea id="edContext" style="min-height:70px" oninput="edit('context',this.value)"></textarea>
+        <label class="f">الخلاصة</label><textarea id="edOutcome" style="min-height:70px" oninput="edit('outcome',this.value)"></textarea>
+
+        <label class="f">الأرقام <small class="muted">— الرقم بلا مصدر لا يظهر في أي مخرج</small></label>
+        <div id="mets"></div>
+        <button class="soft small" onclick="addMetric()">＋ رقم</button>
+
+        <label class="f" style="margin-top:12px">إشارات المحتوى</label>
+        <div id="sigBox"></div>
+      </div>
+    </section>
+
+    <section class="card" id="out" hidden>
+      <h2>الشرائح <span class="muted" id="cnt"></span><span class="grow"></span>
+        <button class="soft small" onclick="exportAll()">⬇ الشرائح (ZIP)</button>
+        <button class="soft small" onclick="downloadPage()">⬇ صفحة الموقع (HTML)</button>
+        <button class="small" onclick="save()">💾 حفظ</button></h2>
+      <div class="tabs" id="sizeTabs"></div>
+      <div class="frames" id="frames"></div>
+      <div class="chat"><input id="chatIn" placeholder="عدّل بالدردشة: «اختصر الموقف» أو «خلّي الخطوات ٣»"><button class="fix" onclick="chat()">تعديل</button></div>
+      <h2 style="margin-top:14px">صفحة الموقع</h2>
+      <div class="prev"><iframe id="frame" title="معاينة الصفحة"></iframe></div>
+      <div class="res" style="margin-top:12px"><h3>الكابشن <button class="ghost small" onclick="copyText(DATA.caption + '\n\n' + (DATA.hashtags||[]).join(' '))">📋 نسخ</button></h3><div class="cap" id="cap"></div><div class="hash" id="hash"></div></div>
+      <div id="msg2" class="msg"></div>
+    </section>
+  </div>
+</main>
+<div id="exportBox"></div>
+<script src="js/html-to-image.js"></script>
+<script src="js/jszip.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/signal.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, chatEdit, nodeToPng, zipBlobs, download, q, sleep } = Suite;
+Suite.mountHeader('دراسة حالة');
+const B = loadBrand();
+let DATA = null, ID = q.get('id');
+if (q.get('topic') && $('brief')) $('brief').value = q.get('topic');
+
+const KINDS = {
+  teardown: { label: 'تفكيك متجر', chip: 'تفكيك حالة',
+    note: 'تفتح متجرًا حقيقيًا وتصف ما يفعله كتالوجه ببحث العميل. لا ادّعاء أن أحدًا أصلح شيئًا، ولا نتائج قبل/بعد — ما تنشره اليوم وأنت بلا عملاء بعد.' },
+  results: { label: 'حالة بنتائج', chip: 'دراسة حالة',
+    note: 'حالة عميل حقيقي بأرقام حقيقية أنت تكتبها بنفسك ومعها مصدرها. لا تستخدمها قبل أن يكون عندك عميل فعلًا ورقم تقدر تثبته.' },
+};
+const kind = () => document.querySelector('input[name=kind]:checked').value;
+function kindChanged() { $('kindNote').textContent = KINDS[kind()].note; if (DATA) { DATA.kind = kind(); render(); } }
+kindChanged();
+
+// ---------- writing ----------
+async function generate() {
+  const brief = $('brief').value.trim();
+  if (!brief) return say('msg', 'اكتب الحالة أولًا', true);
+  if (!needKey('msg')) return;
+  $('go').disabled = true; say('msg', '✍️ جارٍ الكتابة…');
+  try {
+    const sys = (await (await fetch('assets/prompts/case.md')).text()) + '\n\n' + brandContext(B) + Signal.PROMPT;
+    const out = await geminiJSON(sys, `kind: ${kind()}\n\nThe brief:\n${brief}\n\nReturn ONLY the JSON.`, { onWait: (m) => say('msg', m) });
+    DATA = normalise(out);
+    ID = null; render();
+    say('msg', DATA.metrics.length
+      ? '✅ جاهز — اكتب مصدر كل رقم، وبدونه لن يظهر'
+      : '✅ جاهز — لم يُعطَ أي رقم، فلم يُخترَع أي رقم');
+  } catch (e) { say('msg', '❌ ' + e.message, true); }
+  $('go').disabled = false;
+}
+
+/**
+ * Whatever the model returned, made safe to render. A source is the one field the model is told
+ * never to write — so it is cleared here rather than trusted, because a made-up source is worse
+ * than a made-up number: it is a made-up number that looks checked.
+ */
+function normalise(out) {
+  const d = { kind: kind(), title: '', who: '', client: '', context: '', outcome: '', caption: '', ...out };
+  d.problem = Array.isArray(out.problem) ? out.problem.filter(Boolean) : [];
+  d.approach = Array.isArray(out.approach) ? out.approach.filter(Boolean) : [];
+  d.metrics = (Array.isArray(out.metrics) ? out.metrics : []).filter((m) => m && m.value)
+    .map((m) => ({ value: String(m.value), label: String(m.label || ''), source: '' }));
+  d.hashtags = Array.isArray(out.hashtags) ? out.hashtags : [];
+  const qt = out.quote || {};
+  d.quote = { text: String(qt.text || ''), by: String(qt.by || '') };
+  d.signal = { ...Signal.blank(), ...(out.signal || {}) };
+  return d;
+}
+
+/** The numbers that may be published: a figure nobody can trace is not evidence. */
+const sourced = (d = DATA) => (d.metrics || []).filter((m) => m.value && String(m.source || '').trim());
+/** A quote with no one behind it is a sentence we wrote ourselves. */
+const quoted = (d = DATA) => (d.quote?.text?.trim() && d.quote?.by?.trim()) ? d.quote : null;
+
+// ---------- the slides ----------
+const SIZES = [{ id: '4x5', h: 1350, label: '4:5 عمودي', on: true }, { id: '1x1', h: 1080, label: '1:1 مربع' }, { id: '9x16', h: 1920, label: '9:16 ستوري' }];
+const chosen = () => SIZES.filter((z) => $('sz-' + z.id).classList.contains('on'));
+$('sizeTabs').innerHTML = SIZES.map((z) => `<button type="button" id="sz-${z.id}" class="${z.on ? 'on' : ''}" onclick="this.classList.toggle('on')">${z.label}</button>`).join('');
+
+/** The slides this case actually has. Evidence and quote earn their slide or lose it. */
+function slides(d = DATA) {
+  const out = [{ role: 'cover' }, { role: 'context' }];
+  if (d.problem.length) out.push({ role: 'problem' });
+  if (sourced(d).length) out.push({ role: 'evidence' });
+  if (d.approach.length) out.push({ role: 'approach' });
+  if (quoted(d)) out.push({ role: 'quote' });
+  out.push({ role: 'outcome' });
+  return out;
+}
+
+const cls = (t, a, b) => (t.length > b ? 'xlong' : t.length > a ? 'long' : '');
+
+function slideHTML(s, i, n) {
+  const d = DATA;
+  const head = `<div class="top">${B.logo ? `<img src="${B.logo}">` : ''}<span>${esc(B.name || '')}</span><span class="kind">${KINDS[d.kind]?.chip || ''}</span></div>`;
+  const dots = `<div class="dots">${Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>`;
+  const foot = (t) => `<div class="bot"><span>${esc(t)}</span>${dots}</div>`;
+  let mid = '', bot = foot(i < n - 1 ? 'اسحب ←' : (B.website || ''));
+  if (s.role === 'cover') {
+    mid = `<h1 class="${cls(d.title || '', 22, 40)}">${esc(d.title)}</h1>${d.who ? `<div class="who">${esc(d.who)}</div>` : ''}`;
+  } else if (s.role === 'context') {
+    mid = `<h2>الموقف</h2><p>${esc(d.context)}</p>`;
+  } else if (s.role === 'problem') {
+    mid = `<h2>أين يقف العميل</h2><div class="bullets">${d.problem.map((x) => `<div>${esc(x)}</div>`).join('')}</div>`;
+  } else if (s.role === 'evidence') {
+    mid = `<h2>الأرقام</h2><div class="figs">${sourced(d).slice(0, 3).map((m) =>
+      `<div class="fig"><b class="${String(m.value).length > 6 ? 'long' : ''}">${esc(m.value)}</b><span>${esc(m.label)}</span><small>المصدر: ${esc(m.source)}</small></div>`).join('')}</div>`;
+  } else if (s.role === 'approach') {
+    mid = `<h2>${d.kind === 'teardown' ? 'ما الذي يصلحها' : 'ما الذي عُمل'}</h2><div class="cs-steps">${
+      d.approach.map((x, k) => `<div><i>${k + 1}</i><span>${esc(x)}</span></div>`).join('')}</div>`;
+  } else if (s.role === 'quote') {
+    const qt = quoted(d);
+    mid = `<div class="quote">“${esc(qt.text)}”<small>${esc(qt.by)}</small></div>`;
+  } else {
+    mid = `<h2>${d.kind === 'teardown' ? 'الخلاصة' : 'ما الذي تغيّر'}</h2><p>${esc(d.outcome)}</p>`;
+    bot = foot(B.cta || '');
+  }
+  return `<div class="cs" style="--p:${B.colors.primary};--a:${B.colors.accent}" data-i="${i}">
+    <div class="in">${head}<div class="mid">${mid}</div>${bot}${Signal.bar(d.signal, { brand: B })}</div></div>`;
+}
+
+// ---------- the page ----------
+/** The same case as one self-contained file: nothing fetched, so it opens from any host. */
+function buildPage() {
+  const d = DATA, figs = sourced(d), qt = quoted(d);
+  const S = (t) => esc(t);
+  return `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${S(d.title)} — ${S(B.name || '')}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--p:${B.colors.primary};--a:${B.colors.accent};--ink:#14201c;--muted:#6b7370;--line:#e3e8e5}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--ink);font-family:"Cairo",system-ui,sans-serif;font-size:18px;line-height:1.75}
+  .wrap{max-width:760px;margin:0 auto;padding:44px 20px 72px}
+  header{display:flex;align-items:center;gap:12px;font-weight:800;margin-bottom:34px}
+  header img{height:38px}
+  .kind{display:inline-block;font-size:14px;font-weight:700;color:var(--p);background:color-mix(in srgb,var(--a) 14%,#fff);padding:5px 16px;border-radius:999px}
+  h1{font-size:40px;line-height:1.2;font-weight:900;margin:16px 0 8px}
+  .who{color:var(--muted);font-size:17px;margin:0 0 28px}
+  h2{font-size:23px;font-weight:900;color:var(--p);margin:38px 0 10px}
+  p{margin:0 0 14px}
+  .bullets{list-style:none;padding:0;margin:0}
+  .bullets li{border-inline-start:5px solid #c2603f;padding-inline-start:16px;margin-bottom:14px;font-weight:600}
+  ol{padding-inline-start:22px;margin:0}
+  ol li{margin-bottom:12px;font-weight:600}
+  .figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-top:6px}
+  .fig{background:#f5f8f6;border-radius:16px;padding:18px 20px}
+  .fig b{display:block;font-size:40px;line-height:1;font-weight:900;color:var(--p)}
+  .fig span{display:block;font-weight:700;margin-top:6px}
+  .fig small{display:block;color:var(--muted);font-size:13px;margin-top:6px;font-weight:400}
+  blockquote{margin:0;border-inline-start:6px solid var(--a);padding-inline-start:18px;font-size:22px;font-weight:700}
+  blockquote small{display:block;font-size:15px;font-weight:400;color:var(--muted);margin-top:10px}
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:15px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  @media (max-width:600px){h1{font-size:30px}.wrap{padding:26px 16px 52px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  ${B.name || B.logo ? `<header>${B.logo ? `<img src="${B.logo}" alt="">` : ''}<span>${S(B.name)}</span></header>` : ''}
+  <span class="kind">${S(KINDS[d.kind]?.chip || '')}</span>
+  <h1>${S(d.title)}</h1>
+  ${d.who ? `<p class="who">${S(d.who)}</p>` : ''}
+  ${Signal.bar(d.signal, { brand: B, scale: 0.5, css: true })}
+  <h2>الموقف</h2><p>${S(d.context)}</p>
+  ${d.problem.length ? `<h2>أين يقف العميل</h2><ul class="bullets">${d.problem.map((x) => `<li>${S(x)}</li>`).join('')}</ul>` : ''}
+  ${figs.length ? `<h2>الأرقام</h2><div class="figs">${figs.map((m) =>
+    `<div class="fig"><b>${S(m.value)}</b><span>${S(m.label)}</span><small>المصدر: ${S(m.source)}</small></div>`).join('')}</div>` : ''}
+  <h2>${d.kind === 'teardown' ? 'ما الذي يصلحها' : 'ما الذي عُمل'}</h2><ol>${d.approach.map((x) => `<li>${S(x)}</li>`).join('')}</ol>
+  ${qt ? `<h2>بكلماتهم</h2><blockquote>“${S(qt.text)}”<small>${S(qt.by)}</small></blockquote>` : ''}
+  <h2>${d.kind === 'teardown' ? 'الخلاصة' : 'ما الذي تغيّر'}</h2><p>${S(d.outcome)}</p>
+  <footer><span>${S(B.cta || '')}</span><span>${S(B.website || '')}</span></footer>
+</div>
+</body>
+</html>`;
+}
+
+// ---------- studio ----------
+function render() {
+  if (!DATA) return;
+  $('out').hidden = false; $('editBox').hidden = false;
+  const ss = slides(); $('cnt').textContent = `${ss.length} شرائح`;
+  $('frames').innerHTML = ss.map((s, i) =>
+    `<div class="frame"><div class="scaler" style="aspect-ratio:1080/1350"><div class="inner">${slideHTML(s, i, ss.length)}</div></div><span class="n">${i + 1}</span></div>`).join('');
+  fit();
+  $('edTitle').value = DATA.title || ''; $('edWho').value = DATA.who || '';
+  $('edContext').value = DATA.context || ''; $('edOutcome').value = DATA.outcome || '';
+  $('cap').textContent = DATA.caption || ''; $('hash').textContent = (DATA.hashtags || []).join(' ');
+  drawMetrics();
+  Signal.editor($('sigBox'), DATA.signal, () => render(), B);
+  $('frame').srcdoc = buildPage();
+}
+function fit() { document.querySelectorAll('.frame .scaler').forEach((sc) => { const k = sc.clientWidth / 1080; sc.querySelector('.inner').style.transform = `scale(${k})`; }); }
+window.addEventListener('resize', fit);
+function edit(k, v) { DATA[k] = v; render(); }
+
+/**
+ * The numbers, each with the box that decides whether it may be published. Rebuilt only when the
+ * list itself changes, so typing a source does not take the caret out of the box.
+ */
+function drawMetrics() {
+  const el = $('mets');
+  if (el.dataset.n === String(DATA.metrics.length)) return markMetrics();
+  el.dataset.n = String(DATA.metrics.length);
+  el.innerHTML = DATA.metrics.map((m, i) => `<div class="met" data-i="${i}">
+      <input data-k="value" data-i="${i}" value="${esc(m.value)}" placeholder="الرقم">
+      <input data-k="label" data-i="${i}" value="${esc(m.label)}" placeholder="يقيس ماذا">
+      <div class="src">📌<input data-k="source" data-i="${i}" value="${esc(m.source)}" placeholder="من أين جاء هذا الرقم؟ (بدونه لن يُنشر)">
+        <button class="rm" onclick="rmMetric(${i})">حذف</button></div>
+    </div>`).join('');
+  el.querySelectorAll('input[data-k]').forEach((inp) => inp.addEventListener('input', () => {
+    DATA.metrics[+inp.dataset.i][inp.dataset.k] = inp.value;
+    markMetrics(); redrawSlides();
+  }));
+  markMetrics();
+}
+/** Say, in the list itself, which numbers are being held back and why. */
+function markMetrics() {
+  const el = $('mets');
+  DATA.metrics.forEach((m, i) => {
+    const row = el.querySelector(`.met[data-i="${i}"]`);
+    if (row) row.classList.toggle('bad', !!m.value && !String(m.source || '').trim());
+  });
+  const held = DATA.metrics.length - sourced().length;
+  say('msg2', held ? `📌 ${held} رقم بلا مصدر — محجوب عن الشرائح والصفحة حتى تكتب مصدره` : '', false);
+}
+function addMetric() { DATA.metrics.push({ value: '', label: '', source: '' }); drawMetrics(); }
+function rmMetric(i) { DATA.metrics.splice(i, 1); drawMetrics(); redrawSlides(); }
+/** Repaint the canvases without rebuilding the form the person is typing in. */
+function redrawSlides() {
+  const ss = slides();
+  $('cnt').textContent = `${ss.length} شرائح`;
+  $('frames').innerHTML = ss.map((s, i) =>
+    `<div class="frame"><div class="scaler" style="aspect-ratio:1080/1350"><div class="inner">${slideHTML(s, i, ss.length)}</div></div><span class="n">${i + 1}</span></div>`).join('');
+  fit(); $('frame').srcdoc = buildPage();
+}
+
+async function chat() {
+  const ins = $('chatIn').value.trim(); if (!ins || !DATA) return; if (!needKey('msg2')) return;
+  say('msg2', '✏️ جارٍ التعديل…');
+  try {
+    const out = await chatEdit(DATA, ins, 'B2B case study', (m) => say('msg2', m));
+    if (out.title || out.context) {
+      // Sources are the human's, not the model's: carry the ones already written across the edit.
+      const keep = new Map(DATA.metrics.map((m) => [m.value, m.source]));
+      DATA = normalise({ ...out, kind: DATA.kind });
+      DATA.metrics.forEach((m) => { m.source = keep.get(m.value) || ''; });
+      $('mets').dataset.n = ''; render(); $('chatIn').value = ''; say('msg2', '✅ تم التعديل');
+    }
+  } catch (e) { say('msg2', '❌ ' + e.message, true); }
+}
+
+async function renderPng(s, i, n, h) {
+  const box = $('exportBox');
+  box.style.setProperty('--h', h + 'px');
+  box.innerHTML = slideHTML(s, i, n);
+  const node = box.firstElementChild;
+  node.style.setProperty('--h', h + 'px');
+  node.classList.add(h >= 1600 ? 'tall' : h <= 1100 ? 'sq' : 'mid-h');
+  await document.fonts.ready; await sleep(30);
+  const blob = await nodeToPng(node, 1); box.innerHTML = ''; return blob;
+}
+async function exportAll() {
+  const sizes = chosen();
+  if (!sizes.length) return say('msg2', 'اختر مقاسًا واحدًا على الأقل', true);
+  const ss = slides(); const files = [];
+  for (const z of sizes) for (let i = 0; i < ss.length; i++) {
+    say('msg2', `⬇ ${z.label} — الشريحة ${i + 1}/${ss.length}…`);
+    const name = `case-${String(i + 1).padStart(2, '0')}.png`;
+    files.push([sizes.length > 1 ? `${z.id}/${name}` : name, await renderPng(ss[i], i, ss.length, z.h)]);
+  }
+  files.push(['case.html', new Blob([buildPage()], { type: 'text/html' })]);
+  files.push(['caption.txt', new Blob([(DATA.caption || '') + '\n\n' + (DATA.hashtags || []).join(' ')], { type: 'text/plain' })]);
+  download(await zipBlobs(files), `${(DATA.title || 'case').slice(0, 40).replace(/[\\/:*?"<>|]/g, ' ')}.zip`);
+  say('msg2', `✅ نُزّل ZIP فيه ${sizes.length * ss.length} صورة والصفحة والكابشن`);
+}
+function downloadPage() { download(new Blob([buildPage()], { type: 'text/html' }), `${(DATA.title || 'case').slice(0, 40).replace(/[\\/:*?"<>|]/g, ' ')}.html`); toast('⬇ نُزّلت الصفحة'); }
+
+async function save() {
+  let thumb = '';
+  try { const b = await renderPng(slides()[0], 0, slides().length, 1350); thumb = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); }); } catch {}
+  const item = await lib.save({ id: ID || undefined, type: 'case', title: DATA.title || 'دراسة حالة', data: DATA, thumb });
+  ID = item.id; toast('💾 حُفظت في المكتبة');
+}
+(async () => {
+  if (!ID) return;
+  const it = await lib.get(ID); if (!it) return;
+  DATA = normalise(it.data);
+  DATA.metrics = (it.data.metrics || []).map((m) => ({ value: m.value || '', label: m.label || '', source: m.source || '' }));
+  DATA.kind = it.data.kind || 'teardown';
+  const k = document.querySelector(`input[name=kind][value=${DATA.kind}]`); if (k) k.checked = true;
+  kindChanged(); render();
+})();
+</script>
+</body>
+</html>

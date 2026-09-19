@@ -5,7 +5,7 @@
 // build and the served source tree cannot disagree about the layout the pages are written against.
 import { mkdirSync, cpSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { ASSETS, SCRIPTS, GENERATED, catalog } from '../src/site-map.mjs';
+import { ASSETS, PAGES, SCRIPTS, GENERATED, catalog } from '../src/site-map.mjs';
 import { ROOT } from '../src/project.mjs';
 
 const SITE = join(ROOT, 'site');
@@ -14,9 +14,11 @@ mkdirSync(join(SITE, 'js'), { recursive: true });
 mkdirSync(join(SITE, 'assets'), { recursive: true });
 
 // pages
-cpSync(join(ROOT, 'web/index.html'), join(SITE, 'index.html'));
-cpSync(join(ROOT, 'web/app.html'), join(SITE, 'doodle.html'));
-for (const f of ['reels.html', 'carousel.html', 'ad.html', 'ugc.html', 'magnet.html', 'logo.html', 'reel.html', 'plan.html', 'board.html', 'landing.html']) cpSync(join(ROOT, 'web', f), join(SITE, f));
+for (const p of PAGES) {
+  const from = join(ROOT, 'web', p.from);
+  if (!existsSync(from)) throw new Error(`missing page source: web/${p.from}`);
+  cpSync(from, join(SITE, p.to));
+}
 cpSync(join(ROOT, 'web/css'), join(SITE, 'css'), { recursive: true });
 
 // scripts — copied, or rewritten from a module source into a plain script

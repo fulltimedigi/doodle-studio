@@ -38,6 +38,25 @@ export const SCRIPTS = {
 };
 
 /**
+ * The pages, as { to (published name), from (file under web/) }.
+ *
+ * `app.html` is published as `doodle.html`, and `local.html` only makes sense with the server
+ * behind it, so the mapping is not a plain directory copy. It used to be a hand-written list
+ * inside the build script, which meant a new unit shipped everywhere except the published site —
+ * silently, because the dev server reads web/ directly and never notices. Now a page is only in
+ * the studio if it is in this list, and a test walks web/ to catch the one that was forgotten.
+ */
+export const PAGES = [
+  { to: 'index.html', from: 'index.html' },
+  { to: 'doodle.html', from: 'app.html' },
+  ...['reels.html', 'carousel.html', 'case.html', 'ad.html', 'ugc.html', 'magnet.html', 'logo.html',
+    'reel.html', 'plan.html', 'board.html', 'landing.html'].map((f) => ({ to: f, from: f })),
+];
+
+/** Pages that deliberately never reach the static build. */
+export const SERVER_ONLY = ['local.html'];
+
+/**
  * Everything published under `assets/`, as { to (published path), from (source path) }.
  * `dir` entries publish a whole tree; `optional` entries may legitimately be absent.
  */
