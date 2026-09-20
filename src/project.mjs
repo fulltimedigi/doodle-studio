@@ -111,6 +111,22 @@ async function handAsset(p) {
   return { src: dataUrl(file), naturalHeight, naturalWidth, tip: h.tip || [14, 14], heightPct: h.height || '58%', hidden: h.hidden === true };
 }
 
+/**
+ * The brand mark drawn on every frame — see the note in src/renderer/engine.js for why a doodle
+ * needs one. `logo: false` turns it off; anything else is a path resolved like any other asset.
+ */
+async function logoAsset(p) {
+  if (p.logo === false || !p.logo) return null;
+  const file = resolveAsset(p, typeof p.logo === 'string' ? p.logo : p.logo.src);
+  let ratio = 3;
+  if (extname(file).toLowerCase() === '.svg') {
+    const m = readFileSync(file, 'utf8').match(/viewBox="([\d.\s-]+)"/);
+    if (m) { const v = m[1].trim().split(/\s+/).map(Number); ratio = v[2] / v[3]; }
+  } else { const img = await Jimp.read(file); ratio = img.bitmap.width / img.bitmap.height; }
+  const o = typeof p.logo === 'object' ? p.logo : {};
+  return { src: dataUrl(file), ratio, height: o.height || '7%', margin: o.margin || '4%', corner: o.corner || 'top-right', opacity: o.opacity ?? 0.9 };
+}
+
 export async function compile(p, { cacheDir, noAudio = false, log = () => {} } = {}) {
   p.__cacheDir = cacheDir;
   const [W, H] = FORMATS[p.format || '16:9'] || FORMATS['16:9'];
@@ -125,6 +141,7 @@ export async function compile(p, { cacheDir, noAudio = false, log = () => {} } =
   const voice = p.voice || 'ar-EG-Shakir';
   const hand = await handAsset(p);
   hand.height = pct(hand.heightPct, H);
+  const logo = await logoAsset(p);
 
   const scenes = []; const audio = []; let clock = 0; let seed = 1;
   for (let si = 0; si < (p.scenes || []).length; si++) {
@@ -155,5 +172,5 @@ export async function compile(p, { cacheDir, noAudio = false, log = () => {} } =
     scenes.push({ start: clock, end: clock + duration, background: sc.background, backgroundImage: sc.backgroundImage ? dataUrl(resolveAsset(p, sc.backgroundImage)) : null, transition: sc.transition, camera: sc.camera, elements: els });
     clock += duration;
   }
-  return { width: W, height: H, defaults, hand, scenes, audio, duration: clock, title: p.title || 'doodle', music: p.music ? { file: resolveAsset(p, p.music), volume: p.musicVolume ?? 0.12 } : null };
+  return { width: W, height: H, defaults, hand, logo, scenes, audio, duration: clock, title: p.title || 'doodle', music: p.music ? { file: resolveAsset(p, p.music), volume: p.musicVolume ?? 0.12 } : null };
 }

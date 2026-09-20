@@ -169,6 +169,7 @@
       <label>الموسيقى<select id="music" onchange="setMusic(this.value)"><option value="auto">خلفية هادئة (تلقائي)</option><option value="none">بدون</option><option value="file">ملف من جهازي…</option></select></label>
       <label>صوت المعلّق<select id="voice" onchange="SCRIPT.voice=this.value;autosave()"></select></label>
       <label class="toggle"><input type="checkbox" id="sfx" checked onchange="SCRIPT.sfx=this.checked;autosave()"> صوت القلم أثناء الرسم</label>
+      <label class="toggle"><input type="checkbox" id="markToggle" checked onchange="SCRIPT.logo=this.checked?undefined:false;changed()"> شعارك في زاوية كل لقطة (يظهر في الثمنيل)</label>
     </div>
     <input type="file" id="musicFile" accept="audio/*" style="display:none" onchange="musicFromFile(this.files[0])">
     <div class="row"><button class="soft fix" onclick="previewVoice()">🔊 جرّب الصوت</button></div>
@@ -281,7 +282,7 @@ function setScript(s) {
   $('title').value = SCRIPT.title || ''; $('format').value = FORMATS[SCRIPT.format] ? SCRIPT.format : '16:9'; $('board').value = BOARDS[SCRIPT.board] ? SCRIPT.board : 'white';
   $('handSel').value = HAND_NAMES[SCRIPT.hand] ? SCRIPT.hand : 'marker-a'; $('layout').value = ['pan', 'fade', 'slide'].includes(SCRIPT.layout) ? SCRIPT.layout : 'pan';
   if (SCRIPT.music === 'file' && !MUSIC_FILE) SCRIPT.music = 'auto'; $('music').value = SCRIPT.music === 'none' ? 'none' : SCRIPT.music === 'file' ? 'file' : 'auto';
-  $('voice').value = GEMINI_VOICES.includes(SCRIPT.voice) ? SCRIPT.voice : 'Charon'; SCRIPT.voice = $('voice').value; $('sfx').checked = SCRIPT.sfx !== false;
+  $('voice').value = GEMINI_VOICES.includes(SCRIPT.voice) ? SCRIPT.voice : 'Charon'; SCRIPT.voice = $('voice').value; $('sfx').checked = SCRIPT.sfx !== false; $('markToggle').checked = SCRIPT.logo !== false;
   OPEN = null; drawScenes(); changed();
 }
 function newScript() { if (SCRIPT.scenes.length && !confirm('تبدأ سيناريو جديدًا فارغًا؟')) return; setScript({ scenes: [{ narration: '', elements: [] }] }); $('brief').value = ''; }
@@ -333,7 +334,7 @@ async function runAI() {
     if (model !== settings.model) { settings.model = model; localStorage.setItem('gemini_model', model); $('s_model').value = model; }
     const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
     const s = JSON.parse(text.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1'));
-    const keep = { format: $('format').value, board: SCRIPT.board, hand: SCRIPT.hand, layout: SCRIPT.layout, music: SCRIPT.music, sfx: SCRIPT.sfx, voice: SCRIPT.voice };
+    const keep = { format: $('format').value, board: SCRIPT.board, hand: SCRIPT.hand, layout: SCRIPT.layout, music: SCRIPT.music, sfx: SCRIPT.sfx, logo: SCRIPT.logo, voice: SCRIPT.voice };
     setScript({ ...keep, ...s, format: s.format || keep.format, hand: keep.hand, voice: keep.voice });
     return true;
   } catch (e) { say('jobMsg', '❌ ' + e.message, true); return false; }
@@ -591,6 +592,7 @@ async function compileClient(p, { withAudio, onWait }) {
   let nw = HAND_IMG.naturalWidth, nh = HAND_IMG.naturalHeight;
   if (handSrc.endsWith('.svg')) { const m = (await fetchText(handSrc)).match(/viewBox="([\d.\s-]+)"/); if (m) { const v = m[1].trim().split(/\s+/).map(Number); nw = v[2]; nh = v[3]; } }
   const hand = { src: handSrc, naturalWidth: nw, naturalHeight: nh, tip: hp.tip || [14, 14], height: pct(hp.height || '58%', H), hidden, tintable: !handSrc.endsWith('.svg') };
+  const logo = await brandMark(p);
   const scenes = [], audio = []; let clock = 0, seed = 1;
   const startDelay = pan ? 0.6 : 0.25;
   for (const [si, sc] of (p.scenes || []).entries()) {
@@ -612,7 +614,25 @@ async function compileClient(p, { withAudio, onWait }) {
     scenes.push({ start: clock, end: clock + duration, background: sc.background, transition: sc.transition, camera: sc.camera, elements: els });
     clock += duration;
   }
-  return { width: W, height: H, defaults, board, hand, scenes, audio, duration: clock + (pan ? 0.4 : 0), music: p.music || 'auto', sfx: p.sfx !== false };
+  return { width: W, height: H, defaults, board, hand, logo, scenes, audio, duration: clock + (pan ? 0.4 : 0), music: p.music || 'auto', sfx: p.sfx !== false };
+}
+
+/**
+ * The brand mark that sits on every frame. A doodle opens on an empty board, so whatever frame a
+ * platform picks for the thumbnail is blank white unless something is standing on it from the
+ * first frame — which is why this is a watermark and not a title card: a title card is only in
+ * the thumbnail if the platform happens to choose second zero.
+ *
+ * No logo in the brand means no mark. The studio does not put someone else's logo on your video.
+ */
+async function brandMark(p) {
+  if (p.logo === false) return null;
+  const src = (Suite.loadBrand().logo || '').trim();
+  if (!src) return null;
+  try {
+    const im = await loadImg(src);
+    return { src, ratio: (im.naturalWidth || 3) / (im.naturalHeight || 1), height: '7%', margin: '4%', corner: 'top-right', opacity: 0.9 };
+  } catch { return null; }
 }
 async function compileEl(e, W, H, seed, defaults) {
   const box = { x: pct(e.x ?? '10%', W), y: pct(e.y ?? '10%', H), w: pct(e.w ?? '30%', W), h: pct(e.h ?? '30%', H) };

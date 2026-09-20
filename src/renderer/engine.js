@@ -18,6 +18,9 @@
   let P = null;            // compiled project
   const stage = document.getElementById('stage');
   const hand = document.getElementById('hand');
+  // The suite's export canvas lives in a page that has no #mark of its own, so one is made when it
+  // is missing: the browser path only ever reads the image out of it, never shows it.
+  const markImg = document.querySelector('img#mark') || Object.assign(document.createElement('img'), { id: 'mark' });
   const state = { scenes: [], board: null, boardBox: null };
   let uid = 0;
 
@@ -196,6 +199,26 @@
 
   // ---------- building ----------
   function px(v, total) { return typeof v === 'string' && v.endsWith('%') ? parseFloat(v) / 100 * total : +v; }
+
+  // ---------- brand mark ----------
+  //
+  // A doodle opens on an empty board, so the frame a platform grabs for the thumbnail is plain
+  // white — a row of blank tiles in a profile grid, with nothing saying whose they are. The mark
+  // is on every frame from the first, which is the only way to be in a thumbnail you do not pick.
+  //
+  // It is drawn twice, because the video is produced two ways: the CLI screenshots the DOM and the
+  // browser export repaints onto a canvas. They must not disagree about where it sits, so both ask
+  // this one function.
+  const MARK_CORNERS = { 'top-right': [1, 0], 'top-left': [0, 0], 'bottom-right': [1, 1], 'bottom-left': [0, 1] };
+  function markBox() {
+    const L = P.logo;
+    if (!L || !L.src) return null;
+    const h = px(L.height || '7%', P.height);
+    const w = h * (L.ratio || 3);
+    const m = px(L.margin || '4%', P.height);
+    const [cx, cy] = MARK_CORNERS[L.corner] || MARK_CORNERS['top-right'];
+    return { x: cx ? P.width - m - w : m, y: cy ? P.height - m - h : m, w, h, opacity: L.opacity ?? 0.9 };
+  }
 
   async function buildElement(sc, e) {
     const W = P.width, H = P.height;
@@ -378,8 +401,15 @@
     hand.dataset.tipy = P.hand.tip[1] * (hs / P.hand.naturalHeight);
     hand.style.transformOrigin = `${hand.dataset.tipx}px ${hand.dataset.tipy}px`;
     hand.style.display = P.hand.hidden ? 'none' : 'block';
+    // brand mark — outside the board, so panning and scene transitions never move or fade it
+    markImg.removeAttribute('src'); markImg.style.display = 'none';
+    const mb = markBox();
+    if (mb) {
+      markImg.src = P.logo.src;
+      Object.assign(markImg.style, { display: 'block', left: mb.x + 'px', top: mb.y + 'px', width: mb.w + 'px', height: mb.h + 'px', opacity: String(mb.opacity) });
+    }
     const result = { ok: true, strokes: state.scenes.map((s) => s.els.map((r) => r.strokes.length)) };
-    const imgs = [hand, ...stage.querySelectorAll('img')];
+    const imgs = [hand, markImg, ...stage.querySelectorAll('img')];
     return Promise.all([...imgs.map((im) => (im.decode ? im.decode().catch(() => {}) : Promise.resolve())), ...fillLoads]).then(() => result);
   }
 
@@ -695,6 +725,12 @@
       ctx.save(); ctx.globalAlpha = hs.opacity ?? 1; ctx.filter = hs.lifted ? 'drop-shadow(18px 22px 16px rgba(0,0,0,0.22))' : 'drop-shadow(9px 11px 9px rgba(0,0,0,0.30))';
       ctx.translate(hs.x, hs.y); ctx.rotate((hs.tilt || 0) * Math.PI / 180); ctx.scale(s, s); ctx.drawImage(img, -hs.tipx, -hs.tipy, hw, hh); ctx.restore();
     }
+    const mb = markBox();
+    if (mb && markImg.naturalWidth) {
+      ctx.save(); ctx.globalAlpha = mb.opacity;
+      ctx.drawImage(markImg, mb.x, mb.y, mb.w, mb.h);
+      ctx.restore();
+    }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
@@ -726,5 +762,5 @@
     return { step, speed, kind };
   }
 
-  window.doodle = { build, seek, paint, svgToStrokes, timeline, penCurve, handState: () => lastHand, duration: () => (P ? P.duration : 0) };
+  window.doodle = { build, seek, paint, svgToStrokes, timeline, penCurve, markBox, handState: () => lastHand, duration: () => (P ? P.duration : 0) };
 })();
