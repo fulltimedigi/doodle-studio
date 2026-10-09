@@ -159,7 +159,7 @@ function restoreImages(f, prev) {
 
 // ---------------------------------------------------------------- editors
 function drawAll() { SPEC.fields = RP.fieldsFor(SPEC, RP.TEMPLATES[SPEC.template]); drawLines(); drawFields(); rebuild(); }
-function voiceKey(text) { return [$('vModel').value, $('vVoice').value, $('vStyle').value, text].join('|'); }
+function voiceKey(text) { return [$('vModel').value, $('vVoice').value, $('vStyle').value, $('vMode').value, text].join('|'); }
 function drawLines() {
   const tpl = RP.TEMPLATES[SPEC.template];
   $('lines').innerHTML = tpl.lines.map((l) => {
@@ -220,8 +220,9 @@ async function genImage(path) {
 }
 
 // ---------------------------------------------------------------- timeline + preview
-let rebuildT = null;
-function changed() { clearTimeout(rebuildT); rebuildT = setTimeout(() => { drawLines(); rebuild(); $('json').value = JSON.stringify(SPEC, null, 1); }, 350); }
+let rebuildT = null, EXPORTING = false, DIRTY = false;
+const applyEdits = () => { rebuildT = null; drawLines(); rebuild(); $('json').value = JSON.stringify(SPEC, null, 1); };
+function changed() { clearTimeout(rebuildT); rebuildT = setTimeout(applyEdits, 350); }
 // The stage takes the studio's brand identity only once one is set up; until then it is
 // FullTimeDigi's own night palette (the generic defaults would tint it with a placeholder red).
 function specForRender() {
@@ -234,6 +235,8 @@ function voiced() {
   return out;
 }
 function rebuild() {
+  // an export renders one stage from its first frame to its last: edits made meanwhile wait for it
+  if (EXPORTING) { DIRTY = true; return; }
   const spec = specForRender();
   T = RP.timeline(spec, voiced());
   const st = STAGE = RP.mount($('host'), spec, T, { asset: (p) => 'assets/' + p });
@@ -326,24 +329,29 @@ function dropVoice() { VOICE = {}; drawLines(); rebuild(); say('vMsg', 'مُسح
 // One frame of the stage → a canvas. snapdom is about three times faster than html-to-image on these
 // stages and closer to Chromium's own screenshot (both measured on all four templates); html-to-image
 // stays as the fallback if snapdom is missing or fails on this browser.
-async function frameGrabber(root, W, H) {
+async function frameGrabber(st, W, H) {
+  const root = st.root; // the stage that renders is the stage that is captured
   if (window.snapdom) {
     try {
       const grab = async () => (await snapdom(root, { scale: 1, embedFonts: true, cache: 'auto' })).toCanvas();
       const c = await grab();
-      if (c.width === W && c.height === H) return async (t) => { STAGE.render(t); return grab(); };
+      if (c.width === W && c.height === H) return async (t) => { st.render(t); return grab(); };
     } catch (e) { console.warn('snapdom failed, using html-to-image', e); }
   }
   const fontEmbedCSS = await htmlToImage.getFontEmbedCSS(root);
-  return async (t) => { STAGE.render(t); return htmlToImage.toCanvas(root, { width: W, height: H, pixelRatio: 1, fontEmbedCSS, cacheBust: false }); };
+  return async (t) => { st.render(t); return htmlToImage.toCanvas(root, { width: W, height: H, pixelRatio: 1, fontEmbedCSS, cacheBust: false }); };
 }
-function coverTime() { const a = T.lines[T.order[0]], b = T.lines[T.order[1]]; return a ? Math.max(0.3, Math.min(a.end + 0.15, b ? b.start - 0.42 : a.end + 0.5)) : 0.5; }
+function coverTime(TL = T) { const a = TL.lines[TL.order[0]], b = TL.lines[TL.order[1]]; return a ? Math.max(0.3, Math.min(a.end + 0.15, b ? b.start - 0.42 : a.end + 0.5)) : 0.5; }
 async function exportBrowser() {
   if (!('VideoEncoder' in window)) return say('xMsg', '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge حديثًا', true);
   stop(); $('expBtn').disabled = true; $('result').innerHTML = ''; $('barFill').style.width = '0%';
-  const fps = +$('fps').value, W = 1080, H = 1920, frames = Math.ceil(T.duration * fps), root = STAGE.root;
+  // an edit still waiting for its rebuild goes in first; then this stage and timeline are the film
+  if (rebuildT) { clearTimeout(rebuildT); applyEdits(); }
+  await FONTS; STAGE.fit();
+  const st = STAGE, TL = T; EXPORTING = true;
+  const fps = +$('fps').value, W = 1080, H = 1920, frames = Math.ceil(TL.duration * fps);
   try {
-    if (Object.keys(voiced()).length < T.order.length) say('xMsg', 'ℹ️ بعض الأسطر بلا صوت — يُخرج بتوقيت تقديري');
+    if (Object.keys(voiced()).length < TL.order.length) say('xMsg', 'ℹ️ بعض الأسطر بلا صوت — يُخرج بتوقيت تقديري');
     let container = 'mp4', vcfg = { codec: 'avc1.640028', width: W, height: H, bitrate: 10_000_000, framerate: fps, avc: { format: 'avc' }, latencyMode: 'quality' };
     if (!(await VideoEncoder.isConfigSupported(vcfg)).supported) { container = 'webm'; vcfg = { codec: 'vp09.00.10.08', width: W, height: H, bitrate: 10_000_000, framerate: fps }; }
     let acodec = null;
@@ -361,7 +369,7 @@ async function exportBrowser() {
       for (let i = 0; i < mix.length; i += SR) { const n = Math.min(SR, mix.length - i); const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: 1, timestamp: Math.round((i / SR) * 1e6), data: mix.slice(i, i + n) }); aenc.encode(ad); ad.close(); }
       await aenc.flush(); aenc.close();
     }
-    const shot = await frameGrabber(root, W, H);
+    const shot = await frameGrabber(st, W, H);
     const t0 = performance.now();
     for (let f = 0; f < frames; f++) {
       if (encErr) throw encErr;
@@ -374,12 +382,13 @@ async function exportBrowser() {
     }
     await venc.flush(); venc.close(); muxer.finalize();
     const blob = new Blob([muxer.target.buffer], { type: container === 'mp4' ? 'video/mp4' : 'video/webm' });
-    const cc = await shot(coverTime()), cover = await new Promise((ok) => cc.toBlob(ok, 'image/jpeg', 0.9));
-    STAGE.render(T_NOW);
+    const cc = await shot(coverTime(TL)), cover = await new Promise((ok) => cc.toBlob(ok, 'image/jpeg', 0.9));
+    st.render(T_NOW);
     showResult(URL.createObjectURL(blob), container, blob.size, URL.createObjectURL(cover));
-    $('barFill').style.width = '100%'; say('xMsg', `✅ الفيديو جاهز — ${T.duration.toFixed(0)} ث`);
+    $('barFill').style.width = '100%'; say('xMsg', `✅ الفيديو جاهز — ${TL.duration.toFixed(0)} ث`);
     await save(blob, cover);
   } catch (e) { say('xMsg', '❌ ' + (e.message || e), true); console.error(e); }
+  finally { EXPORTING = false; if (DIRTY) { DIRTY = false; rebuild(); } }
   $('expBtn').disabled = false;
 }
 function showResult(url, ext, size, coverUrl) {

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ReelPro, ReelProAudio, renderReelPro, checkSpec, coverTime, voiceOf } from '../src/reel-pro.mjs';
 import { assetSource, scriptSource } from '../src/site-map.mjs';
-import { ROOT, chromiumOrNull } from './helpers.mjs';
+import { ROOT, chromiumOrNull, startServer } from './helpers.mjs';
 
 let ffmpegPath = null;
 try { ffmpegPath = (await import('ffmpeg-static')).default; } catch {}
@@ -343,6 +343,63 @@ describe('the stage in a real browser', { timeout: 180000 }, () => {
       assert.equal(r.pwned, 0); assert.equal(r.imgs, 0);
       assert.ok(r.hook.includes('<img'), 'the text should still be shown, as text');
     } finally { await s.browser.close(); }
+  });
+});
+
+describe('the studio page', { timeout: 240000 }, () => {
+  let c, base, stop, browser;
+  before(async () => { c = await chromiumOrNull(); if (!c) return; ({ base, stop } = await startServer()); browser = await c.chromium.launch(c.options); });
+  after(async () => { if (browser) await browser.close(); if (stop) stop(); });
+  const open = async () => {
+    const page = await browser.newPage(); const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(base + '/web/reel-pro.html'); await page.waitForFunction(() => typeof STAGE !== 'undefined' && STAGE);
+    return { page, errors };
+  };
+
+  test('changing the recording mode asks for a new voice', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const { page, errors } = await open();
+    try {
+      const r = await page.evaluate(() => {
+        const l = SPEC.lines[0]; VOICE[l.id] = { key: voiceKey(l.text), dur: 2, words: [], pcm: new Float32Array(10) };
+        const before = Object.keys(voiced()).length;
+        document.getElementById('vMode').value = document.getElementById('vMode').value === 'lines' ? 'script' : 'lines';
+        return { before, after: Object.keys(voiced()).length };
+      });
+      assert.deepEqual(r, { before: 1, after: 0 });
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  });
+
+  test('an export renders and captures one stage: the edit just made, and none made during it', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const { page, errors } = await open();
+    try {
+      const r = await page.evaluate(async () => {
+        pickTemplate('trust');
+        const seen = [];
+        // stand-in capture: records which stage each frame comes from, returns a blank frame quickly
+        window.frameGrabber = async (st, W, H) => {
+          const blank = document.createElement('canvas'); blank.width = W; blank.height = H;
+          return async (t) => {
+            st.render(t);
+            if (!seen.length) { SPEC.fields.hookA = 'تعديل أثناء الإخراج'; changed(); await new Promise((ok) => setTimeout(ok, 450)); }
+            seen.push({ same: st === STAGE, text: st.root.querySelector('.line').textContent });
+            return blank;
+          };
+        };
+        SPEC.fields.hookA = 'تعديل قبل الإخراج'; changed(); // still inside the 350 ms debounce
+        await exportBrowser();
+        return { frames: seen.length, allSame: seen.every((x) => x.same), texts: [...new Set(seen.map((x) => x.text))], after: STAGE.root.querySelector('.line').textContent, exported: !!document.querySelector('#result video') };
+      });
+      assert.ok(r.exported, 'the export finished');
+      assert.ok(r.frames > 100, `${r.frames} frames`);
+      assert.ok(r.allSame, 'the stage was replaced in the middle of the export');
+      assert.deepEqual(r.texts.map((x) => x.replace(/\s+/g, '')), ['تعديلقبلالإخراج'], 'every frame shows the edit made just before export');
+      assert.equal(r.after.replace(/\s+/g, ''), 'تعديلأثناءالإخراج', 'the edit made during the export is applied once it ends');
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
   });
 });
 
