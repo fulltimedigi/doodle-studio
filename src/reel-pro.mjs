@@ -50,8 +50,9 @@ export function voiceOf(spec) {
     style: typeof v.style === 'string' && v.style.length < 300 ? v.style : D.style,
     takes: Math.max(1, Math.min(4, +(v.takes ?? 2) || 2)),
     verify: v.verify !== false,
-    // 'script': one continuous take for the whole script, split into lines (the default); 'lines': one take per line
-    mode: v.mode === 'lines' ? 'lines' : 'script',
+    // 'lines': one take per line (the default — each line gets its own energy, which the founder preferred
+    // by ear over the continuous take); 'script': one continuous take for the whole script, split into lines
+    mode: v.mode === 'script' ? 'script' : 'lines',
   };
 }
 

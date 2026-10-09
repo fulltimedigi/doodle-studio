@@ -65,7 +65,7 @@
           <div><label class="f">الصوت</label><select id="vVoice"><option value="Charon">Charon — صوت FullTimeDigi المعتمد</option><option value="Fenrir">Fenrir — حماسي</option><option value="Orus">Orus — واثق</option><option value="Achird">Achird — ودود</option><option value="Iapetus">Iapetus — واضح</option><option value="Algenib">Algenib — عميق</option><option value="Kore">Kore — نسائي واثق</option><option value="Aoede">Aoede — نسائي خفيف</option></select></div>
           <div><label class="f">النموذج</label><select id="vModel"><option value="gemini-3.8-flash-tts">Gemini 3.8 Flash TTS (الأفضل)</option><option value="gemini-3.8-flash-lite-tts">Gemini 3.8 Flash Lite TTS (أرخص)</option></select></div>
         </div>
-        <label class="f">طريقة التسجيل</label><select id="vMode"><option value="script">تسجيل واحد متصل للسكربت (أطبع وأوفر)</option><option value="lines">كل سطر لوحده</option></select>
+        <label class="f">طريقة التسجيل</label><select id="vMode"><option value="lines">كل سطر لوحده (الأفضل — نبرة أحيى وتفاعل أكثر)</option><option value="script">تسجيل واحد متصل للسكربت</option></select>
         <label class="f">طريقة الأداء (بالإنجليزية)</label><input id="vStyle">
         <label class="row" style="font-size:13px;color:var(--muted)"><input type="checkbox" id="vVerify" checked style="width:auto;flex:0 0 auto"> تحقّق من النطق (يسمع كل سطر بعد توليده ويعيده إذا سقطت كلمات)</label>
         <div class="row"><button class="primary fix" id="voiceBtn" onclick="makeVoice()">🎙 ولّد الصوت</button><button class="ghost fix" onclick="dropVoice()">مسح الصوت</button></div>

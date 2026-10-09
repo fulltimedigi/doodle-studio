@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, statSync, rmSync } from 'node:fs
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ReelPro, ReelProAudio, renderReelPro, checkSpec, coverTime } from '../src/reel-pro.mjs';
+import { ReelPro, ReelProAudio, renderReelPro, checkSpec, coverTime, voiceOf } from '../src/reel-pro.mjs';
 import { assetSource, scriptSource } from '../src/site-map.mjs';
 import { ROOT, chromiumOrNull } from './helpers.mjs';
 
@@ -203,6 +203,12 @@ describe('Gemini quota errors', () => {
     assert.ok(r.pcm.length > 0); assert.equal(r.score, null); assert.equal(opts.skipVerify, true);
     assert.equal(calls.filter((u) => /tts/.test(u)).length, 1, 'no second take once checking is off');
   });
+});
+
+test('the voice is made line by line unless a continuous take is asked for', () => {
+  assert.equal(voiceOf({}).mode, 'lines');
+  assert.equal(voiceOf({ voice: { mode: 'script' } }).mode, 'script');
+  assert.equal(voiceOf({ voice: { mode: 'nonsense' } }).mode, 'lines');
 });
 
 describe('one take for the whole script', () => {
