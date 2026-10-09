@@ -24,7 +24,7 @@ Also add `"caption"` (an Instagram caption, 3–6 short lines, the same claims a
 
 ## Writing the spoken lines (`lines[].text`)
 
-- Saudi "white" dialect, natural and spoken: «وش، وين، الحين، شي، مو، اللي، ترى، ما نطلب».
+- In the dialect the brand context names, held to the last word — the voice is directed to speak that same dialect. For Gulf (the house voice, the default): Saudi "white" dialect, natural and spoken: «وش، وين، الحين، شي، مو، اللي، ترى، ما نطلب».
 - 4–14 words per line. Short phrases separated by «،» — every «،» is a beat the animation lands on.
 - Where the template lists three things (`reveal`, `msgs`, the third line of `read`), write exactly three phrases separated by «،» (after an optional short lead-in such as «ثلاث طرق:»).
 - Spell the website the way it should be read aloud, e.g. «فُل تايم ديجي دوت كوم».
