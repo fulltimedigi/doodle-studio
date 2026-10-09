@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process';
 import { ROOT, loadProject, compile } from './project.mjs';
 import { renderVideo, renderStill } from './render.mjs';
 import { renderReel } from './reel.mjs';
+import { renderReelPro } from './reel-pro.mjs';
 import { VOICES, synthesize } from './tts.mjs';
 import { generateScript } from './ai.mjs';
 import { catalog, GENERATED, assetSource, scriptSource } from './site-map.mjs';
@@ -147,6 +148,28 @@ async function handle(req, res) {
             log: (m) => { job.log.push(m); if (job.log.length > 40) job.log.shift(); },
           });
           job.status = 'done'; job.progress = 100; job.duration = r.seconds;
+          job.url = '/files/output/' + basename(r.mp4);
+          job.cover = '/files/output/' + basename(r.cover);
+          job.srt = '/files/output/' + basename(r.srt);
+        } catch (e) { job.status = 'error'; job.error = e.message; job.log.push('❌ ' + e.message); }
+      })();
+      return json(res, 200, { id });
+    }
+    // The pro reel: a template spec, voiced on the server with GEMINI_API_KEY (the page can render
+    // the same spec in the browser too; this path is faster and needs no WebCodecs).
+    if (req.method === 'POST' && path === '/api/reel-pro') {
+      const b = await body(req); const id = Math.random().toString(36).slice(2, 10);
+      const job = { id, status: 'queued', progress: 0, log: [], url: null, started: Date.now() }; jobs.set(id, job);
+      const spec = b.spec || {};
+      spec.slug = slug(spec.slug || spec.template || 'reel-pro');
+      (async () => {
+        try {
+          job.status = 'rendering';
+          const r = await renderReelPro(spec, {
+            out: join(WORK, 'output'), cacheDir: CACHE, fps: Math.min(60, Math.max(12, +(b.fps || 30))), music: b.music !== false,
+            log: (m) => { const pm = m.match(/(\d+)%/); if (pm) job.progress = +pm[1]; job.log.push(m); if (job.log.length > 40) job.log.shift(); },
+          });
+          job.status = 'done'; job.progress = 100; job.duration = r.seconds; job.voice = r.voice; job.scores = r.scores; job.warnings = r.warnings;
           job.url = '/files/output/' + basename(r.mp4);
           job.cover = '/files/output/' + basename(r.cover);
           job.srt = '/files/output/' + basename(r.srt);

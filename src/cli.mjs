@@ -5,6 +5,7 @@ import { resolve, join, basename, dirname } from 'node:path';
 import { ROOT, loadProject, compile } from './project.mjs';
 import { renderVideo, renderStill } from './render.mjs';
 import { renderReel } from './reel.mjs';
+import { renderReelPro, ReelPro } from './reel-pro.mjs';
 import { renderGuidePdf } from './guide.mjs';
 import { VOICES } from './tts.mjs';
 import { imageToStrokes } from './strokes.mjs';
@@ -28,6 +29,8 @@ doodle-studio — فيديوهات Doodle مجانية، بدون اشتراكا
   doodle render <script.json> [-o out.mp4] [--fps 30] [--draft] [--no-audio] [--quality good|best|draft]
   doodle still  <script.json> --at 3.5 [-o frame.png]      لقطة واحدة عند ثانية معينة (للمعاينة السريعة)
   doodle reel   <reel.json> [-o out/] [--fps 30] [--music track.mp3]   ريل 1080x1920 + غلاف 4:5 + ملف ترجمة
+  doodle reel-pro <spec.json | challenge|brand|questions|trust> [-o out/] [--fps 30] [--no-voice] [--no-music] [--stills 1,4.5,9]
+                ريل احترافي من قالب: صوت Gemini متزامن مع الحركة (GEMINI_API_KEY) + غلاف + ترجمة
   doodle pdf    <guide.html> [-o guide.pdf]                ملف PDF مقاس A4 بنص حقيقي قابل للتحديد والبحث
   doodle ai     <brief.txt> [-o script.json] [--format 16:9|9:16|1:1] [--lang ar|en] [--model qwen2.5:7b]
   doodle new    <folder>                                      مشروع جديد يحتوي مثالًا جاهزًا
@@ -95,6 +98,16 @@ async function main() {
       musicVolume: +(flags['music-volume'] || 0.12), log,
     });
     log(`✅ ${r.mp4}  ${r.seconds}s · ${r.frames} frames · ${r.voiceLines} voice lines`);
+    log(`   ${r.cover}\n   ${r.srt}`); return;
+  }
+  if (cmd === 'reel-pro') {
+    if (!pos[0]) throw new Error('give a spec.json, or a template name: ' + Object.keys(ReelPro.TEMPLATES).join(', '));
+    const spec = ReelPro.TEMPLATES[pos[0]] ? ReelPro.example(pos[0]) : JSON.parse(readFileSync(resolve(pos[0]), 'utf8'));
+    if (flags['no-voice']) spec.voice = false;
+    const stills = typeof flags.stills === 'string' ? flags.stills.split(',').map(Number).filter(Number.isFinite) : null;
+    const r = await renderReelPro(spec, { out: flags.out || 'output', fps: +(flags.fps || 30), music: !flags['no-music'], cacheDir: CACHE, stills, log });
+    if (stills) { log(`✅ ${r.stills.join('\n   ')}`); return; }
+    log(`✅ ${r.mp4}  ${r.seconds}s · ${r.frames} frames · voice: ${r.voice ? 'Gemini' : 'none'}`);
     log(`   ${r.cover}\n   ${r.srt}`); return;
   }
   if (cmd === 'pdf') {

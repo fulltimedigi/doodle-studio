@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ريل احترافي — Doodle Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="stylesheet" href="css/suite.css">
+<link rel="stylesheet" href="css/reel-pro.css">
+<style>
+  .tpls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tpl{border:1px solid var(--line);border-radius:12px;padding:10px;cursor:pointer;background:#fff;text-align:right;color:var(--ink);white-space:normal}
+  .tpl b{display:block;font-size:14px}.tpl span{font-size:12px;color:var(--muted)}
+  .tpl.on{border-color:var(--accent);box-shadow:0 0 0 2px #cdeee2;background:#f6fffb}
+  .ln{border-top:1px dashed var(--line);padding:8px 0}
+  .ln .h{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+  .ln .h b{color:var(--ink);font-size:13px}.ln .h .grow{flex:1}
+  .ln textarea{min-height:46px;margin-top:4px;font-size:14px}
+  .score{font-size:11px;border-radius:999px;padding:1px 8px;background:var(--soft)}
+  .score.ok{background:#e3f6ee;color:#0b6b52}.score.bad{background:#fdecea;color:#b3261e}
+  .fg{border:1px solid var(--line);border-radius:10px;padding:6px 10px 8px;margin:8px 0}
+  .fg>.t{font-size:12px;color:var(--muted);font-weight:700}
+  .fg input{margin-top:4px}
+  .img{display:flex;gap:8px;align-items:center;margin-top:6px}
+  .img img{width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--soft)}
+  .vp{position:relative;width:324px;height:576px;margin:0 auto;border-radius:18px;overflow:hidden;direction:ltr;background:#03140f;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+  .vp #host{position:absolute;left:0;top:0;width:1080px;height:1920px;transform:scale(.3);transform-origin:0 0}
+  .ctl{display:flex;gap:8px;align-items:center;margin-top:10px;direction:rtl}
+  .ctl input[type=range]{flex:1;padding:0}
+  .bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;width:0;background:var(--accent)}
+  .warn{background:#fff6e5;border:1px solid #f0d199;border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px}
+  .warn li{margin:2px 0}
+  video{width:100%;max-width:324px;border-radius:12px;background:#000;display:block;margin:10px auto 0}
+  details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+  .log{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:100px;overflow:auto}
+</style>
+</head>
+<body>
+<main class="wide">
+  <div><h1 class="page">🎬 ريل احترافي</h1>
+    <p class="lead">قوالب ريلز مصمّمة لتشدّ التاجر من أول ثانية لآخر ثانية: هوك في أول إطار، عدّاد أو سؤال يخلّيه يكمل، وكل كلمة على الشاشة متزامنة مع الصوت. الصوت الخليجي من Gemini، والتصدير MP4 داخل متصفحك.</p></div>
+
+  <div class="pane">
+    <div>
+      <div class="card"><h2>١ · القالب</h2><div class="tpls" id="tpls"></div></div>
+
+      <div class="card"><h2>٢ · الفكرة</h2>
+        <textarea id="topic" rows="3" placeholder="عن ماذا هذا الريل؟ (اختياري) — مثال: متجر عطور، الأسئلة اللي يسألها العميل عن الثبات والتركيز"></textarea>
+        <div class="row"><button class="primary fix" id="aiBtn" onclick="writeAI()">✍️ اكتب الريل بالذكاء الاصطناعي</button><button class="soft fix" onclick="loadExample()">المثال الجاهز</button></div>
+        <p id="aiMsg" class="msg"></p>
+      </div>
+
+      <div class="card"><h2>٣ · الكلام المنطوق <span class="grow"></span><span class="muted" id="durLbl"></span></h2>
+        <div id="lines"></div>
+      </div>
+
+      <div class="card"><h2>٤ · الصوت</h2>
+        <div class="grid2">
+          <div><label class="f">الصوت</label><select id="vVoice"><option value="Charon">Charon — صوت FullTimeDigi المعتمد</option><option value="Fenrir">Fenrir — حماسي</option><option value="Orus">Orus — واثق</option><option value="Achird">Achird — ودود</option><option value="Iapetus">Iapetus — واضح</option><option value="Algenib">Algenib — عميق</option><option value="Kore">Kore — نسائي واثق</option><option value="Aoede">Aoede — نسائي خفيف</option></select></div>
+          <div><label class="f">النموذج</label><select id="vModel"><option value="gemini-3.8-flash-tts">Gemini 3.8 Flash TTS (الأفضل)</option><option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS</option><option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS</option></select></div>
+        </div>
+        <label class="f">طريقة الأداء (بالإنجليزية)</label><input id="vStyle">
+        <label class="row" style="font-size:13px;color:var(--muted)"><input type="checkbox" id="vVerify" checked style="width:auto;flex:0 0 auto"> تحقّق من النطق (يسمع كل سطر بعد توليده ويعيده إذا سقطت كلمات)</label>
+        <div class="row"><button class="primary fix" id="voiceBtn" onclick="makeVoice()">🎙 ولّد الصوت</button><button class="ghost fix" onclick="dropVoice()">مسح الصوت</button></div>
+        <p id="vMsg" class="msg"></p>
+      </div>
+
+      <div class="card"><h2>٥ · النصوص على الشاشة والصور</h2>
+        <div id="fields"></div>
+        <details><summary>JSON متقدم</summary><textarea id="json" rows="10" style="font-family:ui-monospace,monospace;font-size:12px;direction:ltr"></textarea><button class="soft small" onclick="applyJson()">تطبيق</button></details>
+      </div>
+    </div>
+
+    <div class="sticky">
+      <div class="card"><h2>المعاينة <span class="grow"></span><button class="ghost small fix" onclick="save()">💾 حفظ</button></h2>
+        <div class="vp"><div id="host"></div></div>
+        <div class="ctl"><button class="fix" id="playBtn" onclick="togglePlay()">▶</button><input type="range" id="scrub" min="0" max="30" step="0.01" value="0" oninput="seek(+this.value)"><span class="muted fix" id="tLbl">0.0 ث</span></div>
+        <div id="warns"></div>
+        <div class="row" style="margin-top:12px">
+          <select id="fps" class="fix" style="width:auto"><option value="30">30 إطار/ث</option><option value="24">24 إطار/ث (أسرع)</option></select>
+          <button class="primary" id="expBtn" onclick="exportBrowser()">🎬 أخرج الفيديو</button>
+        </div>
+        <button class="soft big" id="srvBtn" onclick="exportServer()" hidden>⚡ إخراج سريع على الخادم</button>
+        <div class="bar"><i id="barFill"></i></div>
+        <p id="xMsg" class="msg"></p>
+        <div id="log" class="log"></div>
+        <div id="result"></div>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="js/core.js"></script>
+<script src="js/html-to-image.js"></script>
+<script src="js/mp4-muxer.js"></script>
+<script src="js/webm-muxer.js"></script>
+<script src="js/reel-pro.js"></script>
+<script src="js/reel-pro-audio.js"></script>
+<script>
+const { $, esc, say, toast, copyText, geminiJSON, brandContext, loadBrand, lib, needKey, download, q, sleep, settings, readFile, generateImage, imageStyle, spend } = Suite;
+const RP = window.ReelPro, RA = window.ReelProAudio, SR = RA.SR;
+Suite.mountHeader('ريل احترافي');
+const B = loadBrand();
+
+// ---------------------------------------------------------------- state
+let TPL = 'challenge', SPEC = null, ID = q.get('id'), SERVER = false;
+let VOICE = {};          // line id -> { key, pcm, dur, words, score, heard }
+let T = null, STAGE = null, T_NOW = 0, playing = false, playFrom = 0, playAt = 0, audioCtx = null, audioSrc = null, MIX = null, MIX_KEY = '';
+$('vStyle').value = RA.DEFAULT_VOICE.style;
+
+const LABELS = { hookA: 'عنوان الهوك', hookB: 'سطر تحت الهوك', hookMint: 'كلمات ملوّنة في الهوك', product: 'المنتج', name: 'الاسم', image: 'الصورة', priceK: 'عنوان السعر', priceV: 'السعر', sizeK: 'عنوان المقاس', sizes: 'المقاسات', descK: 'عنوان الوصف', descV: 'الوصف', button: 'زر الشراء',
+  finds: 'الأشياء المكتشفة (٣)', turnA: 'جملة «ليش يهمّ» ١', turnB: 'جملة «ليش يهمّ» ٢', ansA: 'عنوان الحل', ansB: 'سطر الحل', ansS: 'سطر تحت الحل', ansMint: 'كلمات ملوّنة في الحل', rowNote: 'ملاحظة السطر', cta: 'الدعوة', a: 'السطر ١', b: 'السطر ٢', btn: 'نص الزر', reply: 'سؤال للتعليقات', micro: 'سطر صغير', bWord: 'الكلمة الملوّنة',
+  pageTag: 'علامة الصفحة التوضيحية', reportTag: 'علامة التقرير التوضيحي', chatTag: 'علامة المحادثة', search: 'كلمة البحث', items: 'المنتجات (٣)', before: 'قبل الماركة', brand: 'الماركة', after: 'بعد الماركة', sub: 'سطر صغير', labels: 'أسماء الطرق (٣)', unified: 'الاسم الموحّد',
+  repTitle: 'عنوان التقرير', inboxTitle: 'عنوان الرسائل', sender: 'اسم المرسل', greeting: 'التحية', questions: 'أسئلة العملاء (٣)', whyA: 'عنوان «ليش يسأل»', whyB: 'سطر «ليش يسأل»', slots: 'الخانات الناقصة (٣)', checkA: 'عنوان الفحص', checkB: 'كلمة الفحص', checkS: 'سطر الفحص',
+  asA: 'عنوان المساعد', asB: 'سطر المساعد', asMint: 'كلمات ملوّنة', assistName: 'اسم المساعد', thread: 'محادثة المساعد', q: 'سؤال العميل', note: 'ملاحظة', fieldLabel: 'عنوان الحقل', stamp: 'الشارة', usA: 'المفاجأة ١', usB: 'المفاجأة ٢', howA: 'عنوان الربط', howB: 'سطر الربط', howMint: 'كلمات ملوّنة', ok: 'شارة الموافقة', readA: 'عنوان الوعود', readMint: 'كلمات ملوّنة', rows: 'الوعود (٣)' };
+
+// ---------------------------------------------------------------- templates
+function drawTemplates() {
+  $('tpls').innerHTML = Object.values(RP.TEMPLATES).map((t) => `<button class="tpl ${t.id === TPL ? 'on' : ''}" onclick="pickTemplate('${t.id}')"><b>${t.icon} ${esc(t.title)}</b><span>${esc(t.desc)}</span></button>`).join('');
+}
+function pickTemplate(id) { if (id === TPL && SPEC) return; TPL = id; SPEC = RP.example(id); VOICE = {}; drawTemplates(); drawAll(); }
+function loadExample() { SPEC = RP.example(TPL); VOICE = {}; drawAll(); say('aiMsg', 'المثال الجاهز — كل كلمة فيه من الكلام المعتمد'); }
+
+// ---------------------------------------------------------------- AI
+async function writeAI() {
+  if (!needKey('aiMsg')) return;
+  $('aiBtn').disabled = true; say('aiMsg', '✍️ جارٍ الكتابة…');
+  try {
+    const tpl = RP.TEMPLATES[TPL];
+    const sys = (await (await fetch('assets/prompts/reel-pro.md')).text()) + '\n\n' + brandContext(B);
+    const scenes = tpl.lines.map((l) => `- ${l.id}: ${l.label}`).join('\n');
+    const user = `TEMPLATE: ${tpl.id} — ${tpl.title}\n${tpl.desc}\nSpoken lines, in order:\n${scenes}\n\nEXAMPLE (return exactly this shape):\n${JSON.stringify(RP.example(TPL), null, 1)}\n\nTOPIC: ${$('topic').value.trim() || '(none — improve the example for this brand)'}\nReturn ONLY the JSON.`;
+    const out = await geminiJSON(sys, user, { temperature: 0.8, onWait: (m) => say('aiMsg', m) });
+    if (!Array.isArray(out.lines)) throw new Error('النموذج لم يُرجع الأسطر');
+    const ex = RP.example(TPL);
+    // keep the template's line ids and order; take the model's words where it gave them
+    out.lines = ex.lines.map((l) => ({ id: l.id, text: String(out.lines.find((x) => x && x.id === l.id)?.text || l.text) }));
+    out.template = TPL; out.fields = RP.fieldsFor(out, RP.TEMPLATES[TPL]);
+    // images stay as they are in the studio unless the person changes them
+    restoreImages(out.fields, SPEC?.fields);
+    SPEC = { ...ex, ...out }; VOICE = {}; drawAll();
+    say('aiMsg', '✅ جاهز — راجع الكلام، ثم ولّد الصوت');
+  } catch (e) { say('aiMsg', '❌ ' + e.message, true); }
+  $('aiBtn').disabled = false;
+}
+function restoreImages(f, prev) {
+  if (!prev) return;
+  if (f.product && prev.product?.image) f.product.image = prev.product.image;
+  if (Array.isArray(f.items) && Array.isArray(prev.items)) f.items.forEach((it, i) => { if (prev.items[i]?.image) it.image = prev.items[i].image; });
+}
+
+// ---------------------------------------------------------------- editors
+function drawAll() { SPEC.fields = RP.fieldsFor(SPEC, RP.TEMPLATES[SPEC.template]); drawLines(); drawFields(); rebuild(); }
+function voiceKey(text) { return [$('vModel').value, $('vVoice').value, $('vStyle').value, text].join('|'); }
+function drawLines() {
+  const tpl = RP.TEMPLATES[SPEC.template];
+  $('lines').innerHTML = tpl.lines.map((l) => {
+    const cur = SPEC.lines.find((x) => x.id === l.id) || { text: '' };
+    const v = VOICE[l.id], fresh = v && v.key === voiceKey(cur.text);
+    const sc = fresh ? (v.score == null ? '<span class="score ok">🎙</span>' : `<span class="score ${v.score >= 0.85 ? 'ok' : 'bad'}" title="${esc(v.heard || '')}">🎙 ${Math.round(v.score * 100)}%</span>`) : (v ? '<span class="score bad">تغيّر النص</span>' : '');
+    return `<div class="ln"><div class="h"><b>${esc(l.label)}</b><span class="grow"></span>${sc}${fresh ? `<button class="ghost small" onclick="playLine('${l.id}')">▶</button>` : ''}</div>
+      <textarea data-id="${l.id}" oninput="editLine(this)">${esc(cur.text)}</textarea></div>`;
+  }).join('');
+}
+function editLine(el) {
+  const l = SPEC.lines.find((x) => x.id === el.dataset.id);
+  if (l) l.text = el.value; else SPEC.lines.push({ id: el.dataset.id, text: el.value });
+  changed();
+}
+// a generic form over the template's fields: strings, lists and nested groups
+function drawFields() {
+  const F = SPEC.fields;
+  const lbl = (k) => esc(LABELS[k] || k);
+  const node = (val, path, key) => {
+    if (key === 'image') return imgPicker(val, path);
+    if (typeof val === 'string') return `<label class="f">${lbl(key)}</label><input data-path="${path}" value="${esc(val)}" oninput="editField(this)">`;
+    if (Array.isArray(val)) return `<div class="fg"><div class="t">${lbl(key)}</div>${val.map((v, i) => typeof v === 'object' ? `<div class="fg"><div class="t">${i + 1}</div>${Object.keys(v).map((k2) => node(v[k2], path + '.' + i + '.' + k2, k2)).join('')}</div>` : `<input data-path="${path}.${i}" value="${esc(v)}" oninput="editField(this)">`).join('')}</div>`;
+    if (val && typeof val === 'object') return `<div class="fg"><div class="t">${lbl(key)}</div>${Object.keys(val).map((k2) => node(val[k2], path + '.' + k2, k2)).join('')}</div>`;
+    return '';
+  };
+  $('fields').innerHTML = Object.keys(F).map((k) => node(F[k], k, k)).join('');
+  $('json').value = JSON.stringify(SPEC, null, 1);
+}
+function imgPicker(val, path) {
+  const src = String(val).startsWith('data:') ? val : 'assets/' + val;
+  return `<div class="img"><img src="${esc(src)}" alt=""><button class="soft small" onclick="pickImage('${path}')">📷 صورة</button><button class="soft small" onclick="genImage('${path}')">🎨 ولّد صورة</button></div>`;
+}
+const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+function setPath(o, p, v) { const ks = p.split('.'); const last = ks.pop(); const t = ks.reduce((a, k) => a[k], o); t[last] = v; }
+function editField(el) { setPath(SPEC.fields, el.dataset.path, el.value); changed(); }
+function applyJson() { try { const s = JSON.parse($('json').value); if (!RP.TEMPLATES[s.template]) throw new Error('قالب غير معروف'); SPEC = s; TPL = s.template; drawTemplates(); drawAll(); toast('✅ طُبّق'); } catch (e) { toast('❌ ' + e.message); } }
+async function shrink(dataUrl, max = 900) {
+  const im = new Image(); im.src = dataUrl; await im.decode();
+  const k = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas');
+  c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.86);
+}
+function pickImage(path) {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => { if (!inp.files[0]) return; setPath(SPEC.fields, path, await shrink(await readFile(inp.files[0]))); drawFields(); changed(); };
+  inp.click();
+}
+async function genImage(path) {
+  if (!needKey('xMsg')) return;
+  const base = path.replace(/\.image$/, ''), it = getPath(SPEC.fields, base) || {};
+  const what = it.name || [it.before, it.brand, it.after].filter(Boolean).join(' ') || 'product';
+  say('xMsg', '🎨 جارٍ توليد الصورة…');
+  try {
+    const url = await generateImage(`Professional e-commerce product photo of: ${what}. Soft studio light, clean light warm-grey seamless background, centered, photorealistic. No text, no letters, no logos, no watermark.${imageStyle(B)}`, { ratio: '3:4', onWait: (m) => say('xMsg', m) });
+    setPath(SPEC.fields, path, await shrink(url)); drawFields(); changed(); say('xMsg', '✅ الصورة جاهزة — صورة توضيحية مولّدة');
+  } catch (e) { say('xMsg', '❌ ' + e.message, true); }
+}
+
+// ---------------------------------------------------------------- timeline + preview
+let rebuildT = null;
+function changed() { clearTimeout(rebuildT); rebuildT = setTimeout(() => { drawLines(); rebuild(); $('json').value = JSON.stringify(SPEC, null, 1); }, 350); }
+// The stage takes the studio's brand identity only once one is set up; until then it is
+// FullTimeDigi's own night palette (the generic defaults would tint it with a placeholder red).
+function specForRender() {
+  const ready = Suite.brandReady(B);
+  return { ...SPEC, brand: ready ? { accent: B.colors?.accent, primary: B.colors?.primary, website: B.website || 'fulltimedigi.com', logo: /^data:image\//.test(B.logo || '') && !/fulltimedigi/i.test(B.name || '') ? B.logo : undefined } : { website: 'fulltimedigi.com' } };
+}
+function voiced() {
+  const out = {};
+  for (const l of SPEC.lines) { const v = VOICE[l.id]; if (v && v.key === voiceKey(l.text)) out[l.id] = { dur: v.dur, words: v.words }; }
+  return out;
+}
+function rebuild() {
+  const spec = specForRender();
+  T = RP.timeline(spec, voiced());
+  STAGE = RP.mount($('host'), spec, T, { asset: (p) => 'assets/' + p });
+  $('scrub').max = T.duration.toFixed(2);
+  T_NOW = Math.min(T_NOW, T.duration); STAGE.render(T_NOW); label();
+  const n = Object.keys(voiced()).length;
+  $('durLbl').textContent = `${T.duration.toFixed(1)} ث · ${n ? `صوت ${n}/${T.order.length}` : 'توقيت تقديري بلا صوت'}`;
+  const banned = String(B.banned || '').split(/[،,\n]/).map((s) => s.trim()).filter(Boolean);
+  const w = RP.lint(SPEC, banned);
+  $('warns').innerHTML = w.length ? `<div class="warn"><b>⚠️ راجع قبل النشر</b><ul>${w.slice(0, 8).map((x) => `<li>${esc(x.where)}: ${esc(x.why)}</li>`).join('')}</ul></div>` : '';
+}
+function label() { $('tLbl').textContent = T_NOW.toFixed(1) + ' ث'; $('scrub').value = T_NOW; }
+function seek(t) { stop(); T_NOW = t; STAGE.render(t); label(); }
+function stop() { playing = false; $('playBtn').textContent = '▶'; if (audioSrc) { try { audioSrc.stop(); } catch {} audioSrc = null; } }
+async function togglePlay() {
+  if (playing) return stop();
+  if (T_NOW >= T.duration - 0.05) T_NOW = 0;
+  playing = true; $('playBtn').textContent = '⏸';
+  try {
+    const buf = await soundtrack();
+    audioCtx = audioCtx || new AudioContext({ sampleRate: SR });
+    const ab = audioCtx.createBuffer(1, buf.length, SR); ab.copyToChannel(buf, 0);
+    audioSrc = audioCtx.createBufferSource(); audioSrc.buffer = ab; audioSrc.connect(audioCtx.destination);
+    audioSrc.start(0, T_NOW);
+  } catch (e) { console.warn(e); }
+  playFrom = T_NOW; playAt = performance.now();
+  const tick = () => { if (!playing) return; T_NOW = Math.min(T.duration, playFrom + (performance.now() - playAt) / 1000); STAGE.render(T_NOW); label(); if (T_NOW >= T.duration) return stop(); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+/** Voice + music + effects for the current timeline (cached until something changes). */
+async function soundtrack() {
+  const key = JSON.stringify([T.duration, T.order.map((id) => [T.lines[id].start, VOICE[id]?.key || ''])]);
+  if (MIX && MIX_KEY === key) return MIX;
+  const spec = specForRender(), first = T.lines[T.order[1]] || T.lines[T.order[0]];
+  await sleep(10);
+  MIX = RA.mix({ dur: T.duration, sfx: RP.sfx(spec, T), voices: T.order.filter((id) => voiced()[id]).map((id) => ({ at: T.lines[id].start, pcm: VOICE[id].pcm })),
+    pulseFrom: first ? first.start : 2, finalAt: T.lines.cta ? T.lines.cta.start - 0.3 : null });
+  MIX_KEY = key; return MIX;
+}
+function playLine(id) {
+  const v = VOICE[id]; if (!v) return;
+  audioCtx = audioCtx || new AudioContext({ sampleRate: SR });
+  const ab = audioCtx.createBuffer(1, v.pcm.length, SR); ab.copyToChannel(v.pcm, 0);
+  const s = audioCtx.createBufferSource(); s.buffer = ab; s.connect(audioCtx.destination); s.start();
+}
+
+// ---------------------------------------------------------------- voice
+async function makeVoice() {
+  if (!needKey('vMsg')) return;
+  stop(); $('voiceBtn').disabled = true;
+  const opts = { key: settings.key, model: $('vModel').value, voice: $('vVoice').value, style: $('vStyle').value.trim() || RA.DEFAULT_VOICE.style,
+    verify: $('vVerify').checked, takes: $('vVerify').checked ? 2 : 1, onWait: (m) => say('vMsg', m) };
+  try {
+    let i = 0;
+    for (const l of SPEC.lines) {
+      i++; const text = String(l.text || '').trim(); if (!text) continue;
+      const key = voiceKey(text); if (VOICE[l.id] && VOICE[l.id].key === key) continue;
+      say('vMsg', `🎙 ${i}/${SPEC.lines.length} — ${text.slice(0, 30)}…`);
+      const r = await RA.voiceLine(text, opts);
+      spend.add(0.004 * (opts.verify ? 1.3 : 1), 'صوت ريل');
+      VOICE[l.id] = { key, ...r }; drawLines();
+    }
+    rebuild();
+    const low = SPEC.lines.filter((l) => VOICE[l.id]?.score != null && VOICE[l.id].score < 0.85);
+    say('vMsg', low.length ? `⚠️ اسمع ${low.length} سطر — المطابقة أقل من 85%، ممكن تعيد توليده` : '✅ الصوت جاهز ومتزامن — اضغط ▶ للمعاينة', !!low.length);
+  } catch (e) { say('vMsg', '❌ ' + e.message, true); }
+  $('voiceBtn').disabled = false;
+}
+function dropVoice() { VOICE = {}; drawLines(); rebuild(); say('vMsg', 'مُسح الصوت'); }
+
+// ---------------------------------------------------------------- export: browser
+function coverTime() { const a = T.lines[T.order[0]], b = T.lines[T.order[1]]; return a ? Math.max(0.3, Math.min(a.end + 0.15, b ? b.start - 0.42 : a.end + 0.5)) : 0.5; }
+async function exportBrowser() {
+  if (!('VideoEncoder' in window)) return say('xMsg', '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge حديثًا', true);
+  stop(); $('expBtn').disabled = true; $('result').innerHTML = ''; $('barFill').style.width = '0%';
+  const fps = +$('fps').value, W = 1080, H = 1920, frames = Math.ceil(T.duration * fps), root = STAGE.root;
+  try {
+    if (Object.keys(voiced()).length < T.order.length) say('xMsg', 'ℹ️ بعض الأسطر بلا صوت — يُخرج بتوقيت تقديري');
+    let container = 'mp4', vcfg = { codec: 'avc1.640028', width: W, height: H, bitrate: 10_000_000, framerate: fps, avc: { format: 'avc' }, latencyMode: 'quality' };
+    if (!(await VideoEncoder.isConfigSupported(vcfg)).supported) { container = 'webm'; vcfg = { codec: 'vp09.00.10.08', width: W, height: H, bitrate: 10_000_000, framerate: fps }; }
+    let acodec = null;
+    for (const c of (container === 'mp4' ? ['mp4a.40.2', 'opus'] : ['opus'])) if ((await AudioEncoder.isConfigSupported({ codec: c, sampleRate: SR, numberOfChannels: 1, bitrate: 160000 })).supported) { acodec = c; break; }
+    const muxer = container === 'mp4'
+      ? new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: acodec ? { codec: acodec === 'opus' ? 'opus' : 'aac', numberOfChannels: 1, sampleRate: SR } : undefined, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })
+      : new WebMMuxer.Muxer({ target: new WebMMuxer.ArrayBufferTarget(), video: { codec: 'V_VP9', width: W, height: H }, audio: acodec ? { codec: 'A_OPUS', numberOfChannels: 1, sampleRate: SR } : undefined, firstTimestampBehavior: 'offset' });
+    let encErr = null;
+    const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { encErr = e; } }); venc.configure(vcfg);
+    if (acodec) {
+      say('xMsg', '🎧 مزج الصوت والموسيقى…');
+      const mix = await soundtrack();
+      const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: (e) => { encErr = e; } });
+      aenc.configure({ codec: acodec, sampleRate: SR, numberOfChannels: 1, bitrate: 160000 });
+      for (let i = 0; i < mix.length; i += SR) { const n = Math.min(SR, mix.length - i); const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: 1, timestamp: Math.round((i / SR) * 1e6), data: mix.slice(i, i + n) }); aenc.encode(ad); ad.close(); }
+      await aenc.flush(); aenc.close();
+    }
+    const fontEmbedCSS = await htmlToImage.getFontEmbedCSS(root);
+    const shot = async (t) => { STAGE.render(t); return htmlToImage.toCanvas(root, { width: W, height: H, pixelRatio: 1, fontEmbedCSS, cacheBust: false }); };
+    const t0 = performance.now();
+    for (let f = 0; f < frames; f++) {
+      if (encErr) throw encErr;
+      const c = await shot(f / fps);
+      const vf = new VideoFrame(c, { timestamp: Math.round((f * 1e6) / fps), duration: Math.round(1e6 / fps) });
+      venc.encode(vf, { keyFrame: f % (fps * 2) === 0 }); vf.close();
+      while (venc.encodeQueueSize > 4) await sleep(4);
+      if (f % 5 === 0) { const p = (f + 1) / frames, el = (performance.now() - t0) / 1000, eta = (el / (f + 1)) * (frames - f - 1);
+        $('barFill').style.width = Math.round(p * 100) + '%'; say('xMsg', `🎬 ${Math.round(p * 100)}% — باقي حوالي ${Math.ceil(eta)} ث`); T_NOW = f / fps; label(); }
+    }
+    await venc.flush(); venc.close(); muxer.finalize();
+    const blob = new Blob([muxer.target.buffer], { type: container === 'mp4' ? 'video/mp4' : 'video/webm' });
+    const cc = await shot(coverTime()), cover = await new Promise((ok) => cc.toBlob(ok, 'image/jpeg', 0.9));
+    STAGE.render(T_NOW);
+    showResult(URL.createObjectURL(blob), container, blob.size, URL.createObjectURL(cover));
+    $('barFill').style.width = '100%'; say('xMsg', `✅ الفيديو جاهز — ${T.duration.toFixed(0)} ث`);
+    await save(blob, cover);
+  } catch (e) { say('xMsg', '❌ ' + (e.message || e), true); console.error(e); }
+  $('expBtn').disabled = false;
+}
+function showResult(url, ext, size, coverUrl) {
+  const name = (SPEC.slug || 'reel-pro') + '.' + ext;
+  $('result').innerHTML = `<video src="${url}" controls playsinline></video>
+    <div class="row"><a class="fix" href="${url}" download="${esc(name)}"><button class="primary">⬇ الفيديو${size ? ` (${(size / 1e6).toFixed(1)} MB)` : ''}</button></a>${coverUrl ? `<a class="fix" href="${coverUrl}" download="${esc((SPEC.slug || 'reel-pro') + '-cover.jpg')}"><button class="soft">⬇ الغلاف</button></a>` : ''}</div>
+    ${SPEC.caption ? `<div class="note"><b>الكابشن</b> <button class="ghost small" onclick="copyCaption()">📋 نسخ</button><div style="white-space:pre-wrap">${esc(SPEC.caption)}</div><div class="muted">${esc((SPEC.hashtags || []).join(' '))}</div></div>` : ''}`;
+}
+function copyCaption() { copyText(SPEC.caption + '\n\n' + (SPEC.hashtags || []).join(' ')); }
+
+// ---------------------------------------------------------------- export: server
+async function exportServer() {
+  stop(); $('srvBtn').disabled = true; $('result').innerHTML = '';
+  try {
+    const spec = specForRender(); spec.voice = { model: $('vModel').value, voice: $('vVoice').value, style: $('vStyle').value.trim() || undefined, verify: $('vVerify').checked };
+    const r = await fetch('/api/reel-pro', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ spec, fps: +$('fps').value }) });
+    const { id, error } = await r.json(); if (error) throw new Error(error);
+    for (;;) {
+      await sleep(1500);
+      const j = await (await fetch('/api/jobs/' + id)).json();
+      $('log').textContent = (j.log || []).slice(-6).join('\n'); $('barFill').style.width = (j.progress || 0) + '%';
+      if (j.status === 'done') { showResult(j.url, 'mp4', 0, j.cover); say('xMsg', `✅ ${j.duration.toFixed(1)} ث${j.voice ? '' : ' — بلا صوت (لا يوجد GEMINI_API_KEY على الخادم)'}`); break; }
+      if (j.status === 'error') throw new Error(j.error || 'فشل الإخراج');
+      say('xMsg', '⚡ جارٍ الإخراج على الخادم…');
+    }
+  } catch (e) { say('xMsg', '❌ ' + e.message, true); }
+  $('srvBtn').disabled = false;
+}
+
+// ---------------------------------------------------------------- library
+async function save(video, cover) {
+  try {
+    const wavs = {}; for (const [id, v] of Object.entries(VOICE)) wavs[id] = { key: v.key, dur: v.dur, words: v.words, score: v.score, heard: v.heard, wav: new Blob([RA.wav(v.pcm)], { type: 'audio/wav' }) };
+    const item = await lib.save({ id: ID || undefined, type: 'reelpro', title: SPEC.fields?.hookA || RP.TEMPLATES[SPEC.template].title, data: { spec: SPEC, topic: $('topic').value, voice: wavs, vModel: $('vModel').value, vVoice: $('vVoice').value, vStyle: $('vStyle').value },
+      video: video instanceof Blob ? video : undefined, ext: video ? 'mp4' : undefined, thumb: cover ? await blobUrl(cover) : undefined });
+    ID = item.id; if (!video) toast('💾 حُفظ في المكتبة');
+  } catch (e) { toast('تعذّر الحفظ: ' + e.message); }
+}
+const blobUrl = (b) => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); });
+
+// ---------------------------------------------------------------- start
+(async () => {
+  try { const r = await fetch('/api/meta'); SERVER = r.ok; } catch { SERVER = false; }
+  $('srvBtn').hidden = !SERVER;
+  if (q.get('topic')) $('topic').value = q.get('topic');
+  if (q.get('template') && RP.TEMPLATES[q.get('template')]) TPL = q.get('template');
+  if (ID) {
+    const it = await lib.get(ID);
+    if (it && it.data?.spec) {
+      SPEC = it.data.spec; TPL = SPEC.template; $('topic').value = it.data.topic || '';
+      if (it.data.vModel) $('vModel').value = it.data.vModel; if (it.data.vVoice) $('vVoice').value = it.data.vVoice; if (it.data.vStyle) $('vStyle').value = it.data.vStyle;
+      for (const [id, v] of Object.entries(it.data.voice || {})) {
+        try { const a = RA.parseAudio(new Uint8Array(await v.wav.arrayBuffer())); VOICE[id] = { key: v.key, pcm: a.pcm, dur: v.dur, words: v.words, score: v.score, heard: v.heard }; } catch {}
+      }
+    }
+  }
+  if (!SPEC) SPEC = RP.example(TPL);
+  drawTemplates(); drawAll();
+  await document.fonts.ready; STAGE.render(T_NOW);
+})();
+</script>
+</body>
+</html>
