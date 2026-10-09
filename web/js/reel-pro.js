@@ -108,6 +108,12 @@
     const have = new Set((spec.lines || []).filter((l) => l && String(l.text || '').trim()).map((l) => l.id));
     return tpl.lines.map((l) => l.id).filter((id) => have.has(id) || (!spec.lines && true));
   }
+  /** Lines every template draws from: a spec without them cannot be rendered. → the missing ids */
+  const REQUIRED = ['hook'];
+  function missingLines(spec) {
+    const have = new Set((spec && Array.isArray(spec.lines) ? spec.lines : []).filter((l) => l && String(l.text || '').trim()).map((l) => l.id));
+    return REQUIRED.filter((id) => !have.has(id));
+  }
   function lineText(spec, tpl, id) {
     const l = (spec.lines || []).find((x) => x && x.id === id);
     return String((l && l.text) || tpl.lines.find((x) => x.id === id)?.def || '').trim();
@@ -946,5 +952,5 @@
     return out;
   }
 
-  root.ReelPro = { W, H, SAFE, TEMPLATES, pauseAfter, timeline, estimateDuration, estimateWords, phrases, norm, strip, wordsOf, mount, sfx, example, fieldsFor, lint, okImage };
+  root.ReelPro = { W, H, SAFE, TEMPLATES, missingLines, pauseAfter, timeline, estimateDuration, estimateWords, phrases, norm, strip, wordsOf, mount, sfx, example, fieldsFor, lint, okImage };
 })(globalThis);

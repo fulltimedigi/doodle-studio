@@ -36,6 +36,9 @@ export function checkSpec(spec) {
     if (!l || typeof l.id !== 'string' || typeof l.text !== 'string') throw new Error('every line needs an id and a text');
     if (l.text.length > MAX_LINE_CHARS) throw new Error(`line "${l.id}" is too long`);
   }
+  // checked here, before any voice is paid for, rather than failing half-way through the render
+  const missing = ReelPro.missingLines(spec);
+  if (missing.length) throw new Error(`spec is missing required line(s): ${missing.join(', ')}`);
   return spec;
 }
 

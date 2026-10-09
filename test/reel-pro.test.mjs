@@ -75,6 +75,13 @@ test('checkSpec refuses what the renderer should not try', () => {
   assert.throws(() => checkSpec({ template: 'trust', lines: Array.from({ length: 13 }, (_, i) => ({ id: 'l' + i, text: 'x' })) }), /too many/);
   assert.throws(() => checkSpec({ template: 'trust', lines: [{ id: 'hook', text: 'x'.repeat(400) }] }), /too long/);
   assert.equal(checkSpec(ReelPro.example('trust')).template, 'trust');
+  // every template draws from the hook: a spec without it is refused before any voice is made
+  for (const id of TEMPLATES) {
+    const noHook = ReelPro.example(id); noHook.lines = noHook.lines.filter((l) => l.id !== 'hook');
+    assert.throws(() => checkSpec(noHook), /required line.*hook/, id);
+    const blank = ReelPro.example(id); blank.lines.find((l) => l.id === 'hook').text = '  ';
+    assert.throws(() => checkSpec(blank), /hook/, id);
+  }
 });
 
 test('the approved examples pass the claims check, and the usual slips do not', () => {
@@ -356,6 +363,24 @@ describe('the studio page', { timeout: 240000 }, () => {
     await page.goto(base + '/web/reel-pro.html'); await page.waitForFunction(() => typeof STAGE !== 'undefined' && STAGE);
     return { page, errors };
   };
+
+  test('a cleared hook keeps the last good preview instead of breaking it', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const { page, errors } = await open();
+    try {
+      for (const tpl of ['challenge', 'brand', 'questions', 'trust']) {
+        const r = await page.evaluate((tpl) => {
+          pickTemplate(tpl); const st = STAGE;
+          SPEC.lines.find((l) => l.id === 'hook').text = ''; rebuild();
+          const kept = STAGE === st, warned = /الهوك/.test(document.getElementById('warns').textContent);
+          STAGE.render(5);
+          return { kept, warned };
+        }, tpl);
+        assert.deepEqual(r, { kept: true, warned: true }, tpl);
+      }
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  });
 
   test('changing the recording mode asks for a new voice', async (t) => {
     if (!browser) return t.skip('needs chromium (npm run setup)');
