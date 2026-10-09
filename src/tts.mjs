@@ -3,7 +3,7 @@
 //   edge     (default, free, no key)  Microsoft Edge neural voices via msedge-tts. Sentence-split + natural pauses.
 //   azure    (free F0 tier: 500k chars/month, needs AZURE_TTS_KEY + AZURE_TTS_REGION) same voices + real SSML.
 //   google   (free tier: 1M chars/month, needs GOOGLE_TTS_KEY) Chirp3-HD Arabic voices (ar-XA-Chirp3-HD-*).
-//   gemini   (free tier, needs GEMINI_API_KEY) gemini-2.5-flash-preview-tts, style-promptable.
+//   gemini   (free tier, needs GEMINI_API_KEY) gemini-3.8-flash-tts (GEMINI_TTS_MODEL to change), style-promptable.
 //   openai   any OpenAI-compatible /v1/audio/speech server (TTS_ENDPOINT, TTS_KEY) — this is how you plug in the
 //            open-weight Arabic models that run locally on a GPU: Habibi-TTS (Apache-2.0), Chatterbox Egyptian (MIT),
 //            SILMA-TTS (Apache-2.0) through any OpenAI-compatible wrapper (e.g. chatterbox-tts-api, openedai-speech).
@@ -87,17 +87,23 @@ async function googleSynth(text, { voice, rate }, file) {
   const j = await res.json(); writeFileSync(file, Buffer.from(j.audioContent, 'base64'));
 }
 
+// the 2.5 preview speech models are shut down on 2026-11-17
+const geminiTtsModel = () => process.env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts';
 async function geminiSynth(text, { voice, style }, file) {
   const key = process.env.GEMINI_API_KEY; if (!key) throw new Error('gemini provider needs GEMINI_API_KEY');
-  const model = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
-  const prompt = `${style || 'Read this Arabic narration naturally, warm and clear, like a professional explainer-video narrator'}: ${text}`;
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice && !voice.includes('-') ? voice : 'Charon' } } } } }) });
+  const model = geminiTtsModel();
+  const dir = String(style || 'Read this Arabic narration naturally, warm and clear, like a professional explainer-video narrator').replace(/[[\]]/g, ' ').trim();
+  // 3.x models take the direction as a leading [tag] (written as «direction: text» they read it aloud); 2.5 took «direction: text»
+  const prompt = /2\.5/.test(model) ? `${dir}: ${text}` : `[${dir}] ${text}`;
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice && !voice.includes('-') ? voice : 'Charon' } } } } }) });
   if (!res.ok) throw new Error(`Gemini TTS ${res.status}: ${await res.text()}`);
   const j = await res.json(); const part = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
   if (!part) throw new Error('Gemini returned no audio');
-  // raw PCM 24k mono 16-bit -> mp3
-  const pcm = file.replace(/\.mp3$/, '.pcm'); writeFileSync(pcm, Buffer.from(part.inlineData.data, 'base64'));
-  await run(ffmpegPath, ['-y', '-loglevel', 'error', '-f', 's16le', '-ar', '24000', '-ac', '1', '-i', pcm, '-c:a', 'libmp3lame', '-b:a', '128k', file]); unlinkSync(pcm);
+  // 3.x models send a WAV file, 2.5 sent raw 16-bit PCM (24 kHz mono) → mp3
+  const bytes = Buffer.from(part.inlineData.data, 'base64'), isWav = bytes.subarray(0, 4).toString('latin1') === 'RIFF';
+  const raw = file.replace(/\.mp3$/, isWav ? '.wav' : '.pcm'); writeFileSync(raw, bytes);
+  const rate = /rate=(\d+)/.exec(part.inlineData.mimeType || '')?.[1] || '24000';
+  await run(ffmpegPath, ['-y', '-loglevel', 'error', ...(isWav ? [] : ['-f', 's16le', '-ar', rate, '-ac', '1']), '-i', raw, '-c:a', 'libmp3lame', '-b:a', '128k', file]); unlinkSync(raw);
 }
 
 async function openaiSynth(text, { voice, rate }, file) {
@@ -113,7 +119,8 @@ export async function synthesize(text, { provider, voice, rate, pitch, style, pa
   provider = provider || process.env.DOODLE_TTS || 'edge';
   const synth = PROVIDERS[provider]; if (!synth) throw new Error(`Unknown TTS provider: ${provider}`);
   mkdirSync(cacheDir, { recursive: true });
-  const key = createHash('sha1').update(['v2', provider, voice, rate, pitch, style, pauseMs, text].join('|')).digest('hex').slice(0, 16);
+  const model = provider === 'gemini' ? geminiTtsModel() : '';
+  const key = createHash('sha1').update(['v3', provider, model, voice, rate, pitch, style, pauseMs, text].join('|')).digest('hex').slice(0, 16);
   const file = join(cacheDir, `${key}.mp3`);
   if (!existsSync(file)) {
     const sentences = splitSentences(text);

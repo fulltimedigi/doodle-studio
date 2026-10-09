@@ -39,17 +39,24 @@
     const waits = [12, 22, 32, 45, 60];
     for (let attempt = 0; ; attempt++) {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': settings.key }, body: JSON.stringify(body) });
-      if ((r.status === 429 || r.status === 503) && attempt < waits.length) {
-        for (let s = waits[attempt]; s > 0; s--) { (onWait || waitHook || (() => {}))(`⏳ حصة Google ممتلئة مؤقتًا — إعادة المحاولة خلال ${s} ث`); await sleep(1000); }
+      if (r.ok) return r.json();
+      const text = await r.text();
+      // a per-day quota (QuotaFailure quotaId …PerDay…) does not come back with waiting: say so now
+      const daily = r.status === 429 && /PerDay|"quota_exceeded"/.test(text), none = r.status === 429 && /"quotaValue":\s*"0"|limit:\s*0\b/.test(text);
+      if ((r.status === 429 || r.status === 503) && !daily && !none && attempt < waits.length) {
+        const hinted = /"retryDelay":\s*"([\d.]+)s"/.exec(text); // the server's own RetryInfo delay
+        for (let s = hinted ? Math.min(90, Math.ceil(+hinted[1]) + 1) : waits[attempt]; s > 0; s--) { (onWait || waitHook || (() => {}))(`⏳ حصة Google ممتلئة مؤقتًا — إعادة المحاولة خلال ${s} ث`); await sleep(1000); }
         continue;
       }
-      if (!r.ok) { const err = new Error(r.status === 429 ? 'تجاوزت حصة Gemini — انتظر دقيقة ثم أعد المحاولة' : `Gemini ${r.status}: ${(await r.text()).slice(0, 300)}`); err.status = r.status; throw err; }
-      return r.json();
+      const err = new Error(none ? `النموذج ${model} غير متاح لهذا المفتاح (حصته صفر — غالبًا يحتاج تفعيل الفوترة)`
+        : daily ? `انتهت حصة اليوم لمفتاح Gemini على ${model} — تتجدد عند منتصف الليل بتوقيت كاليفورنيا، أو فعّل الفوترة لحصة أكبر`
+        : r.status === 429 ? 'تجاوزت حصة Gemini — انتظر دقيقة ثم أعد المحاولة' : `Gemini ${r.status}: ${text.slice(0, 300)}`);
+      err.status = r.status; err.kind = none ? 'noquota' : daily ? 'daily' : ''; throw err;
     }
   }
   async function geminiAny(models, body, onWait) {
     let last;
-    for (const m of models) { try { return { j: await gemini(m, body, onWait), model: m }; } catch (e) { last = e; if (e.status !== 404 && e.status !== 400) throw e; } }
+    for (const m of models) { try { return { j: await gemini(m, body, onWait), model: m }; } catch (e) { last = e; if (e.status !== 404 && e.status !== 400 && !e.kind) throw e; } }
     throw last;
   }
   const textOf = (j) => j.candidates?.[0]?.content?.parts?.filter((p) => p.text && !p.thought).map((p) => p.text).join('') || '';
@@ -84,7 +91,7 @@
     for (const m of models) {
       for (const cfg of [{ responseModalities: ['IMAGE'], imageConfig: { aspectRatio: ratio } }, { responseModalities: ['TEXT', 'IMAGE'] }]) {
         try { const j = await gemini(m, { contents: [{ parts }], generationConfig: cfg }, onWait); const im = findImagePart(j.candidates?.[0]?.content); if (im) { spend.add(IMG_PRICE[m] || 0.067, 'صورة ' + m); return `data:${im.mime};base64,${im.data}`; } last = new Error('لم يُرجع Gemini صورة (ربما رفض الوصف)'); }
-        catch (e) { last = e; if (e.status !== 400 && e.status !== 404) throw e; }
+        catch (e) { last = e; if (e.status !== 400 && e.status !== 404 && !e.kind) throw e; }
       }
     }
     throw last || new Error('تعذّر توليد الصورة');

@@ -201,7 +201,7 @@
     <label class="f">GEMINI_API_KEY</label><input id="s_key" placeholder="AIza…">
     <label class="f">نموذج السيناريو</label><input id="s_model" placeholder="gemini-3.6-flash">
     <label class="f">نموذج الصور</label><select id="imgModel"><option value="gemini-3.1-flash-image">Nano Banana 2 — الأفضل (≈ $0.067 للرسمة)</option><option value="gemini-2.5-flash-image">Nano Banana — أرخص (≈ $0.039)</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite — الأرخص (≈ $0.034)</option></select>
-    <label class="f">نموذج الصوت</label><select id="ttsModel"><option value="gemini-2.5-flash-preview-tts">Flash TTS (أرخص وأسرع)</option><option value="gemini-2.5-pro-preview-tts">Pro TTS (أدق)</option></select>
+    <label class="f">نموذج الصوت</label><select id="ttsModel"><option value="gemini-3.8-flash-tts">Gemini 3.8 Flash TTS (الأفضل)</option><option value="gemini-3.8-flash-lite-tts">Gemini 3.8 Flash Lite TTS (أرخص وأسرع)</option></select>
     <label class="f">أسلوب الأداء الصوتي</label><input id="voiceStyle" value="اقرأ بلهجة مصرية دافئة وواثقة كمعلّق إعلانات، بإيقاع طبيعي">
     <label class="f">جملة تجربة الصوت (عندما لا يوجد مشهد)</label><input id="ttsText" value="بتصرف على الإعلانات، والعميل بيدخل متجرك ويطلع من غير ما يشتري؟ هنا بييجي دور مساعد التسوّق الذكي.">
     <div class="row" style="margin-top:14px"><button class="fix" onclick="saveSettings()">حفظ</button><button class="soft fix" onclick="clearAudioCache()">🧹 مسح ذاكرة الصوت</button><span class="grow"></span><button class="ghost fix" onclick="$('settings').close()">إغلاق</button></div>
@@ -230,8 +230,10 @@ let COMPILED = null, HAND_IMG = null, OPEN = null, MUSIC_FILE = null;
 const ART = new Map();           // name -> url/dataURL (uploaded by the user or bundled)
 const TTS_CACHE = new Map();     // key -> AudioBuffer (memory); mirrored in IndexedDB
 const SCRIPT_MODELS = ['gemini-3.6-flash', 'gemini-3.1-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
-const TTS_MODELS = { 'gemini-2.5-flash-preview-tts': ['gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview', 'gemini-2.5-pro-preview-tts'], 'gemini-2.5-pro-preview-tts': ['gemini-2.5-pro-preview-tts', 'gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview'] };
-const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || SCRIPT_MODELS[0], tts: localStorage.getItem('tts_model') || 'gemini-2.5-flash-preview-tts', img: localStorage.getItem('img_model') || 'gemini-3.1-flash-image', style: localStorage.getItem('voice_style') || '' };
+// Google shuts the 2.5 preview speech models down on 2026-11-17; each choice falls back to the others if a model is missing
+const TTS_MODELS = { 'gemini-3.8-flash-tts': ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.1-flash-tts-preview'], 'gemini-3.8-flash-lite-tts': ['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts', 'gemini-3.1-flash-tts-preview'] };
+const TTS_DEFAULT = 'gemini-3.8-flash-tts'; // a saved choice that is no longer offered (2.5) moves to this
+const settings = { key: localStorage.getItem('gemini_key') || '', model: localStorage.getItem('gemini_model') || SCRIPT_MODELS[0], tts: TTS_MODELS[localStorage.getItem('tts_model')] ? localStorage.getItem('tts_model') : TTS_DEFAULT, img: localStorage.getItem('img_model') || 'gemini-3.1-flash-image', style: localStorage.getItem('voice_style') || '' };
 if (settings.model === 'gemini-2.5-flash') settings.model = SCRIPT_MODELS[0];
 const MODE = new URLSearchParams(location.search).get('mode') === 'motion' ? 'motion' : 'doodle';
 const SAVE_KEY = MODE === 'motion' ? 'motion_script' : 'doodle_script';
@@ -361,17 +363,32 @@ async function idbAll(store) { try { const db = await idb(); return await new Pr
 async function idbDel(k, store) { try { const db = await idb(); db.transaction(store, 'readwrite').objectStore(store).delete(k); } catch {} }
 async function clearAudioCache() { TTS_CACHE.clear(); try { const db = await idb(); db.transaction('tts', 'readwrite').objectStore('tts').clear(); } catch {} say('setMsg', '🧹 مُسحت ذاكرة الصوت'); }
 function pcmToBuffer(f, rate = 24000) { const ctx = new OfflineAudioContext(1, 1, rate); const buf = ctx.createBuffer(1, f.length, rate); buf.copyToChannel(f, 0); return buf; }
-function b64ToF32(b64) { const bin = atob(b64); const n = bin.length >> 1; const f = new Float32Array(n); for (let i = 0; i < n; i++) { const v = (bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8)); f[i] = (v > 32767 ? v - 65536 : v) / 32768; } return f; }
+function b64ToF32(b64, from = 0) { const bin = atob(b64); const n = (bin.length - from) >> 1; const f = new Float32Array(n); for (let i = 0; i < n; i++) { const v = (bin.charCodeAt(from + 2 * i) | (bin.charCodeAt(from + 2 * i + 1) << 8)); f[i] = (v > 32767 ? v - 65536 : v) / 32768; } return f; }
+// The 3.x speech models answer with a WAV file, the 2.5 ones with raw 16-bit PCM: read either → { pcm, rate }
+function ttsAudio(b64, mime) {
+  if (atob(b64.slice(0, 16)).slice(0, 4) === 'RIFF') {
+    const bin = atob(b64), u32 = (o) => (bin.charCodeAt(o) | (bin.charCodeAt(o + 1) << 8) | (bin.charCodeAt(o + 2) << 16) | (bin.charCodeAt(o + 3) << 24)) >>> 0;
+    let o = 12, rate = 24000;
+    while (o + 8 <= bin.length) {
+      const id = bin.slice(o, o + 4), size = u32(o + 4);
+      if (id === 'fmt ') rate = u32(o + 12);
+      if (id === 'data') { const pcm = b64ToF32(b64, o + 8); return { pcm: size ? pcm.slice(0, size >> 1) : pcm, rate }; }
+      o += 8 + size + (size & 1);
+    }
+  }
+  return { pcm: b64ToF32(b64), rate: +(String(mime).match(/rate=(\d+)/)?.[1] || 24000) };
+}
 async function tts(text, { voice, style, model }, onWait) {
   const _t0 = text; const _rec = () => { try { window.Suite && Suite.spend.add(Math.max(0.005, String(_t0).length / 1000 * 0.03), 'صوت'); } catch {} };
   const wanted = model || settings.tts; const key = [wanted, voice, style, text].join('|');
   if (TTS_CACHE.has(key)) return TTS_CACHE.get(key);
   const stored = await idbGet(key); if (stored && stored.pcm) { const b = pcmToBuffer(stored.pcm, stored.rate); TTS_CACHE.set(key, b); return b; }
-  const prompt = `${style || 'Read this narration naturally, warm and clear'}:\n${text}`;
-  const { j } = await geminiAny(TTS_MODELS[wanted] || [wanted, ...TTS_MODELS['gemini-2.5-flash-preview-tts']], { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || 'Charon' } } } } }, onWait); _rec();
+  // the 3.x speech models take the direction as a leading [tag]; written as «direction: text» they read it aloud
+  const dir = String(style || 'اقرأ بشكل طبيعي ودافئ وواضح').replace(/[\[\]]/g, ' ').trim();
+  const prompt = `[${dir}] ${text}`;
+  const { j } = await geminiAny(TTS_MODELS[wanted] || [wanted, ...TTS_MODELS[TTS_DEFAULT]], { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || 'Charon' } } } } }, onWait); _rec();
   const part = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData); if (!part) throw new Error('Gemini لم يُرجع صوتًا');
-  const rate = +(part.inlineData.mimeType.match(/rate=(\d+)/)?.[1] || 24000);
-  const pcm = b64ToF32(part.inlineData.data); const buf = pcmToBuffer(pcm, rate); TTS_CACHE.set(key, buf); idbSet(key, { pcm, rate }); return buf;
+  const { pcm, rate } = ttsAudio(part.inlineData.data, part.inlineData.mimeType || ''); const buf = pcmToBuffer(pcm, rate); TTS_CACHE.set(key, buf); idbSet(key, { pcm, rate }); return buf;
 }
 function bufferToWav(buf) {
   const n = buf.length, rate = buf.sampleRate, d = buf.getChannelData(0); const ab = new ArrayBuffer(44 + n * 2); const v = new DataView(ab);

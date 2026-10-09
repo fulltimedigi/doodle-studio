@@ -35,6 +35,7 @@ state — you have no authority to promise one.
 |---|---|---|
 | `carousel` | 7 slides, Instagram | a list, steps, a comparison, a myth corrected |
 | `reel` | a composed 1080×1920 video with Arabic narration | one sharp idea that needs a hook and pace |
+| `reelpro` | a template motion reel with a Gulf voiceover synced to every word | a merchant hook that must stop the scroll: a 3-second spot-the-problem challenge, the questions customers keep asking, store safety (no password, read-only) |
 | `reels` | three filming scripts | something the founder should film himself |
 | `ad` | a static ad in three sizes | one message that must survive as a single image |
 | `magnet` | an A4 PDF guide | a subject too big for a post, worth an email for |

@@ -13,14 +13,18 @@ import { ROOT } from './project.mjs';
 const TABLER = 'node_modules/@tabler/icons/icons/outline';
 const FONTSOURCE = [
   ['cairo', ['cairo-arabic-400-normal', 'cairo-arabic-700-normal', 'cairo-arabic-900-normal']],
-  ['tajawal', ['tajawal-arabic-400-normal', 'tajawal-arabic-700-normal', 'tajawal-arabic-800-normal']],
+  ['tajawal', ['tajawal-arabic-400-normal', 'tajawal-arabic-500-normal', 'tajawal-arabic-700-normal', 'tajawal-arabic-800-normal',
+    'tajawal-latin-500-normal', 'tajawal-latin-800-normal']],
 ];
 
 /** Scripts published under `js/`. `rewrite` turns a module source into a plain script. */
 export const SCRIPTS = {
   'core.js': { from: 'web/js/core.js' },
+  'reel-pro.js': { from: 'web/js/reel-pro.js' },
+  'reel-pro-audio.js': { from: 'web/js/reel-pro-audio.js' },
   'signal.js': { from: 'web/js/signal.js' },
   'html-to-image.js': { from: 'node_modules/html-to-image/dist/html-to-image.js' },
+  'snapdom.js': { from: 'node_modules/@zumer/snapdom/dist/snapdom.js' },
   'jszip.min.js': { from: 'node_modules/jszip/dist/jszip.min.js' },
   'jspdf.umd.min.js': { from: 'node_modules/jspdf/dist/jspdf.umd.min.js' },
   'engine.js': { from: 'src/renderer/engine.js' },
@@ -50,7 +54,7 @@ export const PAGES = [
   { to: 'index.html', from: 'index.html' },
   { to: 'doodle.html', from: 'app.html' },
   ...['reels.html', 'carousel.html', 'case.html', 'ad.html', 'ugc.html', 'magnet.html', 'logo.html',
-    'reel.html', 'plan.html', 'board.html', 'landing.html'].map((f) => ({ to: f, from: f })),
+    'reel.html', 'reel-pro.html', 'plan.html', 'board.html', 'landing.html'].map((f) => ({ to: f, from: f })),
 ];
 
 /** Pages that deliberately never reach the static build. */
@@ -66,6 +70,7 @@ export const ASSETS = [
   { to: 'icons', from: 'assets/icons', dir: true },
   { to: 'illustrations', from: 'assets/illustrations', dir: true },
   { to: 'brand', from: 'assets/brand', dir: true },
+  { to: 'reel-pro', from: 'assets/reel-pro', dir: true },
   { to: 'hand.svg', from: 'assets/hand.svg' },
   // Gathered from outside assets/ by the build — the reason the server needs this map at all.
   { to: 'art', from: 'examples/art', dir: true },
