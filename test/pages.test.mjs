@@ -38,4 +38,16 @@ describe('pages load clean', async () => {
       assert.deepEqual(problems, [], `${p} reported errors`);
     } finally { await page.close(); }
   });
+
+  // Most people open these pages on a phone. A page wider than the screen slides sideways under
+  // the thumb (the suite header did, before it learned to drop the logo text on narrow screens).
+  for (const p of PAGES) test(`${p} fits a phone screen`, async (t) => {
+    if (!browser) return t.skip('no chromium installed (npm run setup)');
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+      await page.goto(base + p, { waitUntil: 'networkidle' });
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth);
+      assert.ok(wide <= 390, `${p} is ${wide}px wide on a 390px phone`);
+    } finally { await page.close(); }
+  });
 });
