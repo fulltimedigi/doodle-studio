@@ -111,7 +111,7 @@ npm start          # يفتح http://localhost:7860
 | `edge` (افتراضي) | جيدة | مجاني | لا شيء |
 | `azure` | جيدة + تحكم SSML | مجاني 500 ألف حرف/شهر | `AZURE_TTS_KEY` + `AZURE_TTS_REGION` |
 | `google` | ممتازة (Chirp3-HD) | مجاني مليون حرف/شهر | `GOOGLE_TTS_KEY` |
-| `gemini` | ممتازة وقابلة للتوجيه («اقرأ بلهجة مصرية») | مجاني (حصة يومية) | `GEMINI_API_KEY` |
+| `gemini` | ممتازة وقابلة للتوجيه («اقرأ بلهجة مصرية») — النموذج `gemini-3.8-flash-tts` (غيّره بـ `GEMINI_TTS_MODEL`؛ نماذج 2.5 تتوقف 17 نوفمبر 2026) | مجاني (حصة يومية) | `GEMINI_API_KEY` |
 | `openai` | تعتمد على النموذج | مجاني محليًا | خادم متوافق مع OpenAI على `TTS_ENDPOINT` |
 
 **نماذج عربية مفتوحة بجودة عالية** (تحتاج كرت شاشة أو Google Colab المجاني): **Habibi-TTS** (Apache-2.0، لهجات مصرية وخليجية،
