@@ -39,7 +39,7 @@ button.primary{background:linear-gradient(135deg,var(--accent2),var(--accent));b
 button.soft{background:var(--soft);color:var(--ink)}
 button.ghost{background:transparent;color:var(--muted);padding:6px 8px}
 button.small{padding:5px 9px;font-size:13px}
-button.big{width:100%;padding:14px;font-size:17px;margin-top:6px;border-radius:12px}
+button.big{width:100%;padding:14px;font-size:17px;margin-top:6px;border-radius:12px;white-space:normal}
 button:disabled{opacity:.45;cursor:default}
 .muted{color:var(--muted);font-size:13px}
 .msg{min-height:20px;font-size:13px;color:var(--muted);margin-top:6px}
@@ -125,5 +125,5 @@ header.top #spendChip{font-size:12px;white-space:nowrap}header.top #spendChip sm
 
 /* a .pane that starts hidden must stay hidden — display:grid above outranks the UA [hidden] rule */
 [hidden]{display:none!important}
-/* phone: the top bar must fit one row — logo mark only, the brand name shortens */
-@media(max-width:520px){header.top{gap:8px;padding:8px 12px}header.top .logo span{display:none}header.top .brandChip{min-width:0;flex:0 1 auto}}
+/* phone: the top bar must fit one row — logo mark only, the brand name shortens; a heading full of buttons wraps */
+@media(max-width:520px){header.top{gap:8px;padding:8px 12px}header.top .logo span{display:none}header.top .brandChip{min-width:0;flex:0 1 auto}.card h2{flex-wrap:wrap}}
