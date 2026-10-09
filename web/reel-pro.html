@@ -38,7 +38,6 @@
   .warn li{margin:2px 0}
   .magic{border:2px solid color-mix(in srgb,var(--accent) 45%,transparent)}
   .steps{margin:10px 0 0;padding:0 18px 0 0;font-size:14px}.steps li{margin:4px 0;color:var(--muted)}.steps li.on{color:inherit;font-weight:700}.steps li.ok{color:#0b8f6c}.steps li.bad{color:#c0392b}
-  .novoice{background:#fff6e5;border:1px solid #f0d199;border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px}
   video{width:100%;max-width:324px;border-radius:12px;background:#000;display:block;margin:10px auto 0}
   details summary{cursor:pointer;font-size:13px;color:var(--muted)}
   .log{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:100px;overflow:auto}
@@ -97,7 +96,7 @@
       <div class="card"><h2>المعاينة <span class="grow"></span><button class="ghost small fix" onclick="save()">💾 حفظ</button></h2>
         <div class="vp" id="vp"><div id="host"></div><div class="safe" id="safe"></div></div>
         <div class="ctl"><button class="fix" id="playBtn" onclick="togglePlay()">▶</button><button class="ghost small fix" id="safeBtn" onclick="toggleSafe()" title="ما تغطيه أزرار ونصوص تيك توك وإنستغرام ويوتيوب وسناب">📱</button><input type="range" id="scrub" min="0" max="30" step="0.01" value="0" oninput="seek(+this.value)"><span class="muted fix" id="tLbl">0.0 ث</span></div>
-        <div id="noVoice" class="novoice" hidden>🔇 المعاينة لسه <b>بدون تعليق صوتي</b> — اضغط «🎙 ولّد الصوت» تحت، أو «✨ اعمل الريل» فوق يسويها كلها لحاله.</div>
+        <div id="noVoice" class="warn" hidden>🔇 المعاينة لسه <b>بدون تعليق صوتي</b> — اضغط «🎙 ولّد الصوت» تحت، أو «✨ اعمل الريل» فوق يسويها كلها لحاله.</div>
         <div id="warns"></div>
         <div class="row" style="margin-top:12px">
           <select id="fps" class="fix" style="width:auto"><option value="30">30 إطار/ث</option><option value="24">24 إطار/ث (أسرع)</option></select>
@@ -182,12 +181,19 @@ function fillIdeaTemplates() {
 // The words have to suit the voice that says them. With the studio's brand identity set up, its
 // dialect leads (and the voice direction follows it); without one, these are FullTimeDigi's own reels:
 // its brand guide, in the Saudi Gulf dialect of the house voice (the studio's blank default is Egyptian).
-let FTD_BRAND = null;
+let FTD_BRAND = null, RB = B; // RB: the brand the reels are made for (photos and the claims check use it too)
 async function reelBrand() {
-  if (Suite.brandReady(B)) return B;
-  if (!FTD_BRAND) { try { FTD_BRAND = await (await fetch('assets/brand/fulltimedigi.json')).json(); } catch { FTD_BRAND = {}; } }
-  return { ...loadBrand(), ...FTD_BRAND, dialect: 'gulf' };
+  if (Suite.brandReady(B)) return (RB = B);
+  // a failed fetch is not remembered: the next reel tries again
+  if (!FTD_BRAND) { try { const r = await fetch('assets/brand/fulltimedigi.json'); if (r.ok) FTD_BRAND = await r.json(); } catch { /* offline: dialect only */ } }
+  const ftd = FTD_BRAND || {};
+  return (RB = { ...loadBrand(), ...ftd, dialect: 'gulf', website: ftd.website || 'fulltimedigi.com', cta: REEL_CTA, brief: REEL_CAMPAIGN + (ftd.brief ? '\n\n' + ftd.brief : '') });
 }
+// FullTimeDigi's brand guide was written for the build-in-public phase («follow the journey»); the reels
+// are the free catalog check's: same voice, tone and claims rules, but they end on running the check.
+const REEL_CTA = 'افحص متجرك مجانًا على fulltimedigi.com';
+const REEL_CAMPAIGN = 'THESE REELS: the launch of the free catalog check (الفحص المجاني للكتالوج) on fulltimedigi.com — it reads the merchant\'s own products and shows where the product pages lack the details a buyer needs, with a link to each product. The answer/check lines present the free check; the call to action invites the merchant to run it now (never «follow the journey», never «قريبًا»). Keep everything below: tone, claims rules, and the point that AI cannot sell what the catalog cannot explain.';
+const bannedOf = (b) => String(b.banned || '').split(/[،,\n]/).map((x) => x.trim()).filter(Boolean);
 async function writeSpec(idea, tplId, onWait) {
   const sys = (await (await fetch('assets/prompts/reel-pro.md')).text()) + '\n\n' + brandContext(await reelBrand());
   const pool = tplId ? [RP.TEMPLATES[tplId]] : Object.values(RP.TEMPLATES);
@@ -197,7 +203,9 @@ async function writeSpec(idea, tplId, onWait) {
     `{"product": "…"} for a template with a product, or {"items": ["…","…","…"]} for the brand template — each a short English description of an ` +
     `invented, unbranded product photo that matches the idea (no text, no logos).`;
   const out = await geminiJSON(sys, user, { temperature: 0.8, onWait });
-  const id = RP.TEMPLATES[out.template] && pool.some((t) => t.id === out.template) ? out.template : pool[0].id;
+  const said = String(out.template || '').trim().toLowerCase(), ids = new Set((out.lines || []).map((l) => l && l.id));
+  const byLines = [...pool].sort((a, b) => b.lines.filter((l) => ids.has(l.id)).length - a.lines.filter((l) => ids.has(l.id)).length)[0];
+  const id = pool.find((t) => t.id === said)?.id || byLines.id;
   if (!Array.isArray(out.lines)) throw new Error('النموذج لم يُرجع الأسطر');
   const ex = RP.example(id);
   // the template's line ids and order; the model's words where it gave them
@@ -216,8 +224,8 @@ async function fitPic(dataUrl, tplId) {
   const probe = document.createElement('canvas'); probe.width = probe.height = 1;
   probe.getContext('2d').drawImage(im, 0, 0, Math.max(1, im.width * 0.06), im.height, 0, 0, 1, 1);
   const [r, gg, b] = probe.getContext('2d').getImageData(0, 0, 1, 1).data; g.fillStyle = `rgb(${r},${gg},${b})`; g.fillRect(0, 0, W, H);
-  // the middle of the photo, scaled to the strip's height, its sides faded into the backdrop
-  const sh = im.height * 0.62, sy = im.height * 0.2, sw = im.width, dh = H, dw = (sw * dh) / sh, dx = (W - dw) / 2;
+  // the whole photo, scaled to the strip's height, its sides faded into the backdrop
+  const sh = im.height, sy = 0, sw = im.width, dh = H, dw = Math.min(W, (sw * dh) / sh), dx = (W - dw) / 2;
   const tmp = document.createElement('canvas'); tmp.width = Math.round(dw); tmp.height = H; const t = tmp.getContext('2d');
   t.drawImage(im, 0, sy, sw, sh, 0, 0, dw, dh);
   t.globalCompositeOperation = 'destination-in';
@@ -226,7 +234,9 @@ async function fitPic(dataUrl, tplId) {
   g.drawImage(tmp, dx, 0);
   return c.toDataURL('image/jpeg', 0.86);
 }
-const PHOTO = (what) => `Professional e-commerce product photo of: ${what}. Invented product, unbranded. Soft studio light, clean seamless background, the whole product centred with space around it, photorealistic. No text, no letters, no logos, no labels, no watermark.${imageStyle(B)}`;
+// a reel being made is the one on the page: picking another template or applying JSON meanwhile stops it
+const CHANGED = 'تغيّر الريل في الصفحة أثناء التنفيذ — أوقفت عشان ما يختلط. اضغط «✨ اعمل الريل» من جديد.';
+const PHOTO = (what) => `Professional e-commerce product photo of: ${what}. Invented product, unbranded. Soft studio light, clean seamless background, the whole product centred with space around it, photorealistic. No text, no letters, no logos, no labels, no watermark.${imageStyle(RB)}`;
 async function makeReel() {
   const idea = $('idea').value.trim();
   if (!idea) return say('magicMsg', 'اكتب الفكرة أولًا — جملة وحدة تكفي', true);
@@ -237,11 +247,13 @@ async function makeReel() {
   const box = $('steps'); box.hidden = false; box.innerHTML = plan.map(([k, t]) => `<li id="st_${k}">${t}</li>`).join('');
   const step = (k, state, note) => { const li = $('st_' + k); if (!li) return; li.className = state; if (note) li.textContent = li.textContent.split(' — ')[0] + ' — ' + note; };
   const wait = (m) => say('magicMsg', m);
-  $('magicBtn').disabled = true; say('magicMsg', '');
+  $('magicBtn').disabled = true; say('magicMsg', ''); $('result').innerHTML = ''; // never mistake an earlier video for this one
+  let mine = null;
+  const still = () => { if (SPEC !== mine) throw new Error(CHANGED); };
   try {
     step('write', 'on');
     const { spec, prompts } = await writeSpec(idea, tplPick, wait);
-    TPL = spec.template; SPEC = spec; VOICE = {}; $('topic').value = idea; drawTemplates(); drawAll();
+    TPL = spec.template; SPEC = mine = spec; VOICE = {}; $('topic').value = idea; drawTemplates(); drawAll();
     step('write', 'ok', `${RP.TEMPLATES[TPL].icon} ${RP.TEMPLATES[TPL].title}`);
     // product pictures that match the idea (a template without one keeps its own art)
     if (plan.some(([k]) => k === 'image')) {
@@ -251,24 +263,27 @@ async function makeReel() {
       if (Array.isArray(SPEC.fields.items) && Array.isArray(prompts.items)) prompts.items.slice(0, SPEC.fields.items.length).forEach((p, i) => jobs.push([`items.${i}.image`, String(p)]));
       let made = 0;
       for (const [path, what] of jobs) {
-        try { const url = await generateImage(PHOTO(what), { ratio: STRIP[TPL] ? '3:4' : '1:1', onWait: wait }); setPath(SPEC.fields, path, await fitPic(url, TPL)); made++; }
-        catch (e) { wait('ℹ️ صورة لم تتولّد: ' + e.message.slice(0, 100)); }
+        try {
+          const url = await generateImage(PHOTO(what), { ratio: STRIP[TPL] && path === 'product.image' ? '16:9' : '1:1', onWait: wait });
+          if (SPEC !== mine) throw new Error(CHANGED);
+          setPath(SPEC.fields, path, await fitPic(url, path === 'product.image' ? TPL : null)); made++;
+        } catch (e) { if (e.message === CHANGED) throw e; wait('ℹ️ صورة لم تتولّد: ' + e.message.slice(0, 100)); }
       }
       drawFields(); rebuild();
       step('image', made || !jobs.length ? 'ok' : 'bad', jobs.length ? (made === jobs.length ? 'جاهزة' : `${made}/${jobs.length} — الباقي صورة القالب`) : 'هذا القالب بلا صورة منتج');
     }
     if (plan.some(([k]) => k === 'voice')) {
-      step('voice', 'on'); await makeVoice();
+      still(); step('voice', 'on'); await makeVoice(); still();
       const n = Object.keys(voiced()).length;
       if (n < T.order.length) throw new Error($('vMsg').textContent.replace(/^❌\s*/, '') || 'الصوت لم يكتمل');
       step('voice', 'ok', $('vMsg').textContent.includes('⚠️') ? 'جاهز — راجع السطر المنبَّه عليه' : 'جاهز ومتحقَّق منه');
     }
     if (plan.some(([k]) => k === 'video')) {
-      step('video', 'on'); await exportBrowser();
+      still(); step('video', 'on'); await exportBrowser(); still();
       if (!document.querySelector('#result video')) throw new Error($('xMsg').textContent.replace(/^❌\s*/, '') || 'الفيديو لم يكتمل');
       step('video', 'ok', 'جاهز تحت المعاينة');
     }
-    const w = RP.lint(SPEC, String(B.banned || '').split(/[،,\n]/).map((x) => x.trim()).filter(Boolean));
+    const w = RP.lint(SPEC, bannedOf(RB));
     say('magicMsg', until === 'video' ? '✅ الريل جاهز — نزّله من تحت المعاينة' + (w.length ? ' · راجع التنبيهات قبل النشر' : '') : '✅ جاهز — راجع وكمّل من الخطوات تحت');
   } catch (e) {
     const on = box.querySelector('li.on'); if (on) on.className = 'bad';
@@ -343,8 +358,9 @@ async function genImage(path) {
   const what = it.name || [it.before, it.brand, it.after].filter(Boolean).join(' ') || 'product';
   say('xMsg', '🎨 جارٍ توليد الصورة…');
   try {
-    const url = await generateImage(`Professional e-commerce product photo of: ${what}. Soft studio light, clean light warm-grey seamless background, centered, photorealistic. No text, no letters, no logos, no watermark.${imageStyle(B)}`, { ratio: '3:4', onWait: (m) => say('xMsg', m) });
-    setPath(SPEC.fields, path, await fitPic(url, path === 'product.image' ? SPEC.template : null)); drawFields(); changed(); say('xMsg', '✅ الصورة جاهزة — صورة توضيحية مولّدة');
+    const tplId = path === 'product.image' ? SPEC.template : null;
+    const url = await generateImage(PHOTO(what), { ratio: STRIP[tplId] ? '16:9' : '3:4', onWait: (m) => say('xMsg', m) });
+    setPath(SPEC.fields, path, await fitPic(url, tplId)); drawFields(); changed(); say('xMsg', '✅ الصورة جاهزة — صورة توضيحية مولّدة');
   } catch (e) { say('xMsg', '❌ ' + e.message, true); }
 }
 
@@ -377,7 +393,7 @@ function rebuild() {
   const n = Object.keys(voiced()).length;
   $('durLbl').textContent = `${T.duration.toFixed(1)} ث · ${n ? `صوت ${n}/${T.order.length}` : 'توقيت تقديري بلا صوت'}`;
   $('noVoice').hidden = n > 0;
-  const banned = String(B.banned || '').split(/[،,\n]/).map((s) => s.trim()).filter(Boolean);
+  const banned = bannedOf(RB);
   const w = RP.lint(SPEC, banned);
   $('warns').innerHTML = w.length ? `<div class="warn"><b>⚠️ راجع قبل النشر</b><ul>${w.slice(0, 8).map((x) => `<li>${esc(x.where)}: ${esc(x.why)}</li>`).join('')}</ul></div>` : '';
 }
@@ -581,7 +597,7 @@ const blobUrl = (b) => new Promise((ok) => { const r = new FileReader(); r.onloa
     }
   }
   if (!SPEC) SPEC = RP.example(TPL);
-  fillIdeaTemplates();
+  fillIdeaTemplates(); await reelBrand();
   drawSafe(); try { if (localStorage.getItem('rp_safe')) $('vp').classList.add('showsafe'); } catch {}
   drawTemplates(); drawAll();
   await FONTS; await document.fonts.ready; STAGE.fit();

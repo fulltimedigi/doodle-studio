@@ -461,6 +461,32 @@ describe('the studio page', { timeout: 240000 }, () => {
     } finally { await page.close(); }
   });
 
+  test('the idea run guards itself: a misnamed template, a stale video, a reel changed by hand', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const { page, errors } = await open();
+    try {
+      const ex = ReelPro.example('questions');
+      let reply = { template: 'faq', lines: ex.lines.map((l) => ({ id: l.id, text: l.text })), fields: {}, imagePrompts: { product: 'a bottle' } };
+      let onImage = null;
+      await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
+        const body = JSON.parse(route.request().postData() || '{}'), mods = body.generationConfig?.responseModalities || [];
+        if (mods.includes('IMAGE') && onImage) await onImage();
+        const part = mods.includes('IMAGE') ? { inlineData: { mimeType: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' } } : { text: JSON.stringify(reply) };
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [part] } }] }) });
+      });
+      await page.evaluate(() => { Suite.settings.key = 'test'; document.getElementById('result').innerHTML = '<video></video>'; });
+      // a template id the model got wrong: the template its lines belong to; and the old video is cleared
+      const a = await page.evaluate(async () => { document.getElementById('idea').value = 'x'; document.getElementById('ideaUntil').value = 'script'; await makeReel();
+        return { template: SPEC.template, stale: !!document.querySelector('#result video'), msg: document.getElementById('magicMsg').textContent }; });
+      assert.deepEqual({ template: a.template, stale: a.stale }, { template: 'questions', stale: false }, a.msg);
+      // someone picks another template while the picture is being made: the run stops instead of mixing the two
+      onImage = () => page.evaluate(() => pickTemplate('brand'));
+      const b = await page.evaluate(async () => { await makeReel(); return { template: SPEC.template, msg: document.getElementById('magicMsg').textContent, img: SPEC.fields.items[0].image }; });
+      assert.equal(b.template, 'brand'); assert.match(b.msg, /تغيّر الريل/); assert.ok(!b.img.startsWith('data:'), 'nothing was written into the other template');
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  });
+
   test('the preview says plainly when it has no narration yet', async (t) => {
     if (!browser) return t.skip('needs chromium (npm run setup)');
     const { page } = await open();
