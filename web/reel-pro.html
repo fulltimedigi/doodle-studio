@@ -36,6 +36,8 @@
   .bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;width:0;background:var(--accent)}
   .warn{background:#fff6e5;border:1px solid #f0d199;border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px}
   .warn li{margin:2px 0}
+  .magic{border:2px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+  .steps{margin:10px 0 0;padding:0 18px 0 0;font-size:14px}.steps li{margin:4px 0;color:var(--muted)}.steps li.on{color:inherit;font-weight:700}.steps li.ok{color:#0b8f6c}.steps li.bad{color:#c0392b}
   video{width:100%;max-width:324px;border-radius:12px;background:#000;display:block;margin:10px auto 0}
   details summary{cursor:pointer;font-size:13px;color:var(--muted)}
   .log{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:100px;overflow:auto}
@@ -48,7 +50,19 @@
 
   <div class="pane">
     <div>
-      <div class="card"><h2>١ · القالب</h2><div class="tpls" id="tpls"></div></div>
+      <div class="card magic"><h2>✨ من فكرة إلى فيديو</h2>
+        <p class="muted" style="margin:0 0 8px">اكتب الفكرة بجملة — الأداة تختار القالب، تكتب الكلام، تولّد صورة المنتج والصوت، وتطلع الفيديو.</p>
+        <textarea id="idea" rows="3" placeholder="مثال: عميل العطور أونلاين ما يقدر يشم العطر، فيقرر من صفحة المنتج — النوتات والحجم والسعر لازم يكونون واضحين"></textarea>
+        <div class="grid2">
+          <div><label class="f">القالب</label><select id="ideaTpl"><option value="auto">الأداة تختار الأنسب</option></select></div>
+          <div><label class="f">بعد الكتابة</label><select id="ideaUntil"><option value="video">كمّل للآخر: صوت + فيديو</option><option value="voice">لين الصوت (أراجع قبل الفيديو)</option><option value="script">الكلام بس (أراجع قبل الصوت)</option></select></div>
+        </div>
+        <div class="row"><button class="primary big fix" id="magicBtn" onclick="makeReel()">✨ اعمل الريل</button></div>
+        <ol class="steps" id="steps" hidden></ol>
+        <p id="magicMsg" class="msg"></p>
+      </div>
+
+      <div class="card"><h2>١ · القالب <span class="muted" style="font-weight:500;font-size:13px">(أو اشتغل يدويًا)</span></h2><div class="tpls" id="tpls"></div></div>
 
       <div class="card"><h2>٢ · الفكرة</h2>
         <textarea id="topic" rows="3" placeholder="عن ماذا هذا الريل؟ (اختياري) — مثال: متجر عطور، الأسئلة اللي يسألها العميل عن الثبات والتركيز"></textarea>
@@ -82,6 +96,7 @@
       <div class="card"><h2>المعاينة <span class="grow"></span><button class="ghost small fix" onclick="save()">💾 حفظ</button></h2>
         <div class="vp" id="vp"><div id="host"></div><div class="safe" id="safe"></div></div>
         <div class="ctl"><button class="fix" id="playBtn" onclick="togglePlay()">▶</button><button class="ghost small fix" id="safeBtn" onclick="toggleSafe()" title="ما تغطيه أزرار ونصوص تيك توك وإنستغرام ويوتيوب وسناب">📱</button><input type="range" id="scrub" min="0" max="30" step="0.01" value="0" oninput="seek(+this.value)"><span class="muted fix" id="tLbl">0.0 ث</span></div>
+        <div id="noVoice" class="warn" hidden>🔇 المعاينة لسه <b>بدون تعليق صوتي</b> — اضغط «🎙 ولّد الصوت» تحت، أو «✨ اعمل الريل» فوق يسويها كلها لحاله.</div>
         <div id="warns"></div>
         <div class="row" style="margin-top:12px">
           <select id="fps" class="fix" style="width:auto"><option value="30">30 إطار/ث</option><option value="24">24 إطار/ث (أسرع)</option></select>
@@ -113,7 +128,14 @@ const B = loadBrand();
 let TPL = 'challenge', SPEC = null, ID = q.get('id'), SERVER = false;
 let VOICE = {};          // line id -> { key, pcm, dur, words, score, heard }
 let T = null, STAGE = null, T_NOW = 0, playing = false, playFrom = 0, playAt = 0, audioCtx = null, audioSrc = null, MIX = null, MIX_KEY = '';
-$('vStyle').value = RA.DEFAULT_VOICE.style;
+// the voice speaks the dialect the words are written in (see reelBrand)
+const DIALECT_VOICE = {
+  gulf: RA.DEFAULT_VOICE.style,
+  eg: 'Egyptian Arabic dialect, Cairo accent, warm confident social-media ad voice-over',
+  white: 'Modern white Arabic, neutral accent, warm confident social-media ad voice-over',
+  msa: 'Modern Standard Arabic, clear neutral accent, warm confident social-media ad voice-over',
+};
+$('vStyle').value = (Suite.brandReady(B) && DIALECT_VOICE[B.dialect]) || RA.DEFAULT_VOICE.style;
 const FONTS = Promise.all(['500', '700', '800'].map((w) => document.fonts.load(`${w} 60px RP`, 'ابت abc').catch(() => {})));
 
 const LABELS = { hookA: 'عنوان الهوك', hookB: 'سطر تحت الهوك', hookMint: 'كلمات ملوّنة في الهوك', product: 'المنتج', name: 'الاسم', image: 'الصورة', priceK: 'عنوان السعر', priceV: 'السعر', sizeK: 'عنوان المقاس', sizes: 'المقاسات', descK: 'عنوان الوصف', descV: 'الوصف', button: 'زر الشراء',
@@ -134,23 +156,142 @@ async function writeAI() {
   if (!needKey('aiMsg')) return;
   $('aiBtn').disabled = true; say('aiMsg', '✍️ جارٍ الكتابة…');
   try {
-    const tpl = RP.TEMPLATES[TPL];
-    const sys = (await (await fetch('assets/prompts/reel-pro.md')).text()) + '\n\n' + brandContext(B);
-    const scenes = tpl.lines.map((l) => `- ${l.id}: ${l.label}`).join('\n');
-    const user = `TEMPLATE: ${tpl.id} — ${tpl.title}\n${tpl.desc}\nSpoken lines, in order:\n${scenes}\n\nEXAMPLE (return exactly this shape):\n${JSON.stringify(RP.example(TPL), null, 1)}\n\nTOPIC: ${$('topic').value.trim() || '(none — improve the example for this brand)'}\nReturn ONLY the JSON.`;
-    const out = await geminiJSON(sys, user, { temperature: 0.8, onWait: (m) => say('aiMsg', m) });
-    if (!Array.isArray(out.lines)) throw new Error('النموذج لم يُرجع الأسطر');
-    const ex = RP.example(TPL);
-    // keep the template's line ids and order; take the model's words where it gave them
-    out.lines = ex.lines.map((l) => ({ id: l.id, text: String(out.lines.find((x) => x && x.id === l.id)?.text || l.text) }));
-    out.template = TPL; out.fields = RP.fieldsFor(out, RP.TEMPLATES[TPL]);
+    const { spec } = await writeSpec($('topic').value.trim() || '(none — improve the example for this brand)', TPL, (m) => say('aiMsg', m));
     // images stay as they are in the studio unless the person changes them
-    restoreImages(out.fields, SPEC?.fields);
-    SPEC = { ...ex, ...out }; VOICE = {}; drawAll();
+    restoreImages(spec.fields, SPEC?.fields);
+    SPEC = spec; VOICE = {}; drawAll();
     say('aiMsg', '✅ جاهز — راجع الكلام، ثم ولّد الصوت');
   } catch (e) { say('aiMsg', '❌ ' + e.message, true); }
   $('aiBtn').disabled = false;
 }
+// ---------------------------------------------------------------- idea → video in one go
+// What each template is good for, so the model can pick one for an idea.
+const FITS = {
+  challenge: 'a product page that hides or muddles what a buyer needs (description, sizes, price, specs…): the viewer hunts for 3 problems before the answer',
+  brand: 'one thing written several ways across a listing (a brand name, colours, sizes, units…): three ways, then unified',
+  questions: 'customers keep sending the same questions because the product page lacks the answer; ends with the store assistant answering from the store\'s own data',
+  trust: 'safety and trust: passwords, permissions, the official connection, read-only access, the merchant decides',
+};
+// Templates whose product picture is a wide strip on the page (the rest use square pictures)
+const STRIP = { challenge: [800, 252], questions: [680, 250] };
+function fillIdeaTemplates() {
+  $('ideaTpl').innerHTML = '<option value="auto">الأداة تختار الأنسب</option>' + Object.values(RP.TEMPLATES).map((t) => `<option value="${t.id}">${t.icon} ${esc(t.title)}</option>`).join('');
+}
+/** The model's spec for an idea (and a template, or let it choose) → a spec the studio can render. */
+// The words have to suit the voice that says them. With the studio's brand identity set up, its
+// dialect leads (and the voice direction follows it); without one, these are FullTimeDigi's own reels:
+// its brand guide, in the Saudi Gulf dialect of the house voice (the studio's blank default is Egyptian).
+let FTD_BRAND = null, RB = B; // RB: the brand the reels are made for (photos and the claims check use it too)
+async function reelBrand() {
+  if (Suite.brandReady(B)) return (RB = B);
+  // a failed fetch is not remembered: the next reel tries again
+  if (!FTD_BRAND) { try { const r = await fetch('assets/brand/fulltimedigi.json'); if (r.ok) FTD_BRAND = await r.json(); } catch { /* offline: dialect only */ } }
+  const ftd = FTD_BRAND || {};
+  return (RB = { ...loadBrand(), ...ftd, dialect: 'gulf', website: ftd.website || 'fulltimedigi.com', cta: REEL_CTA, brief: REEL_CAMPAIGN + (ftd.brief ? '\n\n' + ftd.brief : '') });
+}
+// FullTimeDigi's brand guide was written for the build-in-public phase («follow the journey»); the reels
+// are the free catalog check's: same voice, tone and claims rules, but they end on running the check.
+const REEL_CTA = 'افحص متجرك مجانًا على fulltimedigi.com';
+const REEL_CAMPAIGN = 'THESE REELS: the launch of the free catalog check (الفحص المجاني للكتالوج) on fulltimedigi.com — it reads the merchant\'s own products and shows where the product pages lack the details a buyer needs, with a link to each product. The answer/check lines present the free check; the call to action invites the merchant to run it now (never «follow the journey», never «قريبًا»). Keep everything below: tone, claims rules, and the point that AI cannot sell what the catalog cannot explain.';
+const bannedOf = (b) => String(b.banned || '').split(/[،,\n]/).map((x) => x.trim()).filter(Boolean);
+async function writeSpec(idea, tplId, onWait) {
+  const sys = (await (await fetch('assets/prompts/reel-pro.md')).text()) + '\n\n' + brandContext(await reelBrand());
+  const pool = tplId ? [RP.TEMPLATES[tplId]] : Object.values(RP.TEMPLATES);
+  const menu = pool.map((t) => `### ${t.id} — ${t.title}\nGood for: ${FITS[t.id] || t.desc}\nSpoken lines, in order:\n${t.lines.map((l) => `- ${l.id}: ${l.label}`).join('\n')}\nEXAMPLE:\n${JSON.stringify(RP.example(t.id))}`).join('\n\n');
+  const user = `${pool.length > 1 ? 'Pick the ONE template below that fits the idea best, then fill it.' : 'Fill this template.'}\n\n${menu}\n\nIDEA: ${idea}\n\n` +
+    `Return ONLY the JSON, in the chosen template's example shape, with "template" set to its id. Also add "imagePrompts": ` +
+    `{"product": "…"} for a template with a product, or {"items": ["…","…","…"]} for the brand template — each a short English description of an ` +
+    `invented, unbranded product photo that matches the idea (no text, no logos).`;
+  const out = await geminiJSON(sys, user, { temperature: 0.8, onWait });
+  const said = String(out.template || '').trim().toLowerCase(), ids = new Set((out.lines || []).map((l) => l && l.id));
+  const byLines = [...pool].sort((a, b) => b.lines.filter((l) => ids.has(l.id)).length - a.lines.filter((l) => ids.has(l.id)).length)[0];
+  const id = pool.find((t) => t.id === said)?.id || byLines.id;
+  if (!Array.isArray(out.lines)) throw new Error('النموذج لم يُرجع الأسطر');
+  const ex = RP.example(id);
+  // the template's line ids and order; the model's words where it gave them
+  out.lines = ex.lines.map((l) => ({ id: l.id, text: String(out.lines.find((x) => x && x.id === l.id)?.text || l.text).trim() || l.text }));
+  out.template = id; out.fields = RP.fieldsFor(out, RP.TEMPLATES[id]);
+  const prompts = out.imagePrompts && typeof out.imagePrompts === 'object' ? out.imagePrompts : {}; delete out.imagePrompts;
+  return { spec: { ...ex, ...out }, prompts };
+}
+/** A product photo laid out for the template's picture: the whole product, centred, on its own backdrop. */
+async function fitPic(dataUrl, tplId) {
+  const strip = STRIP[tplId]; if (!strip) return shrink(dataUrl);
+  const im = new Image(); im.src = dataUrl; await im.decode();
+  const W = 1200, H = Math.round((W * strip[1]) / strip[0]), c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  // the backdrop: the photo's own edge colour
+  const probe = document.createElement('canvas'); probe.width = probe.height = 1;
+  probe.getContext('2d').drawImage(im, 0, 0, Math.max(1, im.width * 0.06), im.height, 0, 0, 1, 1);
+  const [r, gg, b] = probe.getContext('2d').getImageData(0, 0, 1, 1).data; g.fillStyle = `rgb(${r},${gg},${b})`; g.fillRect(0, 0, W, H);
+  // the whole photo, scaled to the strip's height, its sides faded into the backdrop
+  const sh = im.height, sy = 0, sw = im.width, dh = H, dw = Math.min(W, (sw * dh) / sh), dx = (W - dw) / 2;
+  const tmp = document.createElement('canvas'); tmp.width = Math.round(dw); tmp.height = H; const t = tmp.getContext('2d');
+  t.drawImage(im, 0, sy, sw, sh, 0, 0, dw, dh);
+  t.globalCompositeOperation = 'destination-in';
+  const fade = t.createLinearGradient(0, 0, dw, 0); fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(0.2, '#000'); fade.addColorStop(0.8, '#000'); fade.addColorStop(1, 'rgba(0,0,0,0)');
+  t.fillStyle = fade; t.fillRect(0, 0, dw, H);
+  g.drawImage(tmp, dx, 0);
+  return c.toDataURL('image/jpeg', 0.86);
+}
+// a reel being made is the one on the page: picking another template or applying JSON meanwhile stops it
+const CHANGED = 'تغيّر الريل في الصفحة أثناء التنفيذ — أوقفت عشان ما يختلط. اضغط «✨ اعمل الريل» من جديد.';
+const PHOTO = (what) => `Professional e-commerce product photo of: ${what}. Invented product, unbranded. Soft studio light, clean seamless background, the whole product centred with space around it, photorealistic. No text, no letters, no logos, no labels, no watermark.${imageStyle(RB)}`;
+async function makeReel() {
+  const idea = $('idea').value.trim();
+  if (!idea) return say('magicMsg', 'اكتب الفكرة أولًا — جملة وحدة تكفي', true);
+  if (!needKey('magicMsg')) return;
+  const until = $('ideaUntil').value, tplPick = $('ideaTpl').value === 'auto' ? null : $('ideaTpl').value;
+  const plan = [['write', '✍️ كتابة الكلام واختيار القالب'], ['image', '🎨 صورة المنتج'], ['voice', '🎙 الصوت'], ['video', '🎬 الفيديو']]
+    .filter(([k]) => (until === 'script' ? k === 'write' || k === 'image' : until === 'voice' ? k !== 'video' : true));
+  const box = $('steps'); box.hidden = false; box.innerHTML = plan.map(([k, t]) => `<li id="st_${k}">${t}</li>`).join('');
+  const step = (k, state, note) => { const li = $('st_' + k); if (!li) return; li.className = state; if (note) li.textContent = li.textContent.split(' — ')[0] + ' — ' + note; };
+  const wait = (m) => say('magicMsg', m);
+  $('magicBtn').disabled = true; say('magicMsg', ''); $('result').innerHTML = ''; // never mistake an earlier video for this one
+  let mine = null;
+  const still = () => { if (SPEC !== mine) throw new Error(CHANGED); };
+  try {
+    step('write', 'on');
+    const { spec, prompts } = await writeSpec(idea, tplPick, wait);
+    TPL = spec.template; SPEC = mine = spec; VOICE = {}; $('topic').value = idea; drawTemplates(); drawAll();
+    step('write', 'ok', `${RP.TEMPLATES[TPL].icon} ${RP.TEMPLATES[TPL].title}`);
+    // product pictures that match the idea (a template without one keeps its own art)
+    if (plan.some(([k]) => k === 'image')) {
+      step('image', 'on');
+      const jobs = [];
+      if (SPEC.fields.product && prompts.product) jobs.push(['product.image', String(prompts.product)]);
+      if (Array.isArray(SPEC.fields.items) && Array.isArray(prompts.items)) prompts.items.slice(0, SPEC.fields.items.length).forEach((p, i) => jobs.push([`items.${i}.image`, String(p)]));
+      let made = 0;
+      for (const [path, what] of jobs) {
+        try {
+          const url = await generateImage(PHOTO(what), { ratio: STRIP[TPL] && path === 'product.image' ? '16:9' : '1:1', onWait: wait });
+          if (SPEC !== mine) throw new Error(CHANGED);
+          setPath(SPEC.fields, path, await fitPic(url, path === 'product.image' ? TPL : null)); made++;
+        } catch (e) { if (e.message === CHANGED) throw e; wait('ℹ️ صورة لم تتولّد: ' + e.message.slice(0, 100)); }
+      }
+      drawFields(); rebuild();
+      step('image', made || !jobs.length ? 'ok' : 'bad', jobs.length ? (made === jobs.length ? 'جاهزة' : `${made}/${jobs.length} — الباقي صورة القالب`) : 'هذا القالب بلا صورة منتج');
+    }
+    if (plan.some(([k]) => k === 'voice')) {
+      still(); step('voice', 'on'); await makeVoice(); still();
+      const n = Object.keys(voiced()).length;
+      if (n < T.order.length) throw new Error($('vMsg').textContent.replace(/^❌\s*/, '') || 'الصوت لم يكتمل');
+      step('voice', 'ok', $('vMsg').textContent.includes('⚠️') ? 'جاهز — راجع السطر المنبَّه عليه' : 'جاهز ومتحقَّق منه');
+    }
+    if (plan.some(([k]) => k === 'video')) {
+      still(); step('video', 'on'); await exportBrowser(); still();
+      if (!document.querySelector('#result video')) throw new Error($('xMsg').textContent.replace(/^❌\s*/, '') || 'الفيديو لم يكتمل');
+      step('video', 'ok', 'جاهز تحت المعاينة');
+    }
+    const w = RP.lint(SPEC, bannedOf(RB));
+    say('magicMsg', until === 'video' ? '✅ الريل جاهز — نزّله من تحت المعاينة' + (w.length ? ' · راجع التنبيهات قبل النشر' : '') : '✅ جاهز — راجع وكمّل من الخطوات تحت');
+  } catch (e) {
+    const on = box.querySelector('li.on'); if (on) on.className = 'bad';
+    say('magicMsg', '❌ ' + e.message, true);
+  }
+  $('magicBtn').disabled = false;
+}
+
 function restoreImages(f, prev) {
   if (!prev) return;
   if (f.product && prev.product?.image) f.product.image = prev.product.image;
@@ -217,8 +358,9 @@ async function genImage(path) {
   const what = it.name || [it.before, it.brand, it.after].filter(Boolean).join(' ') || 'product';
   say('xMsg', '🎨 جارٍ توليد الصورة…');
   try {
-    const url = await generateImage(`Professional e-commerce product photo of: ${what}. Soft studio light, clean light warm-grey seamless background, centered, photorealistic. No text, no letters, no logos, no watermark.${imageStyle(B)}`, { ratio: '3:4', onWait: (m) => say('xMsg', m) });
-    setPath(SPEC.fields, path, await shrink(url)); drawFields(); changed(); say('xMsg', '✅ الصورة جاهزة — صورة توضيحية مولّدة');
+    const tplId = path === 'product.image' ? SPEC.template : null;
+    const url = await generateImage(PHOTO(what), { ratio: STRIP[tplId] ? '16:9' : '3:4', onWait: (m) => say('xMsg', m) });
+    setPath(SPEC.fields, path, await fitPic(url, tplId)); drawFields(); changed(); say('xMsg', '✅ الصورة جاهزة — صورة توضيحية مولّدة');
   } catch (e) { say('xMsg', '❌ ' + e.message, true); }
 }
 
@@ -250,7 +392,8 @@ function rebuild() {
   T_NOW = Math.min(T_NOW, T.duration); STAGE.render(T_NOW); label();
   const n = Object.keys(voiced()).length;
   $('durLbl').textContent = `${T.duration.toFixed(1)} ث · ${n ? `صوت ${n}/${T.order.length}` : 'توقيت تقديري بلا صوت'}`;
-  const banned = String(B.banned || '').split(/[،,\n]/).map((s) => s.trim()).filter(Boolean);
+  $('noVoice').hidden = n > 0;
+  const banned = bannedOf(RB);
   const w = RP.lint(SPEC, banned);
   $('warns').innerHTML = w.length ? `<div class="warn"><b>⚠️ راجع قبل النشر</b><ul>${w.slice(0, 8).map((x) => `<li>${esc(x.where)}: ${esc(x.why)}</li>`).join('')}</ul></div>` : '';
 }
@@ -454,6 +597,7 @@ const blobUrl = (b) => new Promise((ok) => { const r = new FileReader(); r.onloa
     }
   }
   if (!SPEC) SPEC = RP.example(TPL);
+  fillIdeaTemplates(); await reelBrand();
   drawSafe(); try { if (localStorage.getItem('rp_safe')) $('vp').classList.add('showsafe'); } catch {}
   drawTemplates(); drawAll();
   await FONTS; await document.fonts.ready; STAGE.fit();

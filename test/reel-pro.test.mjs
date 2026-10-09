@@ -419,6 +419,80 @@ describe('the studio page', { timeout: 240000 }, () => {
     for (const j of jobs) { const r = await fetch(base + j.url); assert.equal(r.status, 200); assert.ok((await r.arrayBuffer()).byteLength > 10000); }
   });
 
+  test('an idea becomes a reel in one go: template, words, product picture and voice', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const { page, errors } = await open();
+    try {
+      // a stand-in Gemini: the writer picks the questions template, the image model draws a pixel,
+      // the speech model says one second of tone
+      const wavB64 = (() => { const n = 24000, pcm = Buffer.alloc(n * 2); for (let i = 0; i < n; i++) pcm.writeInt16LE(Math.round(Math.sin(i / 6) * 9000 * (i > 2400 && i < 21600)), i * 2);
+        const h = Buffer.alloc(44); h.write('RIFF', 0); h.writeUInt32LE(36 + pcm.length, 4); h.write('WAVE', 8); h.write('fmt ', 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(24000, 24); h.writeUInt32LE(48000, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40);
+        return Buffer.concat([h, pcm]).toString('base64'); })();
+      const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+      const ex = ReelPro.example('questions');
+      const written = { template: 'questions', lines: ex.lines.map((l) => ({ id: l.id, text: l.text })), fields: { hookA: 'كم مرة سألتك العميلة عن المقاس؟' }, imagePrompts: { product: 'a black abaya on a hanger' }, caption: 'c', hashtags: ['#x'] };
+      const asked = [], prompts = [];
+      await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
+        const body = JSON.parse(route.request().postData() || '{}'), mods = body.generationConfig?.responseModalities || [];
+        asked.push(mods.includes('AUDIO') ? 'tts' : mods.includes('IMAGE') ? 'image' : 'text');
+        if (!mods.length) prompts.push(JSON.stringify(body));
+        const part = mods.includes('AUDIO') ? { inlineData: { mimeType: 'audio/wav', data: wavB64 } } : mods.includes('IMAGE') ? { inlineData: { mimeType: 'image/png', data: pixel } } : { text: JSON.stringify(written) };
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [part] } }] }) });
+      });
+      const r = await page.evaluate(async () => {
+        localStorage.setItem('gemini_key', 'test'); Suite.settings.key = 'test';
+        document.getElementById('vVerify').checked = false;           // no transcription in this test
+        document.getElementById('idea').value = 'العميلة تسأل عن المقاس والطول قبل ما تشتري';
+        document.getElementById('ideaUntil').value = 'voice';         // the export has its own test
+        await makeReel();
+        return { template: SPEC.template, hook: SPEC.fields.hookA, pic: SPEC.fields.product.image.slice(0, 23), voiced: Object.keys(voiced()).length, lines: T.order.length,
+          steps: [...document.querySelectorAll('#steps li')].map((l) => l.className), noVoice: document.getElementById('noVoice').hidden, msg: document.getElementById('magicMsg').textContent };
+      });
+      assert.equal(r.template, 'questions', r.msg);
+      assert.equal(r.hook, 'كم مرة سألتك العميلة عن المقاس؟');
+      assert.equal(r.pic, 'data:image/jpeg;base64,', 'the product picture is the generated one');
+      assert.equal(r.voiced, r.lines, 'every line has its voice');
+      assert.deepEqual(r.steps, ['ok', 'ok', 'ok'], r.msg);
+      assert.equal(r.noVoice, true, 'the «no narration» note is gone once the voice is in');
+      assert.ok(asked.includes('text') && asked.includes('image') && asked.filter((x) => x === 'tts').length === r.lines, asked.join(','));
+      // no brand identity set up: FullTimeDigi's own guide, in the Gulf dialect of the Saudi house voice
+      assert.match(prompts[0], /Gulf colloquial Arabic/); assert.match(prompts[0], /FullTimeDigi/); assert.doesNotMatch(prompts[0], /Egyptian colloquial/);
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  });
+
+  test('the idea run guards itself: a misnamed template, a stale video, a reel changed by hand', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const { page, errors } = await open();
+    try {
+      const ex = ReelPro.example('questions');
+      let reply = { template: 'faq', lines: ex.lines.map((l) => ({ id: l.id, text: l.text })), fields: {}, imagePrompts: { product: 'a bottle' } };
+      let onImage = null;
+      await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
+        const body = JSON.parse(route.request().postData() || '{}'), mods = body.generationConfig?.responseModalities || [];
+        if (mods.includes('IMAGE') && onImage) await onImage();
+        const part = mods.includes('IMAGE') ? { inlineData: { mimeType: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' } } : { text: JSON.stringify(reply) };
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [part] } }] }) });
+      });
+      await page.evaluate(() => { Suite.settings.key = 'test'; document.getElementById('result').innerHTML = '<video></video>'; });
+      // a template id the model got wrong: the template its lines belong to; and the old video is cleared
+      const a = await page.evaluate(async () => { document.getElementById('idea').value = 'x'; document.getElementById('ideaUntil').value = 'script'; await makeReel();
+        return { template: SPEC.template, stale: !!document.querySelector('#result video'), msg: document.getElementById('magicMsg').textContent }; });
+      assert.deepEqual({ template: a.template, stale: a.stale }, { template: 'questions', stale: false }, a.msg);
+      // someone picks another template while the picture is being made: the run stops instead of mixing the two
+      onImage = () => page.evaluate(() => pickTemplate('brand'));
+      const b = await page.evaluate(async () => { await makeReel(); return { template: SPEC.template, msg: document.getElementById('magicMsg').textContent, img: SPEC.fields.items[0].image }; });
+      assert.equal(b.template, 'brand'); assert.match(b.msg, /تغيّر الريل/); assert.ok(!b.img.startsWith('data:'), 'nothing was written into the other template');
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  });
+
+  test('the preview says plainly when it has no narration yet', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const { page } = await open();
+    try { assert.equal(await page.evaluate(() => !document.getElementById('noVoice').hidden), true); } finally { await page.close(); }
+  });
+
   test('changing the recording mode asks for a new voice', async (t) => {
     if (!browser) return t.skip('needs chromium (npm run setup)');
     const { page, errors } = await open();
