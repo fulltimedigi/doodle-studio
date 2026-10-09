@@ -32,9 +32,14 @@ export function checkSpec(spec) {
   if (!ReelPro.TEMPLATES[spec.template]) throw new Error(`unknown template: ${spec.template} (one of ${Object.keys(ReelPro.TEMPLATES).join(', ')})`);
   if (!Array.isArray(spec.lines) || !spec.lines.length) throw new Error('spec has no lines');
   if (spec.lines.length > MAX_LINES) throw new Error(`too many lines (max ${MAX_LINES})`);
+  // a line the template has no place for would be voiced (and paid for) and then never shown
+  const known = new Set(ReelPro.TEMPLATES[spec.template].lines.map((l) => l.id)), seen = new Set();
   for (const l of spec.lines) {
     if (!l || typeof l.id !== 'string' || typeof l.text !== 'string') throw new Error('every line needs an id and a text');
     if (l.text.length > MAX_LINE_CHARS) throw new Error(`line "${l.id}" is too long`);
+    if (!known.has(l.id)) throw new Error(`line "${l.id}" is not part of the ${spec.template} template (${[...known].join(', ')})`);
+    if (seen.has(l.id)) throw new Error(`line "${l.id}" appears twice`);
+    seen.add(l.id);
   }
   // checked here, before any voice is paid for, rather than failing half-way through the render
   const missing = ReelPro.missingLines(spec);

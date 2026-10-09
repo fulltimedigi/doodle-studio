@@ -75,6 +75,11 @@ test('checkSpec refuses what the renderer should not try', () => {
   assert.throws(() => checkSpec({ template: 'trust', lines: Array.from({ length: 13 }, (_, i) => ({ id: 'l' + i, text: 'x' })) }), /too many/);
   assert.throws(() => checkSpec({ template: 'trust', lines: [{ id: 'hook', text: 'x'.repeat(400) }] }), /too long/);
   assert.equal(checkSpec(ReelPro.example('trust')).template, 'trust');
+  // a line the template has no place for would be voiced and paid for, then never shown
+  const typo = ReelPro.example('trust'); typo.lines.push({ id: 'cta2', text: 'سطر زائد' });
+  assert.throws(() => checkSpec(typo), /"cta2" is not part of the trust template/);
+  const twice = ReelPro.example('trust'); twice.lines.push({ ...twice.lines[1] });
+  assert.throws(() => checkSpec(twice), /appears twice/);
   // every template draws from the hook: a spec without it is refused before any voice is made
   for (const id of TEMPLATES) {
     const noHook = ReelPro.example(id); noHook.lines = noHook.lines.filter((l) => l.id !== 'hook');
@@ -380,6 +385,37 @@ describe('the studio page', { timeout: 240000 }, () => {
       }
       assert.deepEqual(errors, []);
     } finally { await page.close(); }
+  });
+
+  test('the soundtrack is mixed again once the voice settings change', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const { page, errors } = await open();
+    try {
+      const r = await page.evaluate(async () => {
+        pickTemplate('trust');
+        for (const l of SPEC.lines) VOICE[l.id] = { key: voiceKey(l.text), dur: 1, words: [], pcm: new Float32Array(SR).fill(0.2) };
+        rebuild();
+        const a = await soundtrack(), again = await soundtrack();
+        document.getElementById('vStyle').value += ' (changed)'; // every take is now stale
+        const b = await soundtrack();
+        return { cached: a === again, remixed: a !== b, voicedAfter: Object.keys(voiced()).length };
+      });
+      assert.deepEqual(r, { cached: true, remixed: true, voicedAfter: 0 });
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  });
+
+  test('two server renders of the same template do not share files', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    // a short spec (the hook and the call to action), no voice, low frame rate: two at once
+    const spec = ReelPro.example('trust'); spec.lines = spec.lines.filter((l) => l.id === 'hook' || l.id === 'cta'); spec.voice = false;
+    const start = async () => (await (await fetch(base + '/api/reel-pro', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ spec, fps: 12, music: false }) })).json()).id;
+    const ids = await Promise.all([start(), start()]);
+    const done = async (id) => { for (let i = 0; i < 240; i++) { const j = await (await fetch(base + '/api/jobs/' + id)).json(); if (j.status === 'done' || j.status === 'error') return j; await new Promise((ok) => setTimeout(ok, 500)); } throw new Error('render timed out'); };
+    const jobs = await Promise.all(ids.map(done));
+    for (const [i, j] of jobs.entries()) { assert.equal(j.status, 'done', j.error); assert.ok(j.url.includes(ids[i]), `${j.url} should carry its job id`); }
+    assert.notEqual(jobs[0].url, jobs[1].url); assert.notEqual(jobs[0].cover, jobs[1].cover);
+    for (const j of jobs) { const r = await fetch(base + j.url); assert.equal(r.status, 200); assert.ok((await r.arrayBuffer()).byteLength > 10000); }
   });
 
   test('changing the recording mode asks for a new voice', async (t) => {

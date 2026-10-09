@@ -161,7 +161,8 @@ async function handle(req, res) {
       const b = await body(req); const id = Math.random().toString(36).slice(2, 10);
       const job = { id, status: 'queued', progress: 0, log: [], url: null, started: Date.now() }; jobs.set(id, job);
       const spec = b.spec || {};
-      spec.slug = slug(spec.slug || spec.template || 'reel-pro');
+      // the job id keeps two renders of the same template (two tabs, two people) from sharing files
+      spec.slug = slug(spec.slug || spec.template || 'reel-pro') + '-' + id;
       (async () => {
         try {
           job.status = 'rendering';
