@@ -78,7 +78,13 @@ test('checkSpec refuses what the renderer should not try', () => {
 });
 
 test('the approved examples pass the claims check, and the usual slips do not', () => {
-  for (const id of TEMPLATES) assert.deepEqual(ReelPro.lint(ReelPro.example(id)), [], `${id} example tripped the claims check`);
+  // the approved examples raise one thing only: they name Salla/Zid, so they wait for the app-store listing
+  for (const id of TEMPLATES) {
+    const w = ReelPro.lint(ReelPro.example(id));
+    assert.equal(w.length, 1, `${id} example tripped the claims check: ${JSON.stringify(w)}`); assert.match(w[0].why, /سلة\/زد/);
+  }
+  assert.deepEqual(ReelPro.lint({ lines: [{ id: 'x', text: 'أضف للسلة الحين' }] }), [], '«للسلة» is the cart, not Salla');
+  for (const t of ['نحن شريك رسمي لسلة', 'معتمد من زد', 'سلة توصي بنا']) assert.ok(ReelPro.lint({ lines: [{ id: 'x', text: t }] }).some((w) => /شراكة/.test(w.why)), `missed: ${t}`);
   const bad = ReelPro.lint({ lines: [{ id: 'x', text: 'ضاعف مبيعاتك 40% — قريبًا على Shopify' }] });
   const why = bad.map((w) => w.why).join(' | ');
   for (const k of ['نسبة', 'مضاعفة', 'قريبًا', 'Shopify']) assert.ok(why.includes(k), `missed: ${k}`);
@@ -155,11 +161,102 @@ describe('voiceLine keeps the take that says the script', () => {
   });
 });
 
+describe('Gemini quota errors', () => {
+  const body = (quotaId, quotaValue = '20', delay = '27s') => JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'You exceeded your current quota. Please retry in 27.9s.',
+    details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId, quotaValue, quotaMetric: 'generativelanguage.googleapis.com/generate_content_free_tier_requests' }] },
+      { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: delay }] } });
+  test('per-minute: wait the server delay and retry', () => {
+    const e = ReelProAudio.geminiError(429, body('GenerateRequestsPerMinutePerProjectPerModel-FreeTier'));
+    assert.equal(e.kind, 'minute'); assert.equal(e.retry, true); assert.equal(e.wait, 27);
+  });
+  test('per-day: stop and say when it resets', () => {
+    const e = ReelProAudio.geminiError(429, body('GenerateRequestsPerDayPerProjectPerModel-FreeTier'), 'gemini-3.8-flash-tts');
+    assert.equal(e.kind, 'daily'); assert.equal(e.retry, false); assert.match(e.message, /السعودية/); assert.match(e.message, /gemini-3\.8-flash-tts/);
+  });
+  test('a zero quota is a setup problem, not a wait', () => {
+    assert.equal(ReelProAudio.geminiError(429, body('GenerateRequestsPerDayPerProjectPerModel-FreeTier', '0')).kind, 'noquota');
+  });
+  test('busy servers and bad keys', () => {
+    assert.equal(ReelProAudio.geminiError(503, '{"error":{"code":503,"status":"UNAVAILABLE","message":"The model is overloaded."}}').kind, 'busy');
+    assert.equal(ReelProAudio.geminiError(403, '{"error":{"code":403,"message":"Your API key was reported as leaked."}}').kind, 'key');
+    assert.equal(ReelProAudio.geminiError(400, '{"error":{"code":400,"message":"Invalid JSON payload"}}').kind, 'fatal');
+    assert.equal(ReelProAudio.geminiError(429, 'not json').kind, 'minute');
+  });
+  const replay = (...responses) => { const calls = []; return { calls, fetchImpl: async (url) => { calls.push(url); const [status, text] = responses.shift() || [200, '{"ok":1}']; return { ok: status === 200, status, text: async () => text, json: async () => JSON.parse(text) }; } }; };
+  test('call() waits on a per-minute 429 then succeeds', async () => {
+    const f = replay([429, body('GenerateRequestsPerMinutePerProjectPerModel', '10', '3s')], [200, '{"ok":1}']); const waits = [];
+    const j = await ReelProAudio.call('m', {}, { key: 'k', fetchImpl: f.fetchImpl, wait: async (ms) => waits.push(ms) });
+    assert.deepEqual(j, { ok: 1 }); assert.equal(f.calls.length, 2); assert.ok(waits[0] >= 3000 && waits[0] <= 3700, `waited ${waits[0]}`);
+  });
+  test('call() stops at once on a per-day 429', async () => {
+    const f = replay([429, body('GenerateRequestsPerDayPerProjectPerModel')]);
+    await assert.rejects(ReelProAudio.call('m', {}, { key: 'k', fetchImpl: f.fetchImpl, wait: async () => assert.fail('must not wait') }), (e) => e.kind === 'daily');
+    assert.equal(f.calls.length, 1);
+  });
+  test('the checker running out of quota keeps the voice and stops checking', async () => {
+    const pcm16 = new Int16Array(bursts([[0.1, 0.9]]).map((v) => v * 32767)), b64 = Buffer.from(pcm16.buffer).toString('base64'); const calls = [];
+    const fetchImpl = async (url) => { calls.push(url);
+      if (/tts/.test(url)) { const t = JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=48000', data: b64 } }] } }] }); return { ok: true, status: 200, text: async () => t, json: async () => JSON.parse(t) }; }
+      const t = body('GenerateRequestsPerDayPerProjectPerModel'); return { ok: false, status: 429, text: async () => t }; };
+    const opts = { key: 'k', takes: 2, fetchImpl };
+    const r = await ReelProAudio.voiceLine('افحص متجرك الحين', opts);
+    assert.ok(r.pcm.length > 0); assert.equal(r.score, null); assert.equal(opts.skipVerify, true);
+    assert.equal(calls.filter((u) => /tts/.test(u)).length, 1, 'no second take once checking is off');
+  });
+});
+
+describe('one take for the whole script', () => {
+  // a fake take: line 1, a short pause, a countdown with LONGER pauses inside it, a pause, line 3
+  const texts = ['افحص متجرك.', 'ثلاث… ثنتين… وحدة!', 'الحين على الموقع.'];
+  const take = () => bursts([[0.3, 1.3], [1.55, 2.0], [2.55, 3.0], [3.55, 4.0], [4.3, 6.0]]);
+  test('the lines are cut at the line ends, not at the longest pauses', () => {
+    const cuts = ReelProAudio.splitLines(take(), SR, texts);
+    const near = (a, b) => Math.abs(a - b) < 0.08;
+    assert.ok(near(cuts[0].start, 0.3) && near(cuts[0].end, 1.3), JSON.stringify(cuts[0]));
+    assert.ok(near(cuts[1].start, 1.55) && near(cuts[1].end, 4.0), JSON.stringify(cuts[1]));
+    assert.ok(near(cuts[2].start, 4.3) && near(cuts[2].end, 6.0), JSON.stringify(cuts[2]));
+  });
+  const fakeGemini = (heardFor) => {
+    const calls = [];
+    const fetchImpl = async (url, init) => {
+      calls.push(url); const body = JSON.parse(init.body);
+      let out;
+      if (/tts/.test(url)) {
+        const said = body.contents[0].parts[0].text, pcm = said.includes('ثنتين') ? take() : bursts([[0.1, 1.1]]);
+        out = { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=48000', data: Buffer.from(new Int16Array(pcm.map((v) => v * 32767)).buffer).toString('base64') } }] } }] };
+      } else {
+        const n = ReelProAudio.parseAudio(Buffer.from(body.contents[0].parts[1].inlineData.data, 'base64')).pcm.length / 16000;
+        out = { candidates: [{ content: { parts: [{ text: heardFor(n) }] } }] };
+      }
+      const t = JSON.stringify(out); return { ok: true, status: 200, text: async () => t, json: async () => JSON.parse(t) };
+    };
+    return { calls, fetchImpl };
+  };
+  test('a take whose pieces say their lines is kept whole', async () => {
+    // the transcriber tells the pieces apart by length: line 1 ≈ 1.2 s, line 3 ≈ 1.9 s, line 2 ≈ 2.7 s
+    const f = fakeGemini((sec) => (sec < 1.5 ? texts[0] : sec < 2.3 ? texts[2] : texts[1]));
+    const r = await ReelProAudio.voiceScript(texts, { key: 'k', fetchImpl: f.fetchImpl, takes: 1 });
+    assert.deepEqual(r.map((x) => x.mode), ['script', 'script', 'script']);
+    assert.equal(f.calls.filter((u) => /tts/.test(u)).length, 1, 'one call for the whole script');
+    assert.ok(r[1].words.length === 3 && r[1].dur > 2 && r[1].dur < 2.8, JSON.stringify({ dur: r[1].dur, words: r[1].words }));
+  });
+  test('a line the take got wrong is made again on its own', async () => {
+    // the last piece is heard as something else: it is re-made alone, the others stay from the take
+    let made = 0;
+    const f = fakeGemini((sec) => (sec < 1.5 ? (made++ < 1 ? texts[0] : texts[2]) : sec < 2.3 ? 'سعودي دايلكت رياض اكسنت' : texts[1]));
+    const r = await ReelProAudio.voiceScript(texts, { key: 'k', fetchImpl: f.fetchImpl, takes: 1 });
+    assert.deepEqual(r.map((x) => x.mode), ['script', 'script', 'line']);
+    assert.equal(r[2].score, 1);
+  });
+});
+
 // ---------------------------------------------------------------- publishing
 test('the published layout carries the pro reel', () => {
-  for (const p of ['reel-pro/abaya.jpg', 'reel-pro/lock.jpg', 'reel-pro/shield.jpg', 'brand/fd-logo-night.png', 'brand/badge-salla.png', 'prompts/reel-pro.md',
+  for (const p of ['reel-pro/abaya.jpg', 'reel-pro/lock.jpg', 'reel-pro/shield.jpg', 'brand/fd-logo-night.png', 'prompts/reel-pro.md',
     'fonts/tajawal-arabic-500-normal.woff2', 'fonts/tajawal-latin-800-normal.woff2']) assert.ok(assetSource(p), `assets/${p}`);
-  for (const s of ['reel-pro.js', 'reel-pro-audio.js']) assert.ok(scriptSource(s), `js/${s}`);
+  for (const s of ['reel-pro.js', 'reel-pro-audio.js', 'snapdom.js', 'html-to-image.js']) assert.ok(scriptSource(s), `js/${s}`);
+  // Salla's and Zid's logos are not ours to restyle: the platforms are named in our own type instead
+  for (const p of ['brand/badge-salla.png', 'brand/badge-zid.png']) assert.ok(!assetSource(p), `${p} should not ship`);
   for (const id of TEMPLATES) {
     const walk = (o) => (typeof o === 'string' ? (ReelPro.okImage(o) ? [o] : []) : o && typeof o === 'object' ? Object.values(o).flatMap(walk) : []);
     for (const img of walk(ReelPro.TEMPLATES[id].fields)) assert.ok(assetSource(img), `${id}: ${img} is not published`);
@@ -183,6 +280,46 @@ describe('the stage in a real browser', { timeout: 180000 }, () => {
       const r = await renderReelPro(spec, { out: join(dir, id), stills: at, key: '' });
       assert.equal(r.stills.length, at.length);
       for (const f of r.stills) assert.ok(statSync(f).size > 30000, `${id}: ${f} looks empty`);
+    }
+  });
+
+  test('every glyph stays inside the platforms\' safe area, and no platform logo is drawn', async (t) => {
+    if (!ok) return t.skip('needs chromium (npm run setup)');
+    const { openStage } = await import('../src/reel-pro.mjs');
+    for (const id of TEMPLATES) {
+      const spec = ReelPro.example(id);
+      // a headline far longer than the example: the type shrinks instead of spilling out
+      if (spec.fields.hookA) spec.fields.hookA = spec.fields.hookA + ' ' + spec.fields.hookA;
+      const T = ReelPro.timeline(spec), s = await openStage(spec, T);
+      try {
+        const bad = await s.page.evaluate(([dur, S]) => {
+          const out = [], run = {};
+          const vis = (el) => { let o = 1; for (let e = el; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
+          const root = window.__rp.root;
+          for (let t = 0; t <= dur; t += 0.25) {
+            window.__rp.render(t); const seen = new Set();
+            const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n; const items = [];
+            while ((n = tw.nextNode())) { if (!n.textContent.trim()) continue; const r = document.createRange(); r.selectNodeContents(n); for (const b of r.getClientRects()) items.push([n.parentElement, b, n.textContent.trim()]); }
+            for (const b of root.querySelectorAll('.btn')) items.push([b, b.getBoundingClientRect(), 'BUTTON']);
+            for (const [el, r, txt] of items) {
+              if (r.width < 2 || r.height < 2 || vis(el) < 0.3) continue;
+              let { top, bottom, left, right } = r;
+              for (let e = el.parentElement; e && e !== root; e = e.parentElement) if (getComputedStyle(e).overflow === 'hidden') { const c = e.getBoundingClientRect(); top = Math.max(top, c.top); bottom = Math.min(bottom, c.bottom); left = Math.max(left, c.left); right = Math.min(right, c.right); }
+              if (bottom - top < 4 || right - left < 4) continue;
+              const over = Math.max(0, S.top - top, bottom - S.bottom, S.left - left, right - S.right);
+              if (over <= 3) continue;
+              // passing through on the way in or out is fine; staying outside for 3/4 of a second is not
+              const k = txt.slice(0, 30); if (!seen.has(k)) { seen.add(k); run[k] = (run[k] || 0) + 1; }
+              if (run[k] >= 4) out.push(`${k} @${t.toFixed(2)}s: ${Math.round(over)}px out`);
+            }
+            for (const k in run) if (!seen.has(k)) run[k] = 0;
+          }
+          const logos = [...root.querySelectorAll('.badge, img[src*="badge-"]')].map((e) => e.className || e.getAttribute('src'));
+          return { out: [...new Set(out)].slice(0, 6), logos };
+        }, [T.duration, ReelPro.SAFE]);
+        assert.deepEqual(bad.out, [], `${id}: outside the safe area`);
+        assert.deepEqual(bad.logos, [], `${id}: a platform logo is drawn`);
+      } finally { await s.browser.close(); }
     }
   });
 

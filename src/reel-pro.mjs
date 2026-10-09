@@ -50,6 +50,8 @@ export function voiceOf(spec) {
     style: typeof v.style === 'string' && v.style.length < 300 ? v.style : D.style,
     takes: Math.max(1, Math.min(4, +(v.takes ?? 2) || 2)),
     verify: v.verify !== false,
+    // 'script': one continuous take for the whole script, split into lines (the default); 'lines': one take per line
+    mode: v.mode === 'lines' ? 'lines' : 'script',
   };
 }
 
@@ -63,17 +65,27 @@ export async function prepareVoice(spec, { key = process.env.GEMINI_API_KEY, cac
   if (!key) { log('ℹ️ لا يوجد GEMINI_API_KEY — الفيديو بلا تعليق صوتي (موسيقى ومؤثرات)'); return { voiced, pcm, scores, used: false, reason: 'no key' }; }
   const v = voiceOf(spec);
   const dir = join(cacheDir, 'reel-pro'); mkdirSync(dir, { recursive: true });
-  for (const l of spec.lines) {
-    const text = String(l.text || '').trim(); if (!text) continue;
-    const h = createHash('sha1').update(['rp1', v.model, v.voice, v.style, text].join('|')).digest('hex').slice(0, 16);
-    const wavFile = join(dir, h + '.wav'), meta = join(dir, h + '.json');
-    if (!(existsSync(wavFile) && existsSync(meta))) {
-      log(`🎙 ${l.id}: ${text.slice(0, 40)}…`);
-      const r = await ReelProAudio.voiceLine(text, { key, ...v, onWait: log });
-      writeFileSync(wavFile, ReelProAudio.wav(r.pcm));
-      writeFileSync(meta, JSON.stringify({ dur: r.dur, words: r.words, score: r.score, heard: r.heard }));
-      if (r.score != null) log(`   ✓ مطابقة النطق ${(r.score * 100).toFixed(0)}%`);
-    }
+  // in the order they are heard, so a continuous take reads the script as the film plays it
+  const order = (ReelPro.TEMPLATES[spec.template]?.lines || []).map((l) => l.id), at = (id) => (order.indexOf(id) + 1 || 99);
+  const lines = spec.lines.map((l) => ({ id: l.id, text: String(l.text || '').trim() })).filter((l) => l.text).sort((a, b) => at(a.id) - at(b.id)).map((l) => {
+    const h = createHash('sha1').update(['rp1', v.mode === 'script' ? 's' : '', v.model, v.voice, v.style, l.text].join('|')).digest('hex').slice(0, 16);
+    return { ...l, wavFile: join(dir, h + '.wav'), meta: join(dir, h + '.json') };
+  });
+  const keep = (l, r) => {
+    writeFileSync(l.wavFile, ReelProAudio.wav(r.pcm));
+    writeFileSync(l.meta, JSON.stringify({ dur: r.dur, words: r.words, score: r.score, heard: r.heard }));
+    if (r.score != null) log(`   ✓ ${l.id}: مطابقة النطق ${(r.score * 100).toFixed(0)}%${r.mode === 'line' ? ' (أُعيد لوحده)' : ''}`);
+  };
+  const todo = lines.filter((l) => !(existsSync(l.wavFile) && existsSync(l.meta)));
+  if (v.mode === 'script' && todo.length >= 2) {
+    const rs = await ReelProAudio.voiceScript(todo.map((l) => l.text), { key, ...v, onWait: log });
+    todo.forEach((l, i) => keep(l, rs[i]));
+  } else for (const l of todo) {
+    log(`🎙 ${l.id}: ${l.text.slice(0, 40)}…`);
+    keep(l, await ReelProAudio.voiceLine(l.text, { key, ...v, onWait: log }));
+  }
+  for (const l of lines) {
+    const { wavFile, meta } = l;
     const m = JSON.parse(readFileSync(meta, 'utf8'));
     pcm[l.id] = ReelProAudio.parseAudio(new Uint8Array(readFileSync(wavFile))).pcm;
     voiced[l.id] = { dur: m.dur, words: m.words };
@@ -84,7 +96,7 @@ export async function prepareVoice(spec, { key = process.env.GEMINI_API_KEY, cac
 
 /** Every bundled image the stage may ask for, as data: URLs (the page has no file access). */
 function assetMap(spec) {
-  const want = new Set(['brand/fd-logo-night.png', 'brand/badge-salla.png', 'brand/badge-zid.png', 'reel-pro/lock.jpg', 'reel-pro/shield.jpg']);
+  const want = new Set(['brand/fd-logo-night.png', 'reel-pro/lock.jpg', 'reel-pro/shield.jpg']);
   const tpl = ReelPro.TEMPLATES[spec.template];
   const walk = (o) => { if (typeof o === 'string') { if (ReelPro.okImage(o) && !o.startsWith('data:')) want.add(o); } else if (o && typeof o === 'object') Object.values(o).forEach(walk); };
   walk(tpl.fields); walk(ReelPro.fieldsFor(spec, tpl));
@@ -108,10 +120,12 @@ export async function openStage(spec, T) {
   await page.addScriptTag({ content: readFileSync(join(ROOT, 'web/js/reel-pro.js'), 'utf8') });
   const assets = assetMap(spec);
   await page.evaluate(async ([s, t, a]) => {
-    await document.fonts.ready;
+    // load the stage's faces before anything is measured (fonts.ready alone resolves before any is asked for)
+    await Promise.all(['500', '700', '800'].map((w) => document.fonts.load(`${w} 60px RP`, 'ابت abc').catch(() => {})));
     window.__rp = ReelPro.mount(document.getElementById('host'), s, t, { asset: (p) => a[p] || '' });
     await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
     await document.fonts.ready;
+    window.__rp.fit();
   }, [spec, T, assets]);
   return { browser, page, render: (t) => page.evaluate((tt) => window.__rp.render(tt), t) };
 }

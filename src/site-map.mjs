@@ -24,6 +24,7 @@ export const SCRIPTS = {
   'reel-pro-audio.js': { from: 'web/js/reel-pro-audio.js' },
   'signal.js': { from: 'web/js/signal.js' },
   'html-to-image.js': { from: 'node_modules/html-to-image/dist/html-to-image.js' },
+  'snapdom.js': { from: 'node_modules/@zumer/snapdom/dist/snapdom.js' },
   'jszip.min.js': { from: 'node_modules/jszip/dist/jszip.min.js' },
   'jspdf.umd.min.js': { from: 'node_modules/jspdf/dist/jspdf.umd.min.js' },
   'engine.js': { from: 'src/renderer/engine.js' },

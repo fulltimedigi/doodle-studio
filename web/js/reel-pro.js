@@ -51,6 +51,17 @@
   }
 
   // ------------------------------------------------------------------ timeline
+  /**
+   * Where the important things go on a 1080×1920 frame: out from under the platforms' own buttons,
+   * names and captions. The strictest of the published guides, taken together —
+   *   top 288    YouTube Shorts (288); Instagram/Facebook Reels ads ask 14% (269); TikTok 240
+   *   bottom 672 Instagram/Facebook Reels ads 35% (672) and YouTube Shorts (672); TikTok 660
+   *   sides 130  TikTok 120 on each side (its Arabic layout moves the button column to the LEFT);
+   *              Meta 6% (65); YouTube Shorts ads want 192 on the right — the one guide this misses
+   * Sources: Meta Ads Guide «Instagram Reels» safe zones, TikTok Ads «Auction In-Feed Ads» safe-zone
+   * templates (standard and Arabic/RTL), Google Ads help 9128498 (vertical video ads), Snap ad specs.
+   */
+  const SAFE = { top: 288, bottom: 1248, left: 130, right: 950 };
   const CPS = 12.5; // Arabic narration, characters per second (spaces included) — measured on Gemini TTS
   /** Seconds a line takes when there is no voice yet (preview, music-only films). */
   function estimateDuration(text) {
@@ -191,8 +202,39 @@
   function line(parent, cls, top, size, extra = {}) {
     const e = el('div', 'line ' + cls, parent);
     e.style.top = top + 'px'; if (size) e.style.fontSize = size + 'px';
+    // headlines keep to one line and smaller copy to two: fitLines() shrinks the type if the words
+    // someone wrote are longer than the template's example
+    if (/\b(h1|h2)\b/.test(cls)) e.dataset.fit = '1'; else if (/\bsub\b/.test(cls)) e.dataset.fit = '2';
     Object.assign(e.style, extra);
     return e;
+  }
+  // Measured type depends on the font being loaded: mount() fits once, and the page or the renderer
+  // calls stage.fit() again once the fonts are in (each fit starts from the template's own size).
+  const startSize = (e) => { if (!e.dataset.fs0) e.dataset.fs0 = parseFloat(e.style.fontSize || getComputedStyle(e).fontSize) || 0; e.style.fontSize = e.dataset.fs0 + 'px'; return +e.dataset.fs0; };
+  function fitLines(root) {
+    for (const e of root.querySelectorAll('.line[data-fit]')) {
+      const max = +e.dataset.fit; let fs = startSize(e); const min = fs * 0.66;
+      const lh = () => parseFloat(getComputedStyle(e).lineHeight) || fs * 1.25;
+      for (let i = 0; i < 24 && fs > min && e.offsetHeight > lh() * max + 6; i++) { fs *= 0.95; e.style.fontSize = fs.toFixed(1) + 'px'; }
+    }
+    // one-line pills and labels: no wider than the safe area
+    for (const e of root.querySelectorAll('[data-maxw], .tag, .pill, .okpill, .plats, .qb')) {
+      const maxw = +(e.dataset.maxw || SAFE.right - SAFE.left);
+      let fs = startSize(e); const min = fs * 0.66;
+      for (let i = 0; i < 24 && fs > min && e.offsetWidth > maxw; i++) { fs *= 0.95; e.style.fontSize = fs.toFixed(1) + 'px'; }
+    }
+  }
+  /**
+   * Salla, Zid … by name, set in our own type. Their logos are trademarks whose owners forbid
+   * recolouring or restyling them (Zid's brand guidelines say so outright), and neither publishes
+   * an «available on» badge for apps — so the reels never draw their logos.
+   */
+  function platformChips(parent, top, names, { big = false } = {}) {
+    const list = (Array.isArray(names) && names.length ? names : ['سلة', 'زد']).map((n) => String(n).trim()).filter(Boolean).slice(0, 3);
+    if (big) return list.slice(0, 2).map((n, i) => { const c = el('div', 'plat big', parent, n); ABS(c, { left: [720, 360][i], top }); c.dataset.base = 'translateX(-50%)'; return c; });
+    const row = el('div', 'plats', parent); row.style.top = top + 'px'; row.dataset.base = 'translateX(-50%)';
+    el('span', 'lb', row, 'لمتاجر'); list.forEach((n) => el('span', 'plat', row, n));
+    return [row];
   }
   const ABS = (e, o) => { e.style.position = 'absolute'; for (const k in o) e.style[k] = typeof o[k] === 'number' ? o[k] + 'px' : o[k]; return e; };
   const hasLatin = (s) => /[A-Za-z]/.test(String(s));
@@ -286,21 +328,19 @@
   function ctaScene(ctx, id, C) {
     const { stage, k, asset, brand } = ctx;
     const sc = el('div', 'scene', stage);
-    const logo = el('img', 'abs', sc); logo.src = brand.logo || asset('brand/fd-logo-night.png'); ABS(logo, { left: 330, top: 250, width: 420, height: 313, objectFit: 'contain' });
-    const A = words(line(sc, 'h1', 650, C.aSize || 96), C.a, '', C.mint);
-    const B = words(line(sc, 'h1', 765, 118), C.b, 'mint');
-    const btn = el('div', 'btn', sc); btn.style.top = '950px';
+    const logo = el('img', 'abs', sc); logo.src = brand.logo || asset('brand/fd-logo-night.png'); ABS(logo, { left: 405, top: SAFE.top, width: 270, height: 202, objectFit: 'contain' });
+    const A = words(line(sc, 'h1', 515, C.aSize || 96), C.a, '', C.mint);
+    const B = words(line(sc, 'h1', 625, 118), C.b, 'mint');
+    const btn = el('div', 'btn', sc); btn.style.top = '790px';
     el('span', '', btn, C.btn);
     const arr = el('span', 'arr', btn); icon(arr, ICON.arrow, 54, 'var(--mint)');
     const shine = el('i', 'shine', btn);
-    const url = line(sc, 'latin', 1135, 54); url.textContent = brand.website || 'fulltimedigi.com';
-    const plats = [];
-    if (C.platforms !== false) for (const [src, x] of [['brand/badge-salla.png', 560], ['brand/badge-zid.png', 250]]) {
-      const b = el('div', 'badge', sc); ABS(b, { left: x, top: 1230, width: 270 }); const im = el('img', '', b); im.src = asset(src); plats.push(b);
-    }
+    const url = line(sc, 'latin', 968, 54); url.textContent = brand.website || 'fulltimedigi.com';
+    // the platforms by name, in our own type — never their logos (see platformChips)
+    const plats = C.platforms === false || (Array.isArray(C.platforms) && !C.platforms.filter(Boolean).length) ? [] : platformChips(sc, 1062, C.platforms);
     let last = null;
-    if (C.reply) { last = el('div', 'pill', sc); last.style.top = '1395px'; last.style.fontSize = '36px'; last.style.fontWeight = '700'; el('span', 'n', last, '?'); el('span', '', last, C.reply); }
-    else if (C.micro) { last = line(sc, 'micro', 1410); last.textContent = ''; C.micro.split('·').map((s) => s.trim()).filter(Boolean).forEach((s, i) => { if (i) el('b', '', last, '·'); el('span', '', last, s); }); }
+    if (C.reply) { last = el('div', 'pill', sc); last.style.top = '1158px'; last.style.fontSize = '34px'; last.dataset.maxw = SAFE.right - SAFE.left; last.style.fontWeight = '700'; el('span', 'n', last, '?'); el('span', '', last, C.reply); }
+    else if (C.micro) { last = line(sc, 'micro', 1170); last.textContent = ''; C.micro.split('·').map((s) => s.trim()).filter(Boolean).forEach((s, i) => { if (i) el('b', '', last, '·'); el('span', '', last, s); }); }
     return (t) => {
       const [a, b] = k.win(id); if (!sceneFx(sc, t, a, b, { fo: 0 })) return;
       pop(logo, t, a + 0.05, { dur: 0.7, from: 0.7 });
@@ -320,7 +360,7 @@
       shine.style.opacity = t > b0 + 0.9 && sh < 0.9 ? 1 : 0;
       const u0 = Math.min(k.at(id, 'فل', 0.6), l.start + l.dur * 0.6) - 0.05;
       rise(url, t, u0);
-      plats.forEach((p, i) => pop(p, t, u0 + 0.5 + i * 0.15, { from: 0.6, dy: 30 }));
+      plats.forEach((p, i) => pop(p, t, u0 + 0.5 + i * 0.15, { from: 0.6, dy: 30, base: p.dataset.base || '' }));
       if (last) {
         if (C.reply) { pop(last, t, l.end + 0.05, { from: 0.8, dy: 30, base: 'translateX(-50%)' }); }
         else rise(last, t, u0 + 0.9, { dy: 20 });
@@ -348,8 +388,8 @@
   }
 
   /** A numbered pill list in the title area (the answers, as they are revealed). */
-  function pillList(parent, items, top = 250, step = 84) {
-    return items.map((txt, i) => { const d = el('div', 'pill', parent); d.style.top = top + i * step + 'px'; el('span', 'n', d, '١٢٣٤٥'[i] || String(i + 1)); el('span', '', d, txt); return d; });
+  function pillList(parent, items, top = SAFE.top + 4, step = 78) {
+    return items.map((txt, i) => { const d = el('div', 'pill', parent); d.style.top = top + i * step + 'px'; d.dataset.maxw = SAFE.right - SAFE.left; el('span', 'n', d, '١٢٣٤٥'[i] || String(i + 1)); el('span', '', d, txt); return d; });
   }
 
   /** The illustrative report card: a heading row and linked lines. */
@@ -364,7 +404,7 @@
   // Each template: the spoken lines (ids fixed, wording free), the on-screen copy (`fields`,
   // defaults are a complete approved example), and build() → render(t). All screen words come from
   // fields; all timing comes from the voice.
-  const CTA_CHECK = { a: 'افحص متجرك', b: 'مجانًا', btn: 'افحص متجري مجانًا' };
+  const CTA_CHECK = { a: 'افحص متجرك', b: 'مجانًا', btn: 'افحص متجري مجانًا', platforms: ['سلة', 'زد'] };
 
   const TEMPLATES = {};
 
@@ -391,36 +431,37 @@
     build(ctx) {
       const { stage, F, k, asset } = ctx, p = F.product;
       // the page stays on screen from frame 1 to the turn, so it is not a scene of its own
-      const pg = el('div', 'page', stage); ABS(pg, { left: 140, top: 500, width: 800, height: 990 });
+      // the whole page — and so every thing the viewer hunts for — sits inside the safe area
+      const pg = el('div', 'page', stage); ABS(pg, { left: 140, top: 528, width: 800, height: 752 });
       pg.style.transformOrigin = '50% 0';
-      const bar = el('div', 'bar', pg); el('i', '', bar); el('b', '', bar); el('u', '', bar);
-      const pic = el('div', 'pic', pg); pic.style.height = '470px'; const im = el('img', '', pic); im.src = asset(p.image);
+      // the address bar carries the «illustrative» label, so it is on screen whenever the page is
+      const bar = el('div', 'bar', pg); el('i', '', bar); const pgTag = el('b', '', bar, F.pageTag); pgTag.style.fontSize = '26px'; el('u', '', bar);
+      const pic = el('div', 'pic', pg); pic.style.height = '252px'; const im = el('img', '', pic); im.src = asset(p.image);
       el('div', 'ttl', pg, p.name);
       const fld = (top, h) => { const f = el('div', 'fld', pg); f.style.top = top + 'px'; f.style.height = h + 'px'; return f; };
-      const fPrice = fld(628, 64); el('span', 'k', fPrice, p.priceK); el('span', 'v', fPrice, p.priceV);
-      const fSize = fld(704, 80); el('span', 'k', fSize, p.sizeK); for (const s of (p.sizes || []).slice(0, 4)) el('span', 'chip', fSize, s);
-      const fDesc = fld(796, 64); el('span', 'k', fDesc, p.descK); el('span', 'v', fDesc, p.descV);
-      el('div', 'cart', pg, p.button);
+      const fPrice = fld(406, 64); el('span', 'k', fPrice, p.priceK); el('span', 'v', fPrice, p.priceV);
+      const fSize = fld(478, 80); el('span', 'k', fSize, p.sizeK); for (const s of (p.sizes || []).slice(0, 4)) el('span', 'chip', fSize, s);
+      const fDesc = fld(566, 64); el('span', 'k', fDesc, p.descK); el('span', 'v', fDesc, p.descV);
+      const cart = el('div', 'cart', pg, p.button); cart.style.bottom = '26px'; cart.style.height = '76px';
       const FL = [fDesc, fSize, fPrice].map((f, i) => ({ mk: el('i', 'mk', f), num: el('i', 'num', f, '١٢٣'[i]) }));
-      const pgTag = el('div', 'tag', stage, F.pageTag); pgTag.style.top = '1510px';
-      const timer = countdown(stage, { left: 186, top: 560 });
+      const timer = countdown(stage, { left: 170, top: 620 });
       const finger = el('div', 'finger', stage);
 
       const hook = el('div', 'scene', stage);
-      const HA = words(line(hook, 'h1', 250, 112), F.hookA, '', F.hookMint);
-      const HB = words(line(hook, 'sub', 392, 46), F.hookB);
+      const HA = words(line(hook, 'h1', SAFE.top, 112), F.hookA, '', F.hookMint);
+      const HB = words(line(hook, 'sub', 432, 44), F.hookB);
       const rv = el('div', 'scene', stage); const FP = pillList(rv, F.finds);
       const turn = el('div', 'scene', stage);
-      const TA = words(line(turn, 'h2', 250), F.turnA); const TB = words(line(turn, 'h2', 360), F.turnB, 'mint');
+      const TA = words(line(turn, 'h2', SAFE.top, 74), F.turnA); const TB = words(line(turn, 'h2', 400, 74), F.turnB, 'mint');
       const ans = el('div', 'scene', stage);
-      const AA = words(line(ans, 'h2', 280), F.ansA, '', F.ansMint); const AB = words(line(ans, 'h2', 390), F.ansB);
+      const AA = words(line(ans, 'h2', SAFE.top), F.ansA, '', F.ansMint); const AB = words(line(ans, 'h2', 400), F.ansB);
       const ROWS = F.finds.map((txt, i) => {
-        const r = el('div', 'row', ans); r.style.top = 560 + i * 140 + 'px';
+        const r = el('div', 'row', ans); r.style.top = 560 + i * 136 + 'px';
         icon(el('div', 'ic', r), ICON.link, 40); el('div', 'tx', r, txt);
-        const n = el('div', '', r, F.rowNote); Object.assign(n.style, { marginRight: 'auto', fontSize: '30px', fontWeight: '700', color: 'var(--muted)', whiteSpace: 'nowrap' }); return r;
+        const n = el('div', '', r, F.rowNote); Object.assign(n.style, { marginRight: 'auto', fontSize: '26px', fontWeight: '700', color: 'var(--muted)', whiteSpace: 'nowrap' }); return r;
       });
-      const AS = words(line(ans, 'sub', 1050), F.ansS);
-      const repTag = el('div', 'tag', ans, F.reportTag); repTag.style.top = '1160px';
+      const AS = words(line(ans, 'sub', 1000), F.ansS);
+      const repTag = el('div', 'tag', ans, F.reportTag); repTag.style.top = '1110px';
       const cta = ctaScene(ctx, 'cta', F.cta);
 
       return (t) => {
@@ -432,7 +473,6 @@
         const pin = ease.out(P(t, 0, 0.7)), shrink = ease.inOut(P(t, tnS - 0.4, tnS + 0.4)), out = ease.inOut(P(t, anS - 0.45, anS - 0.05));
         show(pg, 1 - out);
         pg.style.transform = `translateY(${((1 - pin) * 260 + shrink * 210).toFixed(1)}px) scale(${((0.96 + 0.04 * pin) * (1 - 0.3 * shrink)).toFixed(4)})`;
-        show(pgTag, ease.out(P(t, 0.6, 1.1)) * (1 - shrink) * (1 - out));
         if (L('count')) timer(t, ticks, endHook); else show(stage.querySelector('.timer'), 0);
         // hook title: readable from the very first frame
         { const v = env(t, 0, endHook - 0.05, 0, 0.4); show(hook, v);
@@ -455,7 +495,7 @@
         { const s = tnS + 0.3, e = anS - 0.4, v = Math.min(ease.out(P(t, s, s + 0.4)), 1 - ease.inOut(P(t, e - 0.3, e)));
           show(finger, tn ? v * 0.95 : 0);
           finger.style.left = (540 + Math.sin((t - s) * 2.4) * 120).toFixed(1) + 'px';
-          finger.style.top = (1352 + Math.sin((t - s) * 4.8) * 22 - (1 - ease.out(P(t, s, s + 0.6))) * 160).toFixed(1) + 'px'; }
+          finger.style.top = (1210 + Math.sin((t - s) * 4.8) * 22 - (1 - ease.out(P(t, s, s + 0.6))) * 160).toFixed(1) + 'px'; }
         // answer: the findings as report rows
         if (an) { const [a, b] = k.win('answer'); if (sceneFx(ans, t, a, b)) {
           revealWords(AA, t, an.start - 0.1, { stagger: 0.2 }); revealWords(AB, t, k.at('answer', wordsOf(F.ansB)[0], 0.2) - 0.1, { stagger: 0.14 });
@@ -495,7 +535,7 @@
         { before: 'سماعات أذن', brand: 'Norix', after: '', sub: 'مع علبة شحن', image: 'reel-pro/headphones-2.jpg' },
         { before: 'سماعة', brand: 'نوركس', after: 'رياضية', sub: 'بخطاف للأذن', image: 'reel-pro/headphones-3.jpg' },
       ],
-      labels: ['بالعربي', 'بالإنجليزي', 'بخطأ إملائي'], unified: 'نوريكس', button: 'أضف للسلة',
+      labels: ['بالعربي', 'بالإنجليزي', 'بخطأ إملائي'], unified: 'نوريكس',
       turnA: 'كلما كانت التفاصيل أوضح', turnB: 'صار اختيار العميل أسهل',
       ansA: 'الفحص المجاني يطلع لك', ansMint: ['المجاني'], ansB: 'الماركات المكتوبة بأكثر من طريقة', repTitle: 'ماركة مكتوبة بأكثر من طريقة', rowNote: 'رابط المنتج ↗', ansS: 'من منتجاتك أنت',
       cta: { ...CTA_CHECK, reply: 'كم طريقة لقيت قبل الجواب؟ قل لنا بالتعليقات' },
@@ -503,33 +543,35 @@
     },
     build(ctx) {
       const { stage, F, k, asset } = ctx;
-      const pn = el('div', 'page', stage); ABS(pn, { left: 110, top: 500, width: 860, height: 990 });
-      const bar = el('div', 'bar', pn); bar.style.height = '96px'; el('i', '', bar); const sb = el('b', '', bar, F.search); Object.assign(sb.style, { height: '58px', fontSize: '30px', padding: '10px 26px' });
+      const pn = el('div', 'page', stage); ABS(pn, { left: 130, top: 528, width: 820, height: 760 });
+      // the search bar carries the «illustrative» label, so it is on screen whenever the listing is
+      const bar = el('div', 'bar', pn); bar.style.height = '92px'; el('i', '', bar); const sb = el('b', '', bar, F.search); Object.assign(sb.style, { flex: '0 0 auto', height: '56px', fontSize: '30px', padding: '9px 30px' });
+      const pnTag = el('span', '', bar, F.pageTag); Object.assign(pnTag.style, { flex: '1', textAlign: 'left', fontSize: '24px', fontWeight: '700', color: '#8a8f94', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
       const BW = F.items.slice(0, 3).map((it, i) => {
-        const r = el('div', 'it', pn); r.style.top = 110 + i * 290 + 'px'; if (i === 2) r.style.borderBottom = '0';
+        const r = el('div', 'it', pn); Object.assign(r.style, { top: 98 + i * 212 + 'px', height: '206px' }); if (i === 2) r.style.borderBottom = '0';
         const im = el('img', '', r); im.src = asset(it.image);
         const tx = el('div', 'tx', r); const tt = el('div', 'tt', tx);
         if (it.before) tt.appendChild(document.createTextNode(it.before + ' '));
         const bw = el('span', 'bw', tt); const a = el('span', 'a' + (hasLatin(it.brand) ? ' latin' : ''), bw, it.brand); if (hasLatin(it.brand)) a.style.letterSpacing = '0';
         const b = el('span', 'b', bw, F.unified); b.style.opacity = 0; const mk = el('i', 'mk', bw);
         if (it.after) tt.appendChild(document.createTextNode(' ' + it.after));
-        el('div', 'sb', tx, it.sub); el('div', 'add', tx, F.button);
+        el('div', 'sb', tx, it.sub);
+        im.style.flex = '0 0 180px'; im.style.height = '180px';
         return { bw, a, b, mk };
       });
       const LAB = F.labels.slice(0, 3).map((s) => el('div', 'lab', stage, s));
-      const pnTag = el('div', 'tag', stage, F.pageTag); pnTag.style.top = '1510px';
-      const timer = countdown(stage, { left: 40, top: 470 });
+      const timer = countdown(stage, { left: 160, top: 660 });
       const hook = el('div', 'scene', stage);
-      words(line(hook, 'h1', 250, 110), F.hookA, '', F.hookMint);
-      const HB = words(line(hook, 'sub', 392, 50), F.hookB);
+      words(line(hook, 'h1', SAFE.top, 110), F.hookA, '', F.hookMint);
+      const HB = words(line(hook, 'sub', 432, 46), F.hookB);
       const rv = el('div', 'scene', stage); const FP = pillList(rv, F.labels.slice(0, 3));
       const turn = el('div', 'scene', stage);
-      const TA = words(line(turn, 'h2', 250, 68), F.turnA); const TB = words(line(turn, 'h2', 345, 68), F.turnB, 'mint');
+      const TA = words(line(turn, 'h2', SAFE.top, 68), F.turnA); const TB = words(line(turn, 'h2', 388, 68), F.turnB, 'mint');
       const ans = el('div', 'scene', stage);
-      const AA = words(line(ans, 'h2', 270, 80), F.ansA, '', F.ansMint); const AB = words(line(ans, 'sub', 385, 46), F.ansB, 'mint');
-      const rep = reportCard(ans, 560, F.repTitle, F.items.slice(0, 3).map((it) => [it.before, it.brand, it.after].filter(Boolean).join(' ')), F.rowNote);
-      const AS = words(line(ans, 'sub', 1175, 48), F.ansS);
-      const repTag = el('div', 'tag', ans, F.reportTag); repTag.style.top = '1290px';
+      const AA = words(line(ans, 'h2', SAFE.top, 72), F.ansA, '', F.ansMint); const AB = words(line(ans, 'sub', 400, 44), F.ansB, 'mint');
+      const rep = reportCard(ans, 540, F.repTitle, F.items.slice(0, 3).map((it) => [it.before, it.brand, it.after].filter(Boolean).join(' ')), F.rowNote);
+      const AS = words(line(ans, 'sub', 1010, 46), F.ansS);
+      const repTag = el('div', 'tag', ans, F.reportTag); repTag.style.top = '1110px';
       const cta = ctaScene(ctx, 'cta', F.cta);
       return (t) => {
         const L = k.L, rvL = L('reveal'), tn = L('turn'), an = L('answer'), hk = L('hook');
@@ -541,7 +583,6 @@
         const pin = ease.out(P(t, 0, 0.7)), out = ease.inOut(P(t, anS - 0.45, anS - 0.05));
         show(pn, 1 - out);
         pn.style.transform = `translateY(${((1 - pin) * 260 + out * 60).toFixed(1)}px) scale(${(0.97 + 0.03 * pin).toFixed(4)})`;
-        show(pnTag, ease.out(P(t, 0.6, 1.1)) * (1 - out));
         if (L('count')) timer(t, ticks, endHook); else show(stage.querySelector('.timer'), 0);
         { const v = env(t, 0, endHook - 0.05, 0, 0.4); show(hook, v);
           if (v > 0) { const kk = ease.out(P(t, 0, 0.45)); hook.firstChild.style.transform = `scale(${(1.18 - 0.18 * kk).toFixed(3)})`;
@@ -600,13 +641,14 @@
       checkA: 'افحص كتالوج متجرك', checkB: 'مجانًا', repTitle: 'تقرير الفحص', finds: ['سعر غير واضح', 'مقاسات بأسماء مختلفة', 'ألوان غير مذكورة'], rowNote: 'مع رابط المنتج', checkS: 'واعرف وين صفحاتك تحتاج تفاصيل أوضح',
       asA: 'مساعد المتجر', asMint: ['المتجر'], asB: 'يرد على عميلك من منتجاتك', assistName: 'مساعد المتجر',
       thread: { q: 'مقاسي موجود؟ أبي مقاس 54', a: 'هلا! هذا المنتج متوفر بمقاس 54 حسب معلومات المتجر.', note: 'من منتجاتك · معلومات راجعتها واعتمدتها' },
-      cta: { a: 'ابدأ بالفحص', b: 'المجاني', bWord: 'المجاني', btn: 'افحص متجري مجانًا', reply: 'وش أكثر سؤال يجيك من عملائك؟ اكتبه بالتعليقات' },
+      cta: { a: 'ابدأ بالفحص', b: 'المجاني', bWord: 'المجاني', btn: 'افحص متجري مجانًا', platforms: ['سلة', 'زد'], reply: 'وش أكثر سؤال يجيك من عملائك؟ اكتبه بالتعليقات' },
       pageTag: 'مثال توضيحي — ليس متجرًا حقيقيًا', reportTag: 'مثال توضيحي — ليس نتيجة متجر حقيقي', chatTag: 'مثال توضيحي',
     },
     build(ctx) {
       const { stage, F, k, asset } = ctx;
-      const phone = el('div', 'phone', stage); ABS(phone, { left: 274, top: 520 });
-      const scr = el('div', 'screen', phone);
+      // a shorter phone than life, so its newest messages stay above the captions
+      const phone = el('div', 'phone', stage); ABS(phone, { left: 274, top: 470, height: 790 });
+      const scr = el('div', 'screen', phone); scr.style.height = '758px';
       const inbox = el('div', 'scr', scr); el('div', 'hdr', inbox).appendChild(document.createTextNode(F.inboxTitle));
       const msgs = [F.greeting, ...F.questions.slice(0, 3), F.questions[0], F.questions[1]].filter(Boolean);
       const ROWS = msgs.map((m) => {
@@ -617,23 +659,23 @@
       const qb = el('div', 'bub in', thread, F.thread.q); qb.style.top = '170px';
       const ty = el('div', 'typing', thread); ty.style.top = '340px'; const dots = [0, 1, 2].map(() => el('i', '', ty));
       const ab = el('div', 'bub out', thread, F.thread.a); ab.style.top = '340px'; el('small', '', ab, F.thread.note);
-      const phTag = el('div', 'tag', stage, F.chatTag); phTag.style.top = '1540px';
-      const hook = el('div', 'scene', stage); const HA = words(line(hook, 'h1', 250, 100), F.hookA, '', F.hookMint);
+      const phTag = el('div', 'tag', stage, F.chatTag); phTag.style.top = '1180px';
+      const hook = el('div', 'scene', stage); const HA = words(line(hook, 'h1', SAFE.top, 100), F.hookA, '', F.hookMint);
       const why = el('div', 'scene', stage);
-      const YA = words(line(why, 'h2', 250, 72), F.whyA); const YB = words(line(why, 'sub', 350, 42), F.whyB, 'mint');
-      const pp = el('div', 'page', why); ABS(pp, { left: 170, top: 560, width: 740, height: 880 });
-      const pic = el('div', 'pic', pp); pic.style.height = '430px'; el('img', '', pic).src = asset(F.product.image);
+      const YA = words(line(why, 'h2', SAFE.top, 70), F.whyA); const YB = words(line(why, 'sub', 384, 40), F.whyB, 'mint');
+      const pp = el('div', 'page', why); ABS(pp, { left: 230, top: 540, width: 680, height: 640 });
+      const pic = el('div', 'pic', pp); pic.style.height = '250px'; el('img', '', pic).src = asset(F.product.image);
       el('div', 'ttl', pp, F.product.name);
-      const SL = F.slots.slice(0, 3).map((s, i) => { const d = el('div', 'slot', pp); d.style.top = 530 + i * 96 + 'px'; el('span', '', d, s); el('b', '', d, '؟'); return d; });
-      const QB = F.questions.slice(0, 3).map((q, i) => { const d = el('div', 'qb', why, q); ABS(d, { left: [70, 90, 60][i], top: [1040, 1146, 1260][i] }); return d; });
-      const ppTag = el('div', 'tag', why, F.pageTag); ppTag.style.top = '1470px';
+      const SL = F.slots.slice(0, 3).map((s, i) => { const d = el('div', 'slot', pp); d.style.top = 350 + i * 90 + 'px'; el('span', '', d, s); el('b', '', d, '؟'); return d; });
+      const QB = F.questions.slice(0, 3).map((q, i) => { const d = el('div', 'qb', why, q); ABS(d, { left: [134, 150, 134][i], top: [640, 760, 880][i] }); return d; });
+      const ppTag = el('div', 'tag', why, F.pageTag); ppTag.style.top = '1192px';
       const chk = el('div', 'scene', stage);
-      const CA = words(line(chk, 'h2', 270, 80), F.checkA); const CB = words(line(chk, 'h1', 370, 104), F.checkB, 'mint');
-      const rep = reportCard(chk, 560, F.repTitle, F.finds.slice(0, 3), F.rowNote);
-      const CS = words(line(chk, 'sub', 1175, 44), F.checkS);
-      const repTag = el('div', 'tag', chk, F.reportTag); repTag.style.top = '1290px';
+      const CA = words(line(chk, 'h2', SAFE.top, 78), F.checkA); const CB = words(line(chk, 'h1', 392, 100), F.checkB, 'mint');
+      const rep = reportCard(chk, 540, F.repTitle, F.finds.slice(0, 3), F.rowNote);
+      const CS = words(line(chk, 'sub', 1000, 42), F.checkS);
+      const repTag = el('div', 'tag', chk, F.reportTag); repTag.style.top = '1150px';
       const as = el('div', 'scene', stage);
-      const SA = words(line(as, 'h1', 250, 96), F.asA, '', F.asMint); const SB = words(line(as, 'sub', 375, 44), F.asB);
+      const SA = words(line(as, 'h1', SAFE.top, 96), F.asA, '', F.asMint); const SB = words(line(as, 'sub', 412, 42), F.asB);
       const cta = ctaScene(ctx, 'cta', F.cta);
       return (t) => {
         const L = k.L, wy = L('why'), asL = L('assist'), ms = L('msgs'), ctaL = L('cta');
@@ -642,7 +684,7 @@
         const pBack = asL ? ease.out(P(t, asL.start - 0.35, asL.start + 0.25)) : 0, pGone = ctaL ? ease.inOut(P(t, ctaL.start - 0.45, ctaL.start - 0.05)) : 0;
         const inboxPhase = !asL || t < asL.start - 0.35;
         show(phone, inboxPhase ? 1 - pOut : pBack * (1 - pGone));
-        phone.style.transform = inboxPhase ? `translateY(${((1 - pIn) * 220 - pOut * 120).toFixed(1)}px) scale(${(1 - 0.08 * pOut).toFixed(4)})` : `translateY(${((1 - pBack) * 200 + 40).toFixed(1)}px) scale(0.96)`;
+        phone.style.transform = inboxPhase ? `translateY(${((1 - pIn) * 220 - pOut * 120).toFixed(1)}px) scale(${(1 - 0.08 * pOut).toFixed(4)})` : `translateY(${((1 - pBack) * 200 + 30).toFixed(1)}px) scale(0.96)`;
         inbox.style.display = inboxPhase ? '' : 'none'; thread.style.display = inboxPhase ? 'none' : '';
         show(phTag, inboxPhase ? 0 : pBack * (1 - pGone));
         if (inboxPhase) {
@@ -712,34 +754,34 @@
     fields: {
       hookA: 'لا تعطي أحد', hookB: 'كلمة مرور متجرك', fieldLabel: 'كلمة مرور المتجر', stamp: 'بدون كلمة مرور',
       usA: 'حتى إحنا', usB: 'ما نطلبها', howA: 'الربط رسمي', howMint: ['رسمي'], howB: 'والموافقة من داخل سلة أو زد', ok: 'الموافقة من داخل منصتك',
-      readA: 'نقرأ فقط', readMint: ['فقط'], rows: ['لا نطلب كلمة مرور متجرك', 'ما نغيّر شي في متجرك', 'القرار لك'],
+      readA: 'نقرأ فقط', readMint: ['فقط'], rows: ['لا نطلب كلمة مرور متجرك', 'ما نغيّر شي في متجرك', 'القرار لك'], platforms: ['سلة', 'زد'],
       cta: { ...CTA_CHECK, micro: 'مجاني · قراءة فقط · لا نعدّل أي شيء في متجرك' },
     },
     build(ctx) {
       const { stage, F, k, asset } = ctx;
       const hook = el('div', 'scene', stage);
-      const HA = words(line(hook, 'h1', 250, 104), F.hookA); const HB = words(line(hook, 'h1', 372, 104), F.hookB, 'mint');
-      const lock = el('img', 'abs masked', stage); lock.src = asset('reel-pro/lock.jpg'); ABS(lock, { left: 220, top: 470, width: 640, height: 640 });
-      const field = el('div', 'field', stage); field.style.top = '1130px'; el('div', 'lb', field, F.fieldLabel);
+      const HA = words(line(hook, 'h1', SAFE.top, 104), F.hookA); const HB = words(line(hook, 'h1', 410, 104), F.hookB, 'mint');
+      const lock = el('img', 'abs masked', stage); lock.src = asset('reel-pro/lock.jpg'); ABS(lock, { left: 270, top: 500, width: 540, height: 540 });
+      const field = el('div', 'field', stage); Object.assign(field.style, { top: '1010px', height: '178px', padding: '22px 40px' }); el('div', 'lb', field, F.fieldLabel);
       const pw = el('div', 'pw', field); const DOTS = [...Array(10)].map(() => el('i', '', pw)); const car = el('span', 'car', pw);
-      const strike = el('div', 'strike', stage); strike.style.top = '1222px';
-      const nope = el('div', 'okpill', stage); nope.style.top = '1360px'; icon(nope, ICON.check, 40, 'var(--ink)'); el('span', '', nope, F.stamp);
+      const strike = el('div', 'strike', stage); strike.style.top = '1098px';
+      const nope = el('div', 'okpill', stage); nope.style.top = '880px'; icon(nope, ICON.check, 40, 'var(--ink)'); el('span', '', nope, F.stamp);
       const us = el('div', 'scene', stage);
-      const UA = words(line(us, 'h1', 250, 104), F.usA); const UB = words(line(us, 'h1', 372, 104), F.usB, 'mint');
+      const UA = words(line(us, 'h1', SAFE.top, 104), F.usA); const UB = words(line(us, 'h1', 410, 104), F.usB, 'mint');
       const how = el('div', 'scene', stage);
-      const WA = words(line(how, 'h1', 250, 104), F.howA, '', F.howMint); const WB = words(line(how, 'sub', 385, 48), F.howB);
+      const WA = words(line(how, 'h1', SAFE.top, 104), F.howA, '', F.howMint); const WB = words(line(how, 'sub', 424, 46), F.howB);
       const svg = document.createElementNS(SVG_NS, 'svg'); svg.setAttribute('viewBox', '0 0 1080 1920'); ABS(svg, { left: 0, top: 0, width: 1080, height: 1920 }); how.appendChild(svg);
       const mkPath = (d) => { const p = document.createElementNS(SVG_NS, 'path'); for (const [a, v] of [['d', d], ['fill', 'none'], ['stroke', 'rgba(94,240,200,.5)'], ['stroke-width', 5], ['stroke-dasharray', '10 12']]) p.setAttribute(a, v); svg.appendChild(p); return p; };
       const mkDot = () => { const c = document.createElementNS(SVG_NS, 'circle'); c.setAttribute('r', 12); c.setAttribute('fill', '#b4ffe9'); svg.appendChild(c); return c; };
-      const paths = [mkPath('M540 800 C540 930 765 930 765 1060'), mkPath('M540 800 C540 930 315 930 315 1060')], pdots = [mkDot(), mkDot()];
-      const mini = el('img', 'abs', how); mini.src = ctx.brand.logo || asset('brand/fd-logo-night.png'); ABS(mini, { left: 390, top: 560, width: 300, height: 224, objectFit: 'contain' });
-      const bS = el('div', 'badge', how); ABS(bS, { left: 620, top: 1080, width: 290 }); el('img', '', bS).src = asset('brand/badge-salla.png');
-      const bZ = el('div', 'badge', how); ABS(bZ, { left: 170, top: 1080, width: 290 }); el('img', '', bZ).src = asset('brand/badge-zid.png');
-      const ok = el('div', 'pill', how); ok.style.top = '1370px'; const okn = el('span', 'n', ok); icon(okn, ICON.check, 30, 'var(--ink)'); el('span', '', ok, F.ok);
+      const paths = [mkPath('M540 770 C540 860 720 860 720 960'), mkPath('M540 770 C540 860 360 860 360 960')], pdots = [mkDot(), mkDot()];
+      const mini = el('img', 'abs', how); mini.src = ctx.brand.logo || asset('brand/fd-logo-night.png'); ABS(mini, { left: 410, top: 560, width: 260, height: 194, objectFit: 'contain' });
+      // the two platforms by name, in our own type — never their logos
+      const [bS, bZ] = platformChips(how, 960, F.platforms, { big: true });
+      const ok = el('div', 'pill', how); ok.style.top = '1124px'; const okn = el('span', 'n', ok); icon(okn, ICON.check, 30, 'var(--ink)'); el('span', '', ok, F.ok);
       const rd = el('div', 'scene', stage);
-      const RA = words(line(rd, 'h1', 250, 100), F.readA, '', F.readMint);
-      const shield = el('img', 'abs masked', rd); shield.src = asset('reel-pro/shield.jpg'); ABS(shield, { left: 240, top: 385, width: 600, height: 570 });
-      const ROWS = F.rows.slice(0, 3).map((txt, i) => { const r = el('div', 'row', rd); r.style.top = 960 + i * 140 + 'px'; icon(el('div', 'ic', r), [ICON.lock, ICON.eye, ICON.shield][i], 40); el('div', 'tx', r, txt); return r; });
+      const RA = words(line(rd, 'h1', SAFE.top, 100), F.readA, '', F.readMint);
+      const shield = el('img', 'abs masked', rd); shield.src = asset('reel-pro/shield.jpg'); ABS(shield, { left: 300, top: 400, width: 480, height: 456 });
+      const ROWS = F.rows.slice(0, 3).map((txt, i) => { const r = el('div', 'row', rd); r.style.top = 870 + i * 118 + 'px'; r.style.height = '104px'; icon(el('div', 'ic', r), [ICON.lock, ICON.eye, ICON.shield][i], 40); el('div', 'tx', r, txt); return r; });
       const cta = ctaScene(ctx, 'cta', F.cta);
       // the paths' length is fixed by their shape; measure once
       let plen = null;
@@ -771,7 +813,7 @@
           revealWords(WA, t, k.wordTimes('how', WA.length, 0), { dy: 40 }); revealWords(WB, t, k.wordTimes('how', WB.length, WA.length), { dy: 24 });
           pop(mini, t, a + 0.1, { from: 0.6, dur: 0.6 }); mini.style.filter = `drop-shadow(0 0 ${(24 + 10 * Math.sin(t * 2.2)).toFixed(1)}px rgba(94,240,200,.45))`;
           const s1 = k.at('how', 'سلة', 0.7), s2 = k.at('how', 'زد', 0.85);
-          pop(bS, t, s1 - 0.05, { from: 0.55, dy: 40 }); pop(bZ, t, s2 - 0.05, { from: 0.55, dy: 40 });
+          if (bS) pop(bS, t, s1 - 0.05, { from: 0.55, dy: 40, base: bS.dataset.base }); if (bZ) pop(bZ, t, s2 - 0.05, { from: 0.55, dy: 40, base: bZ.dataset.base });
           if (plen == null) plen = paths.map((p) => { try { return p.getTotalLength(); } catch { return 300; } });
           paths.forEach((p, i) => { const s0 = a + 0.4 + i * 0.2, dk = ease.out(P(t, s0, s0 + 0.8));
             p.style.opacity = dk; p.setAttribute('stroke-dashoffset', (-t * 40).toFixed(1));
@@ -847,9 +889,13 @@
     };
     const F = fieldsFor(spec, tpl);
     const draw = tpl.build({ stage, F, k, asset, brand, spec });
-    const render = (t) => { bg(t); draw(t); };
+    fitLines(stage);
+    let last = 0;
+    const render = (t) => { last = t; bg(t); draw(t); };
+    // fitting measures layout, so the scenes that render() hid are shown for the measurement
+    const fit = () => { const hidden = [...stage.querySelectorAll('*')].filter((e) => e.style.display === 'none'); hidden.forEach((e) => { e.style.display = ''; }); fitLines(stage); render(last); };
     render(0);
-    return { render, duration: T.duration, root: stage };
+    return { render, fit, duration: T.duration, root: stage };
   }
 
   /** Sound events for a spec on a timeline: [{type, at, note?, keys?}] */
@@ -876,22 +922,29 @@
     [/مضمون|نضمن|ضمان/, 'ضمان نتيجة'],
     [/الأفضل في|الأقوى|الأرخص|رقم ١|رقم 1/, 'مبالغة مقارنة'],
     [/كل الأخطاء|جميع الأخطاء|يكتشف كل/, 'ادعاء دقة كاملة'],
-    [/شريك معتمد|موصى به من/, 'ادعاء اعتماد من سلة أو زد'],
+    [/شريك\s*(رسمي|معتمد)|شراكة\s*(رسمية|مع)|شركاء\s*(سلة|زد)|معتمد\s*من\s*(سلة|زد)|موصى\s*به\s*من|(سلة|زد)\s*(توصي|يوصي|تنصح|تعتمد)|partner|certified/i,
+      'ادعاء شراكة أو اعتماد من سلة أو زد — ممنوع بدون اتفاق مكتوب منهم'],
     [/shopify|شوبيفاي/i, 'Shopify غير متاح بعد'],
   ];
+  const PLATFORM = /(^|[\s،,«(:])(سلة|زد)(?=[\s،,.؟?!»):]|$)|\bsalla\b|\bzid\b/i;
   /** Warnings for every spoken line and on-screen string in a spec. */
   function lint(spec, banned = []) {
     const out = [];
     const texts = [];
     for (const l of spec.lines || []) texts.push(['السطر ' + l.id, l.text]);
     const walk = (o, path) => { if (typeof o === 'string') texts.push([path, o]); else if (o && typeof o === 'object') for (const k2 of Object.keys(o)) walk(o[k2], path + '.' + k2); };
-    walk(spec.fields || {}, 'الشاشة');
+    // what is on screen: the template's defaults with the spec's own words laid over them
+    const tpl = TEMPLATES[spec.template];
+    walk(tpl ? fieldsFor(spec, tpl) : spec.fields || {}, 'الشاشة');
     for (const [where, s] of texts) {
       for (const [re, why] of LINT) if (re.test(s)) out.push({ where, text: s, why });
       for (const b of banned) if (b && String(s).includes(b)) out.push({ where, text: s, why: 'ممنوع في دليل الهوية: ' + b });
     }
+    // naming a platform is fine only once our app is really in its app store («للسلة», the cart, is not a mention)
+    const named = texts.find(([, s]) => PLATFORM.test(String(s)));
+    if (named) out.push({ where: named[0], text: named[1], why: 'يذكر سلة/زد — انشره بعد ما يكون تطبيقنا منشورًا ومعتمدًا في متجر تطبيقات المنصة نفسها' });
     return out;
   }
 
-  root.ReelPro = { W, H, TEMPLATES, timeline, estimateDuration, estimateWords, phrases, norm, strip, wordsOf, mount, sfx, example, fieldsFor, lint, okImage };
+  root.ReelPro = { W, H, SAFE, TEMPLATES, pauseAfter, timeline, estimateDuration, estimateWords, phrases, norm, strip, wordsOf, mount, sfx, example, fieldsFor, lint, okImage };
 })(globalThis);

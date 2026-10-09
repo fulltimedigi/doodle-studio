@@ -140,17 +140,67 @@
   // ------------------------------------------------------------------ Gemini
   const API = 'https://generativelanguage.googleapis.com/v1beta/models/';
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  async function call(model, body, { key, fetchImpl, onWait } = {}) {
+  /** When the daily quota comes back: midnight Pacific time, shown in Riyadh time. */
+  function dailyReset(now = new Date()) {
+    try {
+      const part = (tz, d) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(d).map((p) => [p.type, p.value]));
+      const p = part('America/Los_Angeles', now), mins = 24 * 60 - (+p.hour * 60 + +p.minute);
+      const at = new Date(now.getTime() + mins * 60000);
+      return new Intl.DateTimeFormat('ar-SA-u-nu-latn', { timeZone: 'Asia/Riyadh', hour: 'numeric', minute: '2-digit' }).format(at) + ' بتوقيت السعودية';
+    } catch { return 'منتصف الليل بتوقيت كاليفورنيا'; }
+  }
+  /**
+   * What a failed Gemini call means, from its status and body (google.rpc.Status: QuotaFailure and
+   * RetryInfo details). → { kind, wait (s, for 'minute'/'busy'), retry, message (Arabic, for the person) }
+   *   minute   per-minute quota: wait the RetryInfo delay, then retry
+   *   daily    per-day quota: retrying fails until midnight Pacific — stop and say when it resets
+   *   noquota  the model has no quota on this key (limit 0, usually no free tier): a setup problem
+   *   busy     503/500/504/408: back off and retry
+   *   key      the key is wrong, blocked or reported as leaked: stop
+   *   fatal    anything else (bad request …): stop
+   */
+  function geminiError(status, text = '', model = '') {
+    let j = null; try { j = JSON.parse(text); } catch { /* not JSON */ }
+    const e = j?.error || {}, details = Array.isArray(e.details) ? e.details : [];
+    const msg = String(e.message || text || '').slice(0, 400);
+    const viol = details.filter((d) => /QuotaFailure/.test(d['@type'] || '')).flatMap((d) => d.violations || []);
+    const retryInfo = details.find((d) => /RetryInfo/.test(d['@type'] || ''));
+    const m1 = /([\d.]+)s/.exec(retryInfo?.retryDelay || '') || /retry in ([\d.]+)\s*s/i.exec(msg);
+    const delay = m1 ? Math.ceil(+m1[1]) : null;
+    const code = typeof e.code === 'string' ? e.code : '';
+    const ids = viol.map((v) => `${v.quotaId || ''} ${v.quotaMetric || ''}`).join(' ');
+    const name = model ? ` (${model})` : '';
+    if (status === 429 || e.status === 'RESOURCE_EXHAUSTED' || code === 'rate_limit_exceeded' || code === 'quota_exceeded') {
+      if (viol.some((v) => String(v.quotaValue) === '0') || /limit:\s*0\b/.test(msg))
+        return { kind: 'noquota', retry: false, message: `هذا النموذج${name} غير متاح لمفتاح Gemini هذا (حصته صفر — غالبًا يحتاج تفعيل الفوترة في Google AI Studio)` };
+      if (/PerDay/i.test(ids) || code === 'quota_exceeded')
+        return { kind: 'daily', retry: false, message: `انتهت حصة اليوم لمفتاح Gemini على${name || ' هذا النموذج'} — تتجدد الساعة ${dailyReset()}. أو فعّل الفوترة في Google AI Studio لحصة أكبر` };
+      return { kind: 'minute', retry: true, wait: Math.min(90, Math.max(2, delay ?? 20)), message: 'حصة الدقيقة ممتلئة' };
+    }
+    if (status === 401 || (status === 403 && /leak|API key|PERMISSION_DENIED|unregistered/i.test(msg)) || (status === 400 && /API key not valid|API_KEY_INVALID/i.test(msg)))
+      return { kind: 'key', retry: false, message: /leak/i.test(msg) ? 'Google أوقف مفتاح Gemini هذا لأنه نُشر علنًا — أنشئ مفتاحًا جديدًا من Google AI Studio' : 'مفتاح Gemini غير صالح أو بلا صلاحية — راجعه في الإعدادات' };
+    if (status === 402) return { kind: 'key', retry: false, message: 'رصيد Gemini المدفوع مسبقًا انتهى — اشحن الرصيد في Google AI Studio' };
+    if (status === 408 || status === 500 || status === 502 || status === 503 || status === 504)
+      return { kind: 'busy', retry: true, wait: delay, message: 'خوادم Gemini مشغولة' };
+    return { kind: 'fatal', retry: false, message: `Gemini ${status}: ${msg.slice(0, 240)}` };
+  }
+  async function call(model, body, { key, fetchImpl, onWait, maxTries = 6, wait = sleep } = {}) {
     if (!key) throw new Error('needs a Gemini API key');
-    const f = fetchImpl || fetch, waits = [6, 12, 20, 30, 45];
-    for (let attempt = 0; ; attempt++) {
-      const r = await f(API + model + ':generateContent', { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body) });
-      if ((r.status === 429 || r.status >= 500) && attempt < waits.length) {
-        if (onWait) onWait(`⏳ Gemini مشغول — إعادة المحاولة خلال ${waits[attempt]} ث`);
-        await sleep(waits[attempt] * 1000); continue;
+    const f = fetchImpl || fetch;
+    for (let attempt = 1; ; attempt++) {
+      let r, why;
+      try { r = await f(API + model + ':generateContent', { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body) }); }
+      catch (err) { why = { kind: 'busy', retry: true, wait: null, message: 'تعذّر الوصول إلى Gemini (الشبكة)' }; if (attempt >= maxTries) throw new Error(why.message + ': ' + err.message); }
+      if (r && r.ok) return r.json();
+      if (r) why = geminiError(r.status, await r.text(), model);
+      if (!why.retry || attempt >= maxTries) {
+        const e = new Error(why.retry ? `${why.message} — جرّب بعد دقائق` : why.message);
+        e.status = r?.status; e.kind = why.kind; throw e;
       }
-      if (!r.ok) { const e = new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 240)}`); e.status = r.status; throw e; }
-      return r.json();
+      // the server's own delay for quota; otherwise exponential backoff with jitter (2, 4, 8, 16, 30 s)
+      const s = why.wait ?? Math.min(30, 2 ** attempt), jit = Math.round(s * 0.2 * Math.random() * 10) / 10;
+      if (onWait) onWait(`⏳ ${why.message} — إعادة المحاولة خلال ${Math.ceil(s + jit)} ث (${attempt}/${maxTries - 1})`);
+      await wait((s + jit) * 1000);
     }
   }
   const DEFAULT_VOICE = { model: 'gemini-3.8-flash-tts', voice: 'Charon', style: 'Saudi dialect, Riyadh accent, warm confident social-media ad voice-over' };
@@ -176,7 +226,7 @@
     let last;
     for (const m of TRANSCRIBERS) {
       try { const j = await call(m, body, { key, fetchImpl, onWait }); return (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim(); }
-      catch (e) { last = e; if (e.status !== 404 && e.status !== 400) throw e; }
+      catch (e) { last = e; if (e.status !== 404 && e.status !== 400 && e.kind !== 'daily' && e.kind !== 'noquota') throw e; }
     }
     throw last;
   }
@@ -200,18 +250,108 @@
     const takes = Math.max(1, Math.min(4, +(opts.takes ?? 2))), verify = opts.verify !== false;
     let best = null;
     for (let k = 0; k < takes; k++) {
-      const { pcm } = await tts(text, opts);
+      let pcm;
+      // a spare take that hits the quota is not worth losing the take already in hand
+      try { ({ pcm } = await tts(text, opts)); } catch (e) { if (best) { if (opts.onWait) opts.onWait('ℹ️ ' + e.message); break; } throw e; }
       const an = analyze(pcm, SR, text);
       const cut = pcm.slice(Math.floor(an.start * SR), Math.ceil(an.end * SR));
       const take = { pcm: cut, dur: +(cut.length / SR).toFixed(3), words: an.words, score: null, heard: '' };
-      if (verify) {
+      if (verify && !opts.skipVerify) {
         try { take.heard = await transcribe(cut, SR, opts); take.score = +similarity(text, take.heard).toFixed(3); }
-        catch (e) { take.score = null; if (opts.onWait) opts.onWait('ℹ️ تعذّر التحقق من النطق: ' + e.message.slice(0, 80)); }
+        catch (e) {
+          take.score = null; if (opts.onWait) opts.onWait('ℹ️ تعذّر التحقق من النطق: ' + e.message.slice(0, 120));
+          // no quota left for checking: stop asking for the rest of this run (the caller shares opts across lines)
+          if (e.kind === 'daily' || e.kind === 'noquota' || e.kind === 'key') opts.skipVerify = true;
+        }
       }
       if (!best || (take.score ?? 0) > (best.score ?? 0)) best = take;
-      if (!verify || take.score == null || take.score >= 0.9) break;
+      if (!verify || opts.skipVerify || take.score == null || take.score >= 0.9) break;
     }
     return best;
+  }
+
+  // ------------------------------------------------------------------ one take for the whole script
+  const ENDS = /[.،,:؛؟?!…]$/;
+  const closed = (t) => (ENDS.test(String(t).trim()) ? String(t).trim() : String(t).trim() + '.');
+  /**
+   * Where each line of a continuous take begins and ends → [{ start, end }] (seconds).
+   * Every punctuation mark in the script is a place the voice may pause; the line ends must get one.
+   * The real pauses are matched to those places in order (dynamic programming: each mark takes the
+   * pause that best fits its length and expected time, or none), so a long pause inside a line —
+   * the «…» of a countdown — is not mistaken for the end of the line before it.
+   */
+  function splitLines(pcm, sr, texts) {
+    texts = texts.map(closed);
+    const hop = Math.round(sr * 0.01), nf = Math.max(1, Math.floor(pcm.length / hop)), rms = new Float32Array(nf); let peak = 0;
+    for (let f = 0; f < nf; f++) { let x = 0; for (let i = f * hop; i < (f + 1) * hop && i < pcm.length; i++) x += pcm[i] * pcm[i]; rms[f] = Math.sqrt(x / hop); if (rms[f] > peak) peak = rms[f]; }
+    const thr = Math.max(peak * 0.07, 0.004), on = (f) => rms[f] > thr;
+    let a = 0; while (a < nf && !on(a)) a++; let b = nf - 1; while (b > a && !on(b)) b--;
+    const P = [];
+    for (let f = a; f <= b; f++) { if (on(f)) continue; let g = f; while (g <= b && !on(g)) g++; if ((g - f) * 0.01 >= 0.09) P.push([f * 0.01, g * 0.01]); f = g; }
+    const words = [], lineEnd = new Set(); texts.forEach((t) => { words.push(...R().wordsOf(t)); lineEnd.add(words.length - 1); });
+    const sa = a * 0.01, sb = (b + 1) * 0.01, est = R().estimateWords(words.join(' '), sb - sa);
+    const Bd = []; words.forEach((w, i) => { if (i < words.length - 1 && ENDS.test(w)) Bd.push({ e: sa + est[i].t + est[i].d + 0.06, end: lineEnd.has(i) }); });
+    const M = Bd.length, NP = P.length, NEG = -1e9;
+    const score = (j, p) => { const mid = (P[p][0] + P[p][1]) / 2, d = Math.abs(mid - Bd[j].e); return d > 3 ? NEG : (P[p][1] - P[p][0]) * (Bd[j].end ? 1.6 : 1) - 0.3 * d; };
+    // dp[j][p]: the best total for the first j marks using only pauses before p
+    const dp = Array.from({ length: M + 1 }, () => new Float64Array(NP + 1).fill(NEG)), ch = Array.from({ length: M + 1 }, () => new Int32Array(NP + 1));
+    for (let p = 0; p <= NP; p++) dp[0][p] = 0;
+    for (let j = 1; j <= M; j++) {
+      const skip = Bd[j - 1].end ? -4 : -0.05;
+      for (let p = 0; p <= NP; p++) {
+        let best = dp[j - 1][p] + skip, arg = -1;                                    // mark j-1 takes no pause
+        if (p > 0) { const x = score(j - 1, p - 1); if (x > NEG / 2 && dp[j - 1][p - 1] + x > best) { best = dp[j - 1][p - 1] + x; arg = p - 1; } } // it takes pause p-1
+        if (p > 0 && dp[j][p - 1] > best) { best = dp[j][p - 1]; arg = -3; }         // pause p-1 stays unused
+        dp[j][p] = best; ch[j][p] = arg;
+      }
+    }
+    const pick = new Array(M).fill(null);
+    for (let j = M, p = NP; j > 0;) { const c = ch[j][p]; if (c === -3) { p--; continue; } if (c >= 0) { pick[j - 1] = P[c]; p = c; } j--; }
+    const cuts = Bd.map((bd, k) => ({ ...bd, pause: pick[k] })).filter((x) => x.end);
+    const out = []; let s0 = sa;
+    texts.forEach((_, k) => { const c = cuts[k]; out.push({ start: s0, end: c ? (c.pause ? c.pause[0] : c.e) : sb }); if (c) s0 = c.pause ? c.pause[1] : c.e; });
+    return out;
+  }
+  /**
+   * Every line from ONE take of the whole script: one voice, one breath, one pace — the lines sound
+   * like a person talking rather than separate recordings. Each piece is checked like a single line;
+   * a line whose piece does not say it (or a take that read the direction aloud, which happens now
+   * and then) is made again on its own.  → [{ pcm, dur, words, score, heard, mode: 'script'|'line' }]
+   */
+  async function voiceScript(texts, opts = {}) {
+    const verify = opts.verify !== false, takes = Math.max(1, Math.min(3, +(opts.takes ?? 2)));
+    const full = texts.map(closed).join(' ');
+    const say = (m) => opts.onWait && opts.onWait(m);
+    let best = null;
+    for (let k = 0; k < takes; k++) {
+      say(`🎙 تسجيل متصل للسكربت كامل${k ? ' — محاولة ثانية' : ''}…`);
+      let pcm; try { ({ pcm } = await tts(full, opts)); } catch (e) { if (best) { say('ℹ️ ' + e.message); break; } throw e; }
+      const parts = splitLines(pcm, SR, texts).map(({ start, end }, i) => {
+        const seg = pcm.slice(Math.floor(start * SR), Math.ceil(end * SR)), an = analyze(seg, SR, texts[i]);
+        const cut = seg.slice(Math.floor(an.start * SR), Math.ceil(an.end * SR)), dur = cut.length / SR, exp = R().estimateDuration(texts[i]);
+        // a piece far longer or shorter than its line is a split gone wrong (or words read that are not in it)
+        const sane = dur < exp * 1.9 + 0.8 && dur > exp * 0.35;
+        return { pcm: cut, dur: +dur.toFixed(3), words: an.words, score: sane ? null : 0, heard: '', mode: 'script', sane };
+      });
+      if (verify && !opts.skipVerify) {
+        for (const [i, part] of parts.entries()) {
+          if (!part.sane) continue;
+          say(`🎧 أتحقق من السطر ${i + 1}/${texts.length}…`);
+          try { part.heard = await transcribe(part.pcm, SR, opts); part.score = +similarity(texts[i], part.heard).toFixed(3); }
+          catch (e) { say('ℹ️ تعذّر التحقق من النطق: ' + e.message.slice(0, 120)); if (['daily', 'noquota', 'key'].includes(e.kind)) opts.skipVerify = true; break; }
+        }
+      }
+      const good = parts.filter((x) => x.sane && (x.score == null || x.score >= 0.8)).length;
+      if (!best || good > best.good) best = { parts, good };
+      if (good === texts.length) break;
+    }
+    // patch: the lines the take did not get right, one by one
+    for (const [i, part] of best.parts.entries()) {
+      if (part.sane && (part.score == null || part.score >= 0.8)) continue;
+      say(`🎙 أعيد السطر ${i + 1} لوحده…`);
+      best.parts[i] = { ...(await voiceLine(texts[i], opts)), mode: 'line' };
+    }
+    return best.parts.map(({ sane, ...p }) => p);
   }
 
   // ------------------------------------------------------------------ synthesis
@@ -334,5 +474,5 @@
     return out;
   }
 
-  root.ReelProAudio = { SR, parseAudio, wav, resample, analyze, tts, transcribe, similarity, voiceLine, music, mix, lufs, SFX, DEFAULT_VOICE, fromB64, toB64 };
+  root.ReelProAudio = { SR, geminiError, dailyReset, call, splitLines, voiceScript, parseAudio, wav, resample, analyze, tts, transcribe, similarity, voiceLine, music, mix, lufs, SFX, DEFAULT_VOICE, fromB64, toB64 };
 })(globalThis);

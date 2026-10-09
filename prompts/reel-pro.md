@@ -44,7 +44,8 @@ Also add `"caption"` (an Instagram caption, 3–6 short lines, the same claims a
 - **Never invent a number, a result, a percentage, a store count, a testimonial, a rating or a review.**
 - **No promise of more sales or conversion** beyond a slogan the brand guide gives verbatim. No «ضاعف مبيعاتك», «نضمن».
 - **No «قريبًا» / "coming soon"** — videos are published on launch day.
-- No "partner of / recommended by" a platform. No Shopify unless the brand guide says it is live.
+- No "partner of / recommended by / certified by" a platform («شريك رسمي»، «معتمد من سلة»، «سلة توصي») — that needs a written agreement we do not have. No Shopify unless the brand guide says it is live.
+- Salla and Zid may be named in words only, as the stores we work with («اربط متجرك على سلة أو زد»). Keep `platforms` exactly as in the example; the studio sets their names in its own type and never draws their logos.
 - Use only what the brand guide says the product does. If the topic asks for something the guide does not support, write the reel without that claim.
 
 ## JSON format
