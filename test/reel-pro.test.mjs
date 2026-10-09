@@ -409,6 +409,7 @@ describe('the studio page', { timeout: 240000 }, () => {
     if (!browser) return t.skip('needs chromium (npm run setup)');
     // a short spec (the hook and the call to action), no voice, low frame rate: two at once
     const spec = ReelPro.example('trust'); spec.lines = spec.lines.filter((l) => l.id === 'hook' || l.id === 'cta'); spec.voice = false;
+    spec.slug = 'long-name-'.repeat(10); // longer than a file name may be: the job id must still survive
     const start = async () => (await (await fetch(base + '/api/reel-pro', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ spec, fps: 12, music: false }) })).json()).id;
     const ids = await Promise.all([start(), start()]);
     const done = async (id) => { for (let i = 0; i < 240; i++) { const j = await (await fetch(base + '/api/jobs/' + id)).json(); if (j.status === 'done' || j.status === 'error') return j; await new Promise((ok) => setTimeout(ok, 500)); } throw new Error('render timed out'); };

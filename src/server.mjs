@@ -162,7 +162,7 @@ async function handle(req, res) {
       const job = { id, status: 'queued', progress: 0, log: [], url: null, started: Date.now() }; jobs.set(id, job);
       const spec = b.spec || {};
       // the job id keeps two renders of the same template (two tabs, two people) from sharing files
-      spec.slug = slug(spec.slug || spec.template || 'reel-pro') + '-' + id;
+      spec.slug = slug(spec.slug || spec.template || 'reel-pro').slice(0, 60) + '-' + id; // short enough that the id survives the 80-character file name
       (async () => {
         try {
           job.status = 'rendering';
