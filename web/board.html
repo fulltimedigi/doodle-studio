@@ -60,6 +60,11 @@
   .chip{border-inline-start-color:var(--s,#9aa4a0)}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--s,#9aa4a0);margin-inline-end:5px;vertical-align:1px}
 
+  .market-box{margin-top:12px;padding:15px;border:1px solid #bfe4d1;border-radius:15px;background:linear-gradient(110deg,#f0fbf5,#fff)}
+  .market-box .market-head{font-weight:800;color:#0b3b33;margin-bottom:6px}
+  .market-box p{font-size:12.5px;color:var(--muted);margin:5px 0 10px;line-height:1.7}
+  .market-box select{width:auto;min-width:180px}
+  .market-box .row2{align-items:center}
   .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px}
   .filters select{width:auto;min-width:120px;padding:6px 10px}
   .plat{display:flex;flex-wrap:wrap;gap:6px}
@@ -82,6 +87,19 @@
 
     <section class="card">
       <h2>إضافة وتنظيم</h2>
+      <div class="market-box">
+        <div class="market-head">🟢 حملات منصات المتاجر — ملفات مستقلة</div>
+        <p>ابدأ بحملة زد الجاهزة: 12 فكرة موزعة على التقويم ومتصلة بأدوات الإنتاج. سلة وShopify لهما ملفات مستقلة لاحقًا. الاستيراد لا ينشر أي محتوى ولا يحذف أعمالك.</p>
+        <div class="row2">
+          <select id="marketPick" aria-label="اختر منصة المتجر">
+            <option value="zid">زد — حملة إطلاق 2026</option>
+            <option value="salla" disabled>سلة — قريبًا</option>
+            <option value="shopify" disabled>Shopify — قريبًا</option>
+          </select>
+          <button class="primary" onclick="importMarketCampaign()">📥 أضف أفكار زد للتقويم</button>
+        </div>
+        <p id="marketMsg" role="status" aria-live="polite"></p>
+      </div>
       <div class="row2">
         <button class="primary" onclick="addCard()">➕ بند جديد</button>
         <button class="soft" onclick="openImport()">🗓️ استورد خطة شهر</button>
@@ -236,6 +254,39 @@ async function consumeLink() {
   VIEW = String(card.date).slice(0, 7);   // come back to the month you were working in
   await persist();
   toast('📎 رُبطت المادة بالبند');
+}
+
+// Market-specific campaigns are versioned source files, separate from the user's private board.
+const MARKET_CAMPAIGNS = { zid: 'assets/brand/campaigns/zid.json' };
+async function importMarketCampaign() {
+  const market = $('marketPick').value;
+  const path = MARKET_CAMPAIGNS[market];
+  if (!path) return say('marketMsg', 'لا توجد حملة جاهزة لهذه المنصة بعد', true);
+  const button = document.querySelector('.market-box button');
+  button.disabled = true;
+  try {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) throw new Error('تعذّر تحميل ملف الحملة: ' + res.status);
+    const data = await res.json();
+    if (data.market !== market || !Array.isArray(data.cards)) throw new Error('ملف الحملة غير صالح');
+    const existing = new Set(CARDS.map(c => c.campaignKey || (c.date + '|' + c.hook)));
+    let added = 0;
+    for (const item of data.cards) {
+      if (!item.date || !item.hook || !FORMATS[item.format]) continue;
+      const key = market + ':' + item.id;
+      if (existing.has(key) || existing.has(item.date + '|' + item.hook)) continue;
+      CARDS.push({ ...item, id: uid(), campaignKey: key, market, status: 'idea', assetId: '', assetType: '' });
+      existing.add(key); added++;
+    }
+    if (added) {
+      VIEW = data.cards[0].date.slice(0, 7);
+      await persist();
+    }
+    draw();
+    say('marketMsg', added ? '✓ تمت إضافة ' + added + ' فكرة من حملة زد. انتقل بين نوفمبر وديسمبر لمراجعتها.' : '✓ أفكار الحملة موجودة بالفعل، لم نكررها.');
+  } catch (err) {
+    say('marketMsg', 'تعذّر الاستيراد: ' + err.message, true);
+  } finally { button.disabled = false; }
 }
 
 // ---------- draw ----------
