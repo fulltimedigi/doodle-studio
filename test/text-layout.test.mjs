@@ -107,4 +107,28 @@ describe('Arabic text layout', { timeout: 180000 }, () => {
     assert.ok(Math.abs(diff.inkA - diff.inkC) / diff.inkA < 0.05, `same amount of ink: ${diff.inkA} vs ${diff.inkC}`);
     assert.ok(diff.both / diff.inkA > 0.85, `ink in the same places: ${(diff.both / diff.inkA).toFixed(3)}`);
   });
+
+  test('with a hand on screen, the hand writes every line — no words popping in by themselves', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    const p = project({ els: [
+      T(1, 'إعلانك يجيب العميل', { x: '6%', y: '20%', w: '88%', h: '10%', size: '7%' }, { anim: 'pop' }),
+      T(2, 'وإحنا نساعده يختار', { x: '6%', y: '40%', w: '88%', h: '10%', size: '7%' }, { anim: 'rise', start: 1.2 }),
+    ] });
+    p.hand.hidden = false;
+    await build(p);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#stage .text.kinetic').length), 0);
+    p.hand.hidden = true;
+    await build(p);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#stage .text.kinetic').length), 2, 'without a hand, jumping words stay');
+  });
+
+  test('the pen is silent between words, as a lifted hand is', async (t) => {
+    if (!browser) return t.skip('needs chromium (npm run setup)');
+    await build(project({ els: [T(1, 'متجرك يستاهل عميل يفهمه', { x: '6%', y: '30%', w: '88%', h: '10%', size: '6%' }, { start: 0.2, draw: 2 })] }));
+    const c = await page.evaluate(() => { const pc = window.doodle.penCurve(0.01); return { kind: [...pc.kind] }; });
+    const during = c.kind.slice(25, 215);
+    const writing = during.filter((k) => k === 2).length, air = during.filter((k) => k === 0).length;
+    assert.ok(writing > during.length * 0.6, `mostly writing (${writing}/${during.length})`);
+    assert.ok(air >= 3, `lifted in the gaps between the four words (${air} steps)`);
+  });
 });

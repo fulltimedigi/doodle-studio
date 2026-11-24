@@ -4,16 +4,16 @@
  * run the same code.
  *
  * The old sound was a loop of white noise through a band-pass filter, opened and closed by the
- * pen's speed: while the hand drew it was one steady hiss ("وش"), loud enough to sit on top of the
- * voice. A marker on a board does not hiss; it scratches: many tiny, uneven catches of the tip on
- * the surface, louder and denser when the tip moves fast, with the rhythm of the strokes in it, and
- * nothing at all when the tip is in the air. So the track is built from short grains of friction:
+ * pen's speed. While the hand wrote, the tip moves at one steady speed along the line, so the
+ * sound was one unbroken hiss ("وش"), loud enough to sit on top of the voice. (A first rework built
+ * it from tiny clicks instead; that read as crackle, not as a pen.) What makes a marker sound like
+ * a marker is the shape over time, not a new texture:
  *
- *   - grains, not a continuous noise: each is a 2–7 ms burst, their density and strength follow
- *     the tip speed the engine samples every 10 ms (window.doodle.penCurve);
- *   - stroke rhythm: hand-writing pulses at letter rate (~6–9 per second), outlines more slowly;
- *   - silence as soon as the tip lifts (the engine reports a lift as zero speed);
- *   - a darker band (600 Hz – 4.2 kHz) than before, without the 2.7 kHz whistle;
+ *   - a soft friction noise, filtered first and only then shaped, so the shape stays crisp;
+ *   - a little brighter when the tip moves fast, darker when it is slow;
+ *   - the rhythm of strokes inside a word (a gentle swell, ~5–8 per second, never a click);
+ *   - silence when the tip is in the air: between strokes, between words (the engine reports
+ *     both as zero speed) and between elements;
  *   - ducked under the voice-over;
  *   - a volume from 0 to 1, where 1 is the old loudness and the studio's default is 0.3
  *     (70% quieter than before).
@@ -64,7 +64,7 @@
    *   curve   { step, speed: Float32Array (px/s), kind: Uint8Array } from window.doodle.penCurve:
    *           kind 0 = pen in the air, 1 = outline, 2 = hand-writing, 3 = colouring
    *   opts    duration (s), volume (0..1, 1 = the old loudness), voices [{ at, dur }] to duck under,
-   *           taps [seconds] where the marker lands, sr, seed
+   *           sr, seed
    */
   function penTrack(curve, opts = {}) {
     const sr = opts.sr || SR; const dur = opts.duration ?? curve.speed.length * curve.step;
@@ -72,40 +72,37 @@
     const volume = Math.max(0, Math.min(1, opts.volume ?? DEFAULT_VOLUME));
     if (!volume || !curve.speed.length) return out;
     const n = curve.speed.length, step = curve.step;
-    // per-step envelope: speed → loudness, by what the pen is doing; fast attack, faster release
-    const env = new Float32Array(n), kindAt = new Uint8Array(n); let e = 0;
-    const KIND_GAIN = [0, 1, 0.75, 1.1];
+    // per-step loudness and brightness from the tip speed; ~25 ms attack, ~20 ms release
+    const env = new Float32Array(n + 1), bright = new Float32Array(n + 1), kindAt = new Uint8Array(n + 1);
+    const KIND_GAIN = [0, 1, 0.8, 1.05]; let e = 0, br = 0;
     for (let i = 0; i < n; i++) {
-      const k = curve.kind[i]; const target = k ? KIND_GAIN[k] * Math.pow(Math.min(1, curve.speed[i] / 1500), 0.6) : 0;
-      e += (target - e) * (target > e ? 0.5 : 0.6); // ~15 ms attack, ~12 ms release: quiet the moment the tip lifts
-      env[i] = e < 1e-4 ? 0 : e; kindAt[i] = k;
+      const k = curve.kind[i]; const v = Math.min(1, curve.speed[i] / 1500);
+      const target = k ? KIND_GAIN[k] * Math.pow(v, 0.5) : 0;
+      e += (target - e) * (target > e ? 0.35 : 0.45); env[i] = e < 1e-4 ? 0 : e;
+      br += ((k ? v : br) - br) * 0.15; bright[i] = br; kindAt[i] = k;
     }
-    const duck = duckCurve(n, step, opts.voices);
+    // two filtered noise beds: a dull one (the body of the tip) and a brighter one (the drag)
     const rnd = rng(opts.seed || 7);
-    // stroke rhythm: a pulse whose rate drifts a little, so it never sounds like a machine
-    let phase = 0, rate = 7;
-    let g = 0; const grainDecay = Math.exp(-1 / (0.0032 * sr));
+    const low = new Float32Array(N), high = new Float32Array(N);
+    for (let s = 0; s < N; s++) { low[s] = rnd() * 2 - 1; high[s] = rnd() * 2 - 1; }
+    biquad(low, 'bandpass', 950, 0.8, sr); biquad(high, 'bandpass', 2100, 1.1, sr);
+    const duck = duckCurve(n, step, opts.voices);
+    // a slow random drift, so two strokes never sound identical
+    let drift = 0, driftTarget = 0;
     for (let s = 0; s < N; s++) {
-      const t = s / sr; const fi = Math.min(n - 1, Math.floor(t / step));
-      const a = env[fi];
-      if (s % 480 === 0) rate += ((kindAt[fi] === 2 ? 7.5 : 4) - rate) * 0.2 + (rnd() - 0.5) * 0.8;
-      phase += rate / sr;
-      if (a > 0) {
-        const pulse = 0.45 + 0.55 * Math.max(0, Math.sin(2 * Math.PI * phase)) ** 1.5;
-        const density = 90 + 520 * a; // grains per second
-        if (rnd() < density / sr) g += a * pulse * (0.35 + 0.65 * rnd()) * duck[fi];
-      }
-      g *= grainDecay;
-      const nz = rnd() * 2 - 1;
-      out[s] = g * nz + 0.12 * a * duck[fi] * nz; // grains + a faint body under them
+      const t = s / sr; const f = t / step; const i = Math.min(n - 1, Math.floor(f)); const u = Math.min(1, f - i);
+      const a = env[i] + (env[i + 1] - env[i]) * u; // interpolated: no 10 ms steps in the sound
+      if (a <= 0) continue;
+      if (s % 2400 === 0) driftTarget = (rnd() - 0.5) * 0.3;
+      drift += (driftTarget - drift) * 0.0004;
+      const writing = kindAt[i] === 2;
+      const swell = writing
+        ? 0.72 + 0.17 * Math.sin(2 * Math.PI * 5.3 * t) + 0.11 * Math.sin(2 * Math.PI * 7.9 * t + 1.3)
+        : 0.88 + 0.08 * Math.sin(2 * Math.PI * 3.1 * t) + 0.04 * Math.sin(2 * Math.PI * 6.7 * t + 0.7);
+      const b = 0.35 + 0.5 * bright[i];
+      out[s] = a * swell * (1 + drift) * duck[i] * (low[s] * (1 - b) + high[s] * b);
     }
-    // the marker landing on the board: a short, dull tap
-    for (const at of opts.taps || []) {
-      const s0 = Math.round(at * sr), len = Math.round(0.045 * sr); const fi = Math.min(n - 1, Math.max(0, Math.floor(at / step)));
-      let lp = 0;
-      for (let i = 0; i < len && s0 + i < N; i++) { lp += ((rnd() * 2 - 1) - lp) * 0.12; out[s0 + i] += lp * 1.6 * Math.exp(-i / (0.009 * sr)) * duck[fi]; }
-    }
-    biquad(out, 'highpass', 600, 0.7, sr); biquad(out, 'lowpass', 4200, 0.7, sr);
+    biquad(out, 'lowpass', 5200, 0.7, sr);
     const gain = volume * OLD_DRAW_RMS / NEW_DRAW_RMS;
     for (let s = 0; s < N; s++) out[s] *= gain;
     return out;

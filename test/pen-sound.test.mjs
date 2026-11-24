@@ -36,9 +36,11 @@ test('ducked under the voice', () => {
   assert.ok(ratio < 0.4 && ratio > 0.2, `about -10 dB under the voice (${ratio.toFixed(2)})`);
 });
 
-test('a scratch, not a steady hiss: the loudness moves inside a stroke', () => {
+test('hand-writing swells with the strokes, without clicks', () => {
   const y = penTrack(curve(2, () => [1500, 2]), { duration: 2, volume: 1 });
-  const w = []; for (let t = 0.3; t < 1.9; t += 0.005) w.push(at(y, t, t + 0.005));
+  const w = []; for (let t = 0.3; t < 1.9; t += 0.04) w.push(at(y, t, t + 0.04));
   const m = w.reduce((a, b) => a + b) / w.length; const sd = Math.sqrt(w.reduce((a, b) => a + (b - m) ** 2, 0) / w.length);
-  assert.ok(sd / m > 0.3, `variation ${(sd / m).toFixed(2)}`);
+  assert.ok(sd / m > 0.1 && sd / m < 0.45, `a gentle swell, not a flat hiss or a stutter (${(sd / m).toFixed(2)})`);
+  let peak = 0; for (let i = Math.round(0.3 * SR); i < 1.9 * SR; i++) peak = Math.max(peak, Math.abs(y[i]));
+  assert.ok(peak / at(y, 0.3, 1.9) < 5, `no clicks: crest factor ${(peak / at(y, 0.3, 1.9)).toFixed(1)}`);
 });

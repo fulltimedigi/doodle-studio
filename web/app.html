@@ -716,12 +716,12 @@ async function playPreview() {
 // ------------------------------------------------------------ sound design (all synthesised locally: no files, no licences)
 const SR = 48000;
 function noiseBuffer(ctx, seconds) { const b = ctx.createBuffer(1, Math.ceil(seconds * SR), SR); const d = b.getChannelData(0); let s = 22222; for (let i = 0; i < d.length; i++) { s = (s * 1664525 + 1013904223) >>> 0; d[i] = (s / 4294967296) * 2 - 1; } return b; }
-// the marker: short grains of friction that follow the pen tip (js/pen-sound.js), ducked under the
+// the marker: a soft friction that follows the pen tip and stops when it lifts (js/pen-sound.js), ducked under the
 // voice; plus a quiet air movement while the camera travels to the next scene
 function addPenSound(ctx, dest, tl, compiled) {
   const pc = window.doodle.penCurve(0.01); if (!pc.speed.length) return;
   const voices = compiled.audio.map((a) => ({ at: a.at, dur: a.buffer.duration }));
-  const y = PenSound.penTrack(pc, { duration: tl.duration, volume: compiled.penVolume / 100, voices, taps: tl.pen.map((s) => s.start), sr: SR });
+  const y = PenSound.penTrack(pc, { duration: tl.duration, volume: compiled.penVolume / 100, voices, sr: SR });
   const buf = ctx.createBuffer(1, y.length, SR); buf.copyToChannel(y, 0);
   const src = ctx.createBufferSource(); src.buffer = buf; src.connect(dest); src.start(0);
   const noise = noiseBuffer(ctx, 3);

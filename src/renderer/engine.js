@@ -357,7 +357,9 @@
       const align = e.align || (rtl ? 'right' : 'left');
       t.style.textAlign = align;
       t.style.alignItems = align === 'center' ? 'center' : ((align === 'right') === rtl ? 'flex-start' : 'flex-end');
-      rec.anim = e.anim && e.anim !== 'write' ? e.anim : 'write';
+      // With a hand on screen the hand writes every line: words that pop in by themselves next to
+      // lines the hand wrote read as two different videos. Jumping words are for hand-less videos.
+      rec.anim = e.anim && e.anim !== 'write' && P.hand && P.hand.hidden ? e.anim : 'write';
       // the lines themselves are laid out by layoutText() once the element is on the page and its
       // font has loaded: wrapping and fitting need real measurements
       if (rec.anim !== 'write') t.classList.add('kinetic');
@@ -492,7 +494,8 @@
         const measure = (el) => { const b = el.getBoundingClientRect(); return { left: (b.left - sr.left) / k - ox, right: (b.right - sr.left) / k - ox, top: (b.top - sr.top) / k - oy, width: b.width / k, height: b.height / k }; };
         r.padX = PAD_X * r.fontPx;
         r.lines.forEach((l) => { l.rect = measure(l.el); l.baseY = measure(l.base).top; });
-        r.words.forEach((w) => { w.rect = measure(w.el); const l = r.lines.find((x) => x.el === w.el.parentNode); w.baseY = l ? l.baseY : w.rect.top + w.rect.height * 0.75; });
+        r.lines.forEach((l) => { l.words = []; });
+        r.words.forEach((w) => { w.rect = measure(w.el); const l = r.lines.find((x) => x.el === w.el.parentNode); w.baseY = l ? l.baseY : w.rect.top + w.rect.height * 0.75; if (l) l.words.push(w); });
       }
     }));
     // hand
@@ -851,6 +854,13 @@
     return { duration: P.duration, pen, pans };
   }
 
+  function betweenWords(r, pt) {
+    const l = r.lines.find((x) => pt.y >= x.rect.top && pt.y <= x.rect.top + x.rect.height);
+    if (!l || !l.words || !l.words.length) return false;
+    const m = 0.04 * (r.fontPx || 40);
+    return !l.words.some((w) => pt.x >= w.rect.left - m && pt.x <= w.rect.left + w.rect.width + m);
+  }
+
   // sampled pen activity for the sound design: how fast the pen tip moves at every instant, and on what
   // (0 = pen off the board, 1 = drawing an outline, 2 = hand-writing, 3 = colouring). Between strokes
   // the tip jumps, which reads as "lifted" and stays silent, so the sound follows the real motion.
@@ -865,6 +875,8 @@
       const a = pointAt(act, p), b = pointAt(act, p2); if (!a || !b) continue;
       const d = Math.hypot(b.x - a.x, b.y - a.y); const lifted = d > Math.max(45, 900 * step * 60) * 0.5; // a jump = the pen moved to another stroke
       if (lifted) continue;
+      // hand-writing: the tip is in the air in the space between two words, as a real hand's is
+      if (act.kind === 'text' && betweenWords(act, a)) continue;
       speed[i] = d / step; kind[i] = act.kind === 'text' ? 2 : (act.scrib && p >= OUTLINE_SHARE ? 3 : 1);
     }
     return { step, speed, kind };

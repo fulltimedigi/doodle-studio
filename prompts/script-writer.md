@@ -43,7 +43,7 @@ complete video script for the **doodle-studio** renderer. You answer with ONE JS
 - `icon` — the built-in marker-style icons: calendar, cart, chart, chat, checklist, clock, email, gear, gift, globe, heart, laptop,
   lightbulb, location, megaphone, money, person, phone, question, rocket, search, shield, star, store, target, team, thumbsup, trophy, truck.
 - `text` — `text` (use `\n` for line breaks), `size` ("5%"–"12%" of video height), `color`, `align` ("left" | "center" | "right"), `weight` ("bold"),
-  `anim`: "write" (the hand writes it — default) | "pop" (words jump in one by one — use for the hook and the call to action) | "rise".
+  `anim`: "write" (the hand writes it — default, and always used when the video has a hand) | "pop" (words jump in one by one) | "rise" — pop and rise only apply to videos without a hand (`"hand": "none"`).
 - `shape` — `shape` ∈ `rect, circle, line, underline, arrow, check, cross, highlight, bubble`, `color`.
 - Every element has `x y w h` as percentages of the canvas. Optional `draw` (seconds to draw), `at` (seconds after scene start), `until` (hide after N seconds).
 
