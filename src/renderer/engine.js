@@ -16,6 +16,17 @@
   const PAN_BEFORE = 0.3, PAN_AFTER = 0.55; // seconds of camera travel around a scene boundary (board layout)
 
   let P = null;            // compiled project
+  // Text styling lives here, not in the pages that host the engine: the CLI page and the browser
+  // studio used to carry their own copies, and a difference between them is a difference between
+  // the preview and the exported video.
+  if (!document.getElementById('doodle-text-css')) {
+    const st = document.createElement('style'); st.id = 'doodle-text-css';
+    st.textContent = '#stage .el .text{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;white-space:pre;line-height:1.35}'
+      + '#stage .el .text .line{display:inline-block;max-width:none;padding:0.3em 0.2em;margin:-0.3em 0}' // padding = PAD_Y / PAD_X below
+      + '#stage .el .text.kinetic .w{display:inline-block;transform-origin:50% 60%}'
+      + '#stage .el .text .base{display:inline-block;width:0;height:0;vertical-align:baseline}';
+    document.head.appendChild(st);
+  }
   const stage = document.getElementById('stage');
   const hand = document.getElementById('hand');
   // The suite's export canvas lives in a page that has no #mark of its own, so one is made when it
@@ -220,6 +231,100 @@
     return { x: cx ? P.width - m - w : m, y: cy ? P.height - m - h : m, w, h, opacity: L.opacity ?? 0.9 };
   }
 
+  // ---------- text layout: wrap, fit, safe area, brand mark ----------
+  //
+  // A text element is a box. Its words are wrapped to the box's width and the font is made smaller
+  // (never larger than asked) until every line fits inside it, so a long Arabic sentence is never
+  // cut at the edge of the box or of the frame. Each line carries a little padding so the parts of
+  // Arabic letters that reach past their advance width (swashes, dots, shadda) are inside the line's
+  // box, which is what the write-on reveal clips to. `fit: false` on an element keeps the old
+  // behaviour: the author's lines and size exactly as written.
+  const LINE_HEIGHT = 1.35, PAD_X = 0.2, PAD_Y = 0.3; // padding in em
+  function setLines(r, lines) {
+    const t = r.textEl; t.textContent = ''; r.words = [];
+    r.lines = lines.map((s) => {
+      const l = document.createElement('span'); l.className = 'line';
+      const ws = (s || ' ').split(' ');
+      const words = ws.map((wd, k) => { const sp = document.createElement('span'); sp.className = 'w'; sp.textContent = wd; l.appendChild(sp); if (k < ws.length - 1) l.appendChild(document.createTextNode(' ')); return { el: sp, text: wd }; });
+      const base = document.createElement('i'); base.className = 'base'; l.appendChild(base); // marks the baseline, so the canvas writes exactly where the page does
+      t.appendChild(l); r.words.push(...words.filter((x) => x.text.trim()));
+      return { el: l, base, text: s, weight: Math.max(1, s.length) };
+    });
+  }
+
+  // the part of the frame text may use: inside the safe margins, and never under the brand mark
+  function safeArea() {
+    const W = P.width, H = P.height; const tall = H > W * 1.5;
+    return { l: W * 0.045, r: W * 0.955, t: H * (tall ? 0.06 : 0.045), b: H * (tall ? 0.88 : 0.955) };
+  }
+  function textBox(r) {
+    let x0 = r.x, y0 = r.y, x1 = r.x + r.w, y1 = r.y + r.h;
+    if (r.e.rotate) return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; // a tilted label is placed by hand
+    const s = safeArea();
+    const nx0 = Math.max(x0, s.l), nx1 = Math.min(x1, s.r), ny0 = Math.max(y0, s.t), ny1 = Math.min(y1, s.b);
+    if (nx1 - nx0 >= (x1 - x0) * 0.5 && ny1 - ny0 >= (y1 - y0) * 0.5) { x0 = nx0; x1 = nx1; y0 = ny0; y1 = ny1; }
+    const mb = markBox();
+    if (mb) {
+      const gap = P.height * 0.012;
+      const m = { x0: mb.x - gap, y0: mb.y - gap, x1: mb.x + mb.w + gap, y1: mb.y + mb.h + gap };
+      if (x0 < m.x1 && x1 > m.x0 && y0 < m.y1 && y1 > m.y0) {
+        // step out of the mark's way: below/above it, or beside it, whichever leaves the bigger box
+        const opts = [
+          { x0, x1, y0: m.y1, y1 }, { x0, x1, y0, y1: m.y0 },
+          { x0, x1: m.x0, y0, y1 }, { x0: m.x1, x1, y0, y1 },
+        ].filter((o) => o.x1 - o.x0 > 40 && o.y1 - o.y0 > 30);
+        const best = opts.sort((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) - (a.x1 - a.x0) * (a.y1 - a.y0))[0];
+        if (best) ({ x0, x1, y0, y1 } = best);
+      }
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  function layoutText(r, k) {
+    const e = r.e; const t = r.textEl;
+    const paras = String(e.content).split('\n');
+    if (e.fit === false) { setLines(r, paras); return; }
+    const box = textBox(r);
+    if (box.x !== r.x || box.y !== r.y || box.w !== r.w || box.h !== r.h) {
+      Object.assign(r, box);
+      Object.assign(r.div.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+    }
+    const probe = document.createElement('span'); probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;left:0;top:0';
+    t.appendChild(probe);
+    const width = (s) => { probe.textContent = s; return probe.getBoundingClientRect().width / k; };
+    const wrap = (size) => {
+      t.style.fontSize = size + 'px';
+      const avail = r.w - 2 * PAD_X * size; const lines = []; let widest = 0;
+      for (const para of paras) {
+        const words = para.split(/\s+/).filter(Boolean); let cur = '';
+        if (!words.length) { lines.push(''); continue; }
+        for (const w of words) {
+          const next = cur ? cur + ' ' + w : w;
+          if (cur && width(next) > avail) { widest = Math.max(widest, width(cur)); lines.push(cur); cur = w; } else cur = next;
+        }
+        widest = Math.max(widest, width(cur)); lines.push(cur);
+      }
+      // the leading counts between lines, not under the last one: a single line fits a box as tall as its font
+      return { lines, fits: widest <= avail + 0.5 && size * (LINE_HEIGHT * (lines.length - 1) + 1) <= r.h + 0.5 };
+    };
+    const min = Math.max(14, r.fontPx * 0.3);
+    let size = r.fontPx, res = wrap(size);
+    while (!res.fits && size > min) { size = Math.max(min, size * 0.94); res = wrap(size); }
+    probe.remove();
+    r.fontPx = size; t.style.fontSize = size + 'px';
+    setLines(r, res.lines);
+  }
+
+  // every face a text element asks for, loaded before anything is measured
+  async function loadFonts() {
+    const asks = [];
+    state.scenes.forEach((s) => s.els.forEach((r) => {
+      if (r.kind !== 'text') return; const cs = getComputedStyle(r.textEl);
+      asks.push(document.fonts.load(`${cs.fontWeight} ${r.fontPx}px ${cs.fontFamily}`, String(r.e.content) || 'a').catch(() => {}));
+    }));
+    await Promise.all(asks); try { await document.fonts.ready; } catch (e) {}
+  }
+
   async function buildElement(sc, e) {
     const W = P.width, H = P.height;
     const ink = P.defaults.strokeColor;
@@ -253,15 +358,12 @@
       t.style.textAlign = align;
       t.style.alignItems = align === 'center' ? 'center' : ((align === 'right') === rtl ? 'flex-start' : 'flex-end');
       rec.anim = e.anim && e.anim !== 'write' ? e.anim : 'write';
-      const lines = String(e.content).split('\n');
-      rec.words = [];
-      rec.lines = lines.map((s) => {
-        const l = document.createElement('span'); l.className = 'line';
-        const ws = (s || ' ').split(' ');
-        const words = ws.map((wd, k) => { const sp = document.createElement('span'); sp.className = 'w'; sp.textContent = wd; l.appendChild(sp); if (k < ws.length - 1) l.appendChild(document.createTextNode(' ')); return { el: sp, text: wd }; });
-        t.appendChild(l); rec.words.push(...words.filter((x) => x.text.trim()));
-        return { el: l, weight: Math.max(1, s.length) };
-      });
+      // the lines themselves are laid out by layoutText() once the element is on the page and its
+      // font has loaded: wrapping and fitting need real measurements
+      if (rec.anim !== 'write') t.classList.add('kinetic');
+      rec.textEl = t; rec.words = []; rec.lines = [];
+      rec.fontPx = px(e.size || P.defaults.fontSize, H);
+      setLines(rec, String(e.content).split('\n'));
       rec.rtl = rtl;
       if (rec.anim !== 'write') rec.penColor = null;
       div.appendChild(t);
@@ -371,6 +473,8 @@
     // measure now that everything is attached (+ canvas paths / colour layer for paint())
     const fillLoads = [];
     const sr = stage.getBoundingClientRect(); const k = sr.width / P.width || 1;
+    await loadFonts();
+    state.scenes.forEach((s) => s.els.forEach((r) => { if (r.kind === 'text') layoutText(r, k); }));
     state.scenes.forEach((s) => s.els.forEach((r) => {
       if (r.kind === 'drawing') {
         r.strokes.forEach((st) => { st.len = st.p.getTotalLength(); st.p.style.strokeDasharray = st.len; st.p.style.strokeDashoffset = st.len; if (typeof Path2D !== 'undefined') st.path2d = new Path2D(st.p.getAttribute('d')); });
@@ -386,8 +490,9 @@
       if (r.kind === 'text') {
         const ox = s.off.x, oy = s.off.y;
         const measure = (el) => { const b = el.getBoundingClientRect(); return { left: (b.left - sr.left) / k - ox, right: (b.right - sr.left) / k - ox, top: (b.top - sr.top) / k - oy, width: b.width / k, height: b.height / k }; };
-        r.lines.forEach((l) => { l.rect = measure(l.el); });
-        r.words.forEach((w) => { w.rect = measure(w.el); });
+        r.padX = PAD_X * r.fontPx;
+        r.lines.forEach((l) => { l.rect = measure(l.el); l.baseY = measure(l.base).top; });
+        r.words.forEach((w) => { w.rect = measure(w.el); const l = r.lines.find((x) => x.el === w.el.parentNode); w.baseY = l ? l.baseY : w.rect.top + w.rect.height * 0.75; });
       }
     }));
     // hand
@@ -453,8 +558,8 @@
       const total = r.lines.reduce((a, l) => a + l.weight, 0); let acc = 0; let pt = null;
       for (const l of r.lines) {
         const lp = clamp((p * total - acc) / l.weight, 0, 1); acc += l.weight;
-        const rect = l.rect; const rectW = rect.width * (l.el.textContent.trim() ? 1 : 0);
-        pt = { x: r.rtl ? rect.right - lp * rectW : rect.left + lp * rectW, y: rect.top + rect.height * 0.72 };
+        const rect = l.rect; const pad = r.padX || 0; const rectW = Math.max(0, rect.width - 2 * pad) * (l.el.textContent.trim() ? 1 : 0);
+        pt = { x: r.rtl ? rect.right - pad - lp * rectW : rect.left + pad + lp * rectW, y: (l.baseY ?? rect.top + rect.height * 0.72) - 0.08 * (r.fontPx || 0) };
         if (lp < 1) break;
       }
       return pt;
@@ -494,7 +599,8 @@
       const total = r.lines.reduce((a, l) => a + l.weight, 0); let acc = 0;
       for (const l of r.lines) {
         const lp = clamp((p * total - acc) / l.weight, 0, 1); acc += l.weight;
-        l.el.style.clipPath = r.rtl ? `inset(0 0 0 ${((1 - lp) * 100).toFixed(2)}%)` : `inset(0 ${((1 - lp) * 100).toFixed(2)}% 0 0)`;
+        // a finished line is never clipped; the reveal clips to the padded line box, so it does not cut letters
+        l.el.style.clipPath = lp >= 1 ? 'none' : r.rtl ? `inset(0 0 0 ${((1 - lp) * 100).toFixed(2)}%)` : `inset(0 ${((1 - lp) * 100).toFixed(2)}% 0 0)`;
       }
     } else if (r.kind === 'photo') {
       r.img.style.clipPath = `inset(0 0 ${((1 - p) * 100).toFixed(2)}% 0)`;
@@ -692,22 +798,24 @@
           ctx.setLineDash([]);
         } else if (r.kind === 'text') {
           const t = r.div.querySelector('.text'); const cs = getComputedStyle(t);
-          ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; ctx.fillStyle = cs.color; ctx.textBaseline = 'middle';
+          // the same font, size, baseline and line breaks the page laid out, so preview and export agree
+          ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; ctx.fillStyle = cs.color; ctx.textBaseline = 'alphabetic';
           ctx.direction = r.rtl ? 'rtl' : 'ltr'; ctx.textAlign = r.rtl ? 'right' : 'left';
+          const pad = r.padX || 0;
           if (r.anim !== 'write') {
             r.words.forEach((w, k) => {
               const [op2, s, dy] = wordState(r, k, p); if (op2 <= 0.001) return;
               const rect = w.rect; const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
               ctx.save(); ctx.globalAlpha *= op2; ctx.translate(cx, cy + dy * rect.height); ctx.scale(s, s); ctx.translate(-cx, -cy);
-              ctx.fillText(w.text, r.rtl ? rect.right : rect.left, rect.top + rect.height * 0.52); ctx.restore();
+              ctx.fillText(w.text, r.rtl ? rect.right : rect.left, w.baseY); ctx.restore();
             });
           } else {
             const total = r.lines.reduce((a, l) => a + l.weight, 0); let acc = 0;
             for (const l of r.lines) {
               const lp = clamp((p * total - acc) / l.weight, 0, 1); acc += l.weight; if (lp <= 0) continue;
-              const rect = l.rect; ctx.save(); ctx.beginPath();
-              if (r.rtl) ctx.rect(rect.right - lp * rect.width, rect.top - 4, lp * rect.width + 4, rect.height + 8); else ctx.rect(rect.left - 4, rect.top - 4, lp * rect.width + 4, rect.height + 8);
-              ctx.clip(); ctx.fillText(l.el.textContent, r.rtl ? rect.right : rect.left, rect.top + rect.height * 0.52); ctx.restore();
+              const rect = l.rect; ctx.save();
+              if (lp < 1) { ctx.beginPath(); if (r.rtl) ctx.rect(rect.right - lp * rect.width, rect.top, lp * rect.width, rect.height); else ctx.rect(rect.left, rect.top, lp * rect.width, rect.height); ctx.clip(); }
+              ctx.fillText(l.text, r.rtl ? rect.right - pad : rect.left + pad, l.baseY); ctx.restore();
             }
           }
         } else if (r.kind === 'photo' && r.img && r.img.naturalWidth) {
