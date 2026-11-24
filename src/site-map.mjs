@@ -22,6 +22,7 @@ export const SCRIPTS = {
   'core.js': { from: 'web/js/core.js' },
   'reel-pro.js': { from: 'web/js/reel-pro.js' },
   'reel-pro-audio.js': { from: 'web/js/reel-pro-audio.js' },
+  'pen-sound.js': { from: 'web/js/pen-sound.js' },
   'signal.js': { from: 'web/js/signal.js' },
   'html-to-image.js': { from: 'node_modules/html-to-image/dist/html-to-image.js' },
   'snapdom.js': { from: 'node_modules/@zumer/snapdom/dist/snapdom.js' },

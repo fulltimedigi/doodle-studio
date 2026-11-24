@@ -132,7 +132,7 @@ export async function compile(p, { cacheDir, noAudio = false, log = () => {} } =
   const [W, H] = FORMATS[p.format || '16:9'] || FORMATS['16:9'];
   const d = p.defaults || {};
   const defaults = {
-    font: d.font || '"Patrick Hand","Aref Ruqaa","Cairo",cursive',
+    font: d.font || '"Patrick Hand","Cairo",cursive', // Arabic in Cairo (the brand face), Latin in Patrick Hand
     fontSize: d.fontSize || '7%', textColor: d.textColor || '#1d1d1d', strokeColor: d.strokeColor || '#222222',
     strokeWidth: d.strokeWidth || 9, background: d.background || '#ffffff',
     transition: d.transition || 'fade', transitionDuration: d.transitionDuration ?? 0.45,
