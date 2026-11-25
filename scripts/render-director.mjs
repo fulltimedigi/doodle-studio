@@ -8,7 +8,7 @@ import {spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {chromium} from 'playwright';
 import ffmpegPath from 'ffmpeg-static';
-import {mediaRange,readProject} from '../src/director-render-input.mjs';
+import {readProject,targetTime} from '../src/director-render-input.mjs';
 const ROOT=fileURLToPath(new URL('../',import.meta.url));
 await import('../web/js/director-v3.js');
 await import('../web/js/director-editor.js');
@@ -28,21 +28,26 @@ if(source===out||opts.audio===out)throw Error('Input and output must differ');
 if(opts.audio){if(extname(opts.audio).toLowerCase()!=='.wav')throw Error('Audio override must be WAV');await access(opts.audio);if((await stat(opts.audio)).size>100*1024*1024)throw Error('Audio too large');}
 await mkdir(dirname(out),{recursive:true});
 try{await access(out);throw Error('Output already exists: '+out);}catch(e){if(e.code!=='ENOENT')throw e;}
-const work=await mkdtemp(join(dirname(out),'.director-render-')),tmp=join(work,'film.mp4'),origin='http://director-render.invalid',resources=new Map();
+const work=await mkdtemp(join(dirname(out),'.director-render-')),tmp=join(work,'film.mp4');
 let browser,ff,done;
 try{
  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{})});
  const page=await browser.newPage({viewport:{width:d.w,height:d.h}});
- const refs=[];for(const [i,a] of items.entries()){const url=origin+'/media/'+i;resources.set(url,{body:Buffer.from(await a.blob.arrayBuffer()),type:a.type});refs.push({role:a.role,scene:a.scene,generated:a.generated===true,type:a.type,url});}
- if(opts.audio){const url=origin+'/override.wav';resources.set(url,{body:await readFile(opts.audio),type:'audio/wav'});refs.push({role:'override',url});}
- // Synthetic intercepted origin; any unrecognized request is aborted.
- await page.route('**/*',async route=>{const req=route.request(),url=req.url();
- if(url===origin+'/'&&req.method()==='GET')return route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="ar" dir="rtl"><body style="margin:0"><canvas></canvas></body></html>'});
- const a=resources.get(url);if(!a||req.method()!=='GET')return route.abort();const r=mediaRange(a.body.length,req.headers().range),headers={'accept-ranges':'bytes'};
- if(r.status===416)return route.fulfill({status:416,headers:{...headers,'content-range':'bytes */'+a.body.length},body:''});
- if(r.status===206)headers['content-range']='bytes '+r.start+'-'+r.end+'/'+a.body.length;
- return route.fulfill({status:r.status,headers,contentType:a.type,body:a.body.subarray(r.start,r.end+1)});});
- await page.goto(origin+'/');
+ // Transfer bounded chunks through the local Playwright channel, then create browser-owned Blob URLs.
+ // No HTTP navigation, server, or network media requests are required.
+ await page.route('**/*',route=>route.abort());
+ await page.setContent('<!doctype html><html lang="ar" dir="rtl"><body style="margin:0"><canvas></canvas></body></html>');
+ const refs=[];
+ async function attach(bytes,type){
+  await page.evaluate(()=>{globalThis.directorParts=[];});
+  for(let offset=0;offset<bytes.length;offset+=512*1024){
+   await page.evaluate(data=>{const s=atob(data),a=new Uint8Array(s.length);for(let k=0;k<s.length;k++)a[k]=s.charCodeAt(k);directorParts.push(a);},bytes.subarray(offset,offset+512*1024).toString('base64'));
+  }
+  return page.evaluate(type=>{const url=URL.createObjectURL(new Blob(directorParts,{type}));directorParts=[];return url;},type);
+ }
+ for(const a of items){const url=await attach(Buffer.from(await a.blob.arrayBuffer()),a.type);refs.push({role:a.role,scene:a.scene,generated:a.generated===true,type:a.type,url});}
+ if(opts.audio){const url=await attach(await readFile(opts.audio),'audio/wav');refs.push({role:'override',url});}
+ await page.addScriptTag({content:'globalThis.directorTargetTime='+targetTime.toString()+';'});
  const font=(await readFile(resolve(ROOT,'assets/fonts/Cairo.ttf'))).toString('base64'),logo=(await readFile(resolve(ROOT,'assets/brand/fd-logo.png'))).toString('base64');
  await page.evaluate(async ({font,logo,d,p})=>{const f=new FontFace('DirectorCairo','url(data:font/ttf;base64,'+font+')',{weight:'100 900'});await f.load();document.fonts.add(f);const im=new Image();im.src='data:image/png;base64,'+logo;await im.decode();globalThis.renderLogo=im;globalThis.renderProject=p;const c=document.querySelector('canvas');c.width=d.w;c.height=d.h;},{font,logo,d,p});
  await page.addScriptTag({content:await readFile(resolve(ROOT,'web/js/director-v3.js'),'utf8')});
@@ -52,7 +57,7 @@ try{
  await new Promise((ok,bad)=>{const timer=setTimeout(()=>bad(Error('Media load timeout: '+a.scene)),20000);const end=fn=>()=>{clearTimeout(timer);fn();};node.addEventListener(video?'loadeddata':'load',end(ok),{once:true});node.addEventListener('error',end(()=>bad(Error('Media decode failed: '+a.scene))),{once:true});node.src=a.url;});
  if(video&&(!Number.isFinite(node.duration)||node.duration<=0))throw Error('Invalid video duration');renderAssets.set(a.scene,{node,kind:video?'video':'image',generated:a.generated});}
  globalThis.renderAt=async t=>{const D=DirectorV3,v=D.locate(renderProject,t),a=renderAssets.get(v.i);
- if(a?.kind==='video'){const node=a.node,at=Math.min(Math.max(0,v.local),Math.max(0,node.duration-.05));if(Math.abs(node.currentTime-at)>.0001||node.seeking){await new Promise((ok,bad)=>{const finish=err=>{clearTimeout(timer);node.removeEventListener('seeked',onSeek);node.removeEventListener('error',onError);err?bad(err):ok();},onSeek=()=>finish(),onError=()=>finish(Error('Video seek failed')),timer=setTimeout(()=>finish(Error('Video seek timed out')),15000);node.addEventListener('seeked',onSeek);node.addEventListener('error',onError);node.currentTime=at;});}}
+ if(a?.kind==='video'){const node=a.node,at=directorTargetTime(v.local,node.duration);if(Math.abs(node.currentTime-at)>.0001||node.seeking){await new Promise((ok,bad)=>{const finish=err=>{clearTimeout(timer);node.removeEventListener('seeked',onSeek);node.removeEventListener('error',onError);err?bad(err):ok();},onSeek=()=>finish(),onError=()=>finish(Error('Video seek failed')),timer=setTimeout(()=>finish(Error('Video seek timed out')),15000);node.addEventListener('seeked',onSeek);node.addEventListener('error',onError);node.currentTime=at;});}}
  return D.frame(document.querySelector('canvas').getContext('2d'),renderProject,t,renderAssets,renderLogo);};
  },refs);
  const quality=await page.evaluate(async()=>{const D=DirectorV3,p=renderProject,r=[];let t=0;for(const s of p.scenes){r.push(await renderAt(t+Math.min(s.duration-.45,Math.max(1.5,D.graphReady(s.sceneGraph)+.2,D.finalHold(s).start+.1))));t+=s.duration;}return r;});
