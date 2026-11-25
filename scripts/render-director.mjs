@@ -60,8 +60,8 @@ try{
  if(a?.kind==='video'){const node=a.node,at=directorTargetTime(v.local,node.duration);if(Math.abs(node.currentTime-at)>.0001||node.seeking){await new Promise((ok,bad)=>{const finish=err=>{clearTimeout(timer);node.removeEventListener('seeked',onSeek);node.removeEventListener('error',onError);err?bad(err):ok();},onSeek=()=>finish(),onError=()=>finish(Error('Video seek failed')),timer=setTimeout(()=>finish(Error('Video seek timed out')),15000);node.addEventListener('seeked',onSeek);node.addEventListener('error',onError);node.currentTime=at;});}}
  return D.frame(document.querySelector('canvas').getContext('2d'),renderProject,t,renderAssets,renderLogo);};
  },refs);
- const quality=await page.evaluate(async()=>{const D=DirectorV3,p=renderProject,r=[];let t=0;for(const s of p.scenes){r.push(await renderAt(t+Math.min(s.duration-.45,Math.max(1.5,D.graphReady(s.sceneGraph)+.2,D.finalHold(s).start+.1))));t+=s.duration;}return r;});
- if(!quality.every(x=>x.titleOK&&x.subOK&&x.artOK!==false))throw Error('Text fit failed: '+JSON.stringify(quality));
+ const quality=await page.evaluate(async()=>{const D=DirectorV3,p=renderProject,r=[];let t=0;for(const s of p.scenes){const result=await renderAt(t+Math.min(s.duration-.45,Math.max(1.5,D.graphReady(s.sceneGraph)+.2,D.finalHold(s).start+.1)));const canvas=document.querySelector('canvas');result.captionOK=D.captionCheck(canvas.getContext('2d'),s,canvas.width,canvas.height)&&result.captionOK!==false;r.push(result);t+=s.duration;}return r;});
+ if(!quality.every(x=>x.titleOK&&x.subOK&&x.artOK!==false&&x.captionOK!==false))throw Error('Text fit failed: '+JSON.stringify(quality));
  let audio=null;
  if(refs.some(x=>['voice','music','override'].includes(x.role))){
  const bytes=await page.evaluate(async ({refs,mix,seconds})=>{const S=DirectorSound,A=DirectorAI,load=async role=>{const a=refs.find(x=>x.role===role);if(!a)return new Float32Array(0);const r=await fetch(a.url);if(!r.ok)throw Error('Cannot read local audio');return S.decode(await r.blob());};const override=refs.some(x=>x.role==='override');const v=await load(override?'override':'voice'),m=override?new Float32Array(0):await load('music');
