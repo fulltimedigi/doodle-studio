@@ -46,3 +46,6 @@ Scene-local editable captions with bounded non-overlapping timing, Arabic lower 
 
 ## Slice 12 — editorial framing
 Three explicit compositions (split, reverse, centered) with different automatic framing by story role for scene-graph projects. Portrait reverse places artwork above text. All resting boxes reserve caption/brand space and do not intersect. Legacy projects without a scene graph retain the split default. Hero and evidence layouts remain separate. Numeric geometry and regression tests are not a visual quality guarantee; actual layout review is still needed.
+
+## Slice 13 — directed product-demo focus and storyboard review
+Optional explicitly authored camera keyframes for media scenes: bounded 1–2.5x zoom, normalized center, smooth interpolation and aspect-preserving source crop. Default remains uncropped; zoom is labeled in-frame. Preset starts and ends with complete context. A downloadable contact sheet samples a frame from each actual scene, awaits local video seeking, and displays scene duration/title. It is an editorial review aid, not automated visual approval. Existing projects receive empty camera tracks. New tests cover crop, interpolation and timing. Full browser review remains required. No new dependencies or provider requests.

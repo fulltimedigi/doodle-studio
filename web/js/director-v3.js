@@ -67,11 +67,31 @@ function estimateCaptions(text,seconds){
 function srt(p){const stamp=t=>{const n=Math.round(t*1000),pad=(v,d=2)=>String(v).padStart(d,'0');return pad(Math.floor(n/3600000))+':'+pad(Math.floor(n/60000)%60)+':'+pad(Math.floor(n/1000)%60)+','+pad(n%1000,3);};let offset=0,i=0;const lines=[];for(const s of p.scenes){for(const q of s.captions||[])lines.push(++i+'\n'+stamp(offset+q.start)+' --> '+stamp(offset+q.end)+'\n'+q.text+'\n');offset+=s.duration;}return lines.join('\n');}
 function captionBand(c,s,t,w,h){const cues=s.captions||[];if(!cues.length)return true;const q=captionAt(s,t);if(!q)return true;const portrait=w<h,pad=portrait?65:105,band=portrait?165:126,y=h-(portrait?230:175);rect(c,pad,y,w-pad*2,band,24,'#092e27');return fit(c,q.text,pad+30,y+12,w-pad*2-60,band-24,portrait?44:43,'#fff','center','rtl',28);}
 function captionCheck(c,s,w,h){let ok=true;for(const q of s.captions||[])ok=captionBand(c,s,(q.start+q.end)/2,w,h)&&ok;return ok;}
+// Product-demo camera: explicitly authored focus, never automatic cropping of real evidence.
+function normalizeFocus(input,seconds){
+ if(input==null)return [];
+ if(!Array.isArray(input)||input.length>12)throw Error('حد حركة الكاميرا 12 نقطة');
+ let last=-1;return input.map((f,i)=>{
+ if(!f||typeof f!=='object')throw Error('نقطة كاميرا غير صالحة');
+ const n={t:Number(f.t),x:Number(f.x),y:Number(f.y),zoom:Number(f.zoom)};
+ if(!Object.values(n).every(Number.isFinite)||n.t<0||n.t>seconds||n.t<=last||n.x<0||n.x>1||n.y<0||n.y>1||n.zoom<1||n.zoom>2.5)throw Error('قيمة أو توقيت كاميرا غير صالح '+(i+1));
+ if(i===0&&n.t!==0)throw Error('أول نقطة كاميرا تبدأ من صفر');last=n.t;return n;
+ });
+}
+function focusAt(frames,t){
+ if(!frames?.length)return {x:.5,y:.5,zoom:1};
+ if(t<=frames[0].t)return frames[0];
+ for(let i=1;i<frames.length;i++){const a=frames[i-1],b=frames[i];if(t<=b.t){const k=curve((t-a.t)/(b.t-a.t),'smooth');return {x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k,zoom:a.zoom+(b.zoom-a.zoom)*k};}}
+ return frames.at(-1);
+}
+function focusCrop(iw,ih,f){if(!Number.isFinite(iw)||!Number.isFinite(ih)||iw<=0||ih<=0)throw Error('Invalid image dimensions');const sw=iw/f.zoom,sh=ih/f.zoom;return {sx:clamp(iw*f.x-sw/2,0,iw-sw),sy:clamp(ih*f.y-sh/2,0,ih-sh),sw,sh};}
+function focusPreset(seconds,x=.5,y=.5,zoom=1.65){const ramp=Math.min(1.5,seconds*.2);return normalizeFocus([{t:0,x:.5,y:.5,zoom:1},{t:ramp,x:.5,y:.5,zoom:1},{t:ramp*2,x,y,zoom},{t:seconds-ramp*1.5,x,y,zoom},{t:seconds-ramp*.3,x:.5,y:.5,zoom:1}],seconds);}
+function reviewTimes(s){const stable=Math.max(1.5,finalHold(s).start+.15,graphReady(s.sceneGraph)+.15),limit=s.duration-.15;return [...new Set([Math.min(limit,.4),Math.min(limit,stable),s.duration*.5,Math.max(.05,limit)].map(t=>Math.max(.05,t)))].sort((a,b)=>a-b);}
 function normalize(p){
  if(!p||!['16:9','9:16'].includes(p.format)||!Array.isArray(p.scenes)||p.scenes.length<1||p.scenes.length>30)throw Error('اختر مقاسًا مدعومًا ومن 1 إلى 30 مشهدًا');
  const scenes=p.scenes.map((s,i)=>{
   if(!s||!layouts.includes(s.layout)||!Number.isFinite(Number(s.duration))||Number(s.duration)<2||Number(s.duration)>60||!str(s.title,160))throw Error('راجع نوع وعنوان ومدة المشهد '+(i+1)+' (2–60 ثانية)');
-  return {layout:s.layout,duration:Number(s.duration),motionTracks:normalizeTracks(s.motionTracks,Number(s.duration)),sceneGraph:normalizeGraph(s.sceneGraph,Number(s.duration)),captions:normalizeCaptions(s.captions,Number(s.duration)),transition:s.transition==='cut'?'cut':'fade',title:str(s.title,160),subtitle:str(s.subtitle,250),narration:str(s.narration,3000),visual:str(s.visual,1400),composition:['auto','split','hero'].includes(s.composition)?s.composition:'auto',framing:['auto','split','reverse','center'].includes(s.framing)?s.framing:'auto',useCharacter:s.useCharacter===true,motion:['push','pan','still'].includes(s.motion)?s.motion:'push',labels:Array.isArray(s.labels)?s.labels.slice(0,3).map(v=>str(v,100)).filter(Boolean):[]};
+  return {layout:s.layout,duration:Number(s.duration),motionTracks:normalizeTracks(s.motionTracks,Number(s.duration)),sceneGraph:normalizeGraph(s.sceneGraph,Number(s.duration)),captions:normalizeCaptions(s.captions,Number(s.duration)),focus:normalizeFocus(s.focus,Number(s.duration)),transition:s.transition==='cut'?'cut':'fade',title:str(s.title,160),subtitle:str(s.subtitle,250),narration:str(s.narration,3000),visual:str(s.visual,1400),composition:['auto','split','hero'].includes(s.composition)?s.composition:'auto',framing:['auto','split','reverse','center'].includes(s.framing)?s.framing:'auto',useCharacter:s.useCharacter===true,motion:['push','pan','still'].includes(s.motion)?s.motion:'push',labels:Array.isArray(s.labels)?s.labels.slice(0,3).map(v=>str(v,100)).filter(Boolean):[]};
  });
  const result={title:str(p.title,100)||'مشروع جديد',format:p.format,character:str(p.character,800),style:['editorial','cinematic','vector','product'].includes(p.style)?p.style:'editorial',scenes};
  if(duration(result)>600)throw Error('الحد الأقصى عشر دقائق');return result;
@@ -85,6 +105,7 @@ function review(p,assets=new Map()){const out=[],used=new Map(),prompts=new Map(
  if(s.layout==='media'&&(!a||a.generated))add('error','أرفق صورة أو فيديو');
  if(s.layout==='media'&&s.sceneGraph)add('error','لا تستخدم الرسم المركب في مشهد الدليل الحقيقي');
  if(s.title.length>65)add('warn','العنوان طويل');
+ if(s.focus?.length&&s.layout!=='media')add('warn','كاميرا التفاصيل تعمل فقط على مشاهد تسجيل التطبيق');
  for(const q of s.captions||[]){if(q.text.split(/\s+/).length/(q.end-q.start)>3)add('warn','ترجمة سريعة؛ راجع توقيتها يدويًا');}
  if(!finalHold(s).visible)add('error','يجب أن تنتهي طبقات الحركة في وضع ظاهر ومستقر للقراءة');
  if(s.duration<readingSeconds(s,'comfortable',!a))add('warn','القراءة تحتاج نحو '+readingSeconds(s,'comfortable',!a)+' ثانية؛ زد زمن المشهد');
@@ -210,7 +231,7 @@ function evidenceScene(c,p,t,v,a,logo){
  const box={x:pad,y:vert?405:310,w:w-pad*2,h:h-(vert?405:310)-(hasCap?(vert?260:195):110)};
  rect(c,box.x,box.y,box.w,box.h,22,'#fff','#c3d9cc');
  const im=a.node,iw=im.videoWidth||im.naturalWidth,ih=im.videoHeight||im.naturalHeight;let artOK=Boolean(iw&&ih);
- if(artOK){const k=Math.min((box.w-30)/iw,(box.h-30)/ih),dw=iw*k,dh=ih*k;c.drawImage(im,box.x+(box.w-dw)/2,box.y+(box.h-dh)/2,dw,dh);}
+ if(artOK){const k=Math.min((box.w-30)/iw,(box.h-30)/ih),dw=iw*k,dh=ih*k,dx=box.x+(box.w-dw)/2,dy=box.y+(box.h-dh)/2,f=focusAt(s.focus,v.local);if(f.zoom>1.0001){const q=focusCrop(iw,ih,f);c.drawImage(im,q.sx,q.sy,q.sw,q.sh,dx,dy,dw,dh);rect(c,dx+8,dy+8,156,35,10,'#092e27');fit(c,'عرض مكبّر',dx+16,dy+10,140,31,22,'#fff','center','rtl',16);}else c.drawImage(im,dx,dy,dw,dh);}
  const captionOK=captionBand(c,s,v.local,w,h);rect(c,pad,h-38,w-2*pad,5,2,'#cce5d7');rect(c,pad,h-38,Math.max(1,(w-2*pad)*clamp(t/duration(p),0,1)),5,2,P.mint);
  const opacity=transitionAlpha(s,v.local);if(opacity>0){c.globalAlpha=opacity;c.fillStyle='#eaf3ee';c.fillRect(0,0,w,h);}c.restore();return {titleOK,subOK,artOK,captionOK};
 }
@@ -241,5 +262,5 @@ function frame(c,p,t,assets=new Map(),logo=null){const {w,h}=dimensions(p.format
  const captionOK=captionBand(c,s,v.local,w,h);const opacity=transitionAlpha(s,v.local);if(opacity>0){c.globalAlpha=opacity;c.fillStyle=dark?P.dark:'#eef8f3';c.fillRect(0,0,w,h);}c.restore();return {titleOK,subOK,artOK,captionOK};}
 // Prefer widely compatible H.264, not unspecified MP4 (which may contain VP9).
 function chooseMime(isSupported,hasAudio){const choices=hasAudio?['video/mp4;codecs=avc1.420034,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']:['video/mp4;codecs=avc1.420034','video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];return choices.find(m=>isSupported(m))||null;}
-root.DirectorV3=Object.freeze({layouts,sample,normalize,duration,locate,review,dimensions,wrap,frame,chooseMime,readingSeconds,paced,trackPreset,normalizeTracks,sampleTrack,layerState,finalHold,transitionAlpha,objectKinds,objectMotions,objectPoses,normalizeGraph,objectState,graphReady,graphPreset,sceneGraphDemo,drawGraph,normalizeCaptions,captionAt,estimateCaptions,srt,captionCheck,framing});
+root.DirectorV3=Object.freeze({layouts,sample,normalize,duration,locate,review,dimensions,wrap,frame,chooseMime,readingSeconds,paced,trackPreset,normalizeTracks,sampleTrack,layerState,finalHold,transitionAlpha,objectKinds,objectMotions,objectPoses,normalizeGraph,objectState,graphReady,graphPreset,sceneGraphDemo,drawGraph,normalizeCaptions,captionAt,estimateCaptions,srt,captionCheck,framing,normalizeFocus,focusAt,focusCrop,focusPreset,reviewTimes});
 })(globalThis);
