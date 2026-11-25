@@ -20,6 +20,8 @@ const FONTSOURCE = [
 /** Scripts published under `js/`. `rewrite` turns a module source into a plain script. */
 export const SCRIPTS = {
   'core.js': { from: 'web/js/core.js' },
+  'director-v3.js': { from: 'web/js/director-v3.js' },
+  'director-v3-ui.js': { from: 'web/js/director-v3-ui.js' },
   'reel-pro.js': { from: 'web/js/reel-pro.js' },
   'reel-pro-audio.js': { from: 'web/js/reel-pro-audio.js' },
   'pen-sound.js': { from: 'web/js/pen-sound.js' },
@@ -55,7 +57,7 @@ export const PAGES = [
   { to: 'index.html', from: 'index.html' },
   { to: 'doodle.html', from: 'app.html' },
   ...['reels.html', 'carousel.html', 'case.html', 'ad.html', 'ugc.html', 'magnet.html', 'logo.html',
-    'reel.html', 'reel-pro.html', 'plan.html', 'board.html', 'landing.html'].map((f) => ({ to: f, from: f })),
+    'reel.html', 'reel-pro.html', 'director-v3.html', 'plan.html', 'board.html', 'landing.html'].map((f) => ({ to: f, from: f })),
 ];
 
 /** Pages that deliberately never reach the static build. */

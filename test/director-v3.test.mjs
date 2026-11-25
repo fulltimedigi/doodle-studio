@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import '../web/js/director-v3.js';
+const D=globalThis.DirectorV3,clone=x=>JSON.parse(JSON.stringify(x));
+test('sample: six compositions, forty seconds, clean review',()=>{const p=D.normalize(D.sample);assert.equal(D.duration(p),40);assert.equal(new Set(p.scenes.map(s=>s.layout)).size,6);assert.deepEqual(D.review(p),[]);});
+test('timeline boundaries',()=>{const p=D.normalize(D.sample);assert.equal(D.locate(p,6).i,1);assert.equal(D.locate(p,40).local,5);});
+test('invalid format and duration rejected',()=>{const p=clone(D.sample);p.scenes[0].duration=0;assert.throws(()=>D.normalize(p));assert.throws(()=>D.normalize({...D.sample,format:'4:3'}));});
+test('missing and repeated assets flagged',()=>{const p=D.normalize({...D.sample,scenes:[{layout:'media',title:'عرض',duration:4},{layout:'media',title:'عرض',duration:4}]});assert.ok(D.review(p).some(x=>x.level==='error'));assert.ok(D.review(p,new Map([[0,{identity:'same'}],[1,{identity:'same'}]])).some(x=>x.text.includes('تكرار أصل')));});
+test('dimensions and wrapping',()=>{assert.deepEqual(D.dimensions('9:16'),{w:1080,h:1920});const c={measureText:s=>({width:s.length*10})};assert.deepEqual(D.wrap(c,'one two three',70),['one two','three']);assert.deepEqual(D.wrap(c,'abcdefgh',40),['abcd','efgh']);});
+test('all sample scenes render against mock canvas in both ratios',()=>{const c=new Proxy({measureText:s=>({width:s.length*30}),createLinearGradient:()=>({addColorStop(){}})},{get:(o,k)=>k in o?o[k]:(()=>{}),set:(o,k,v)=>(o[k]=v,true)});for(const format of ['16:9','9:16']){const p=D.normalize({...D.sample,format});let t=0;for(const s of p.scenes){assert.equal(typeof D.frame(c,p,t+2).titleOK,'boolean');t+=s.duration;}}});
