@@ -18,17 +18,18 @@ function normalize(p){
  if(!p||!['16:9','9:16'].includes(p.format)||!Array.isArray(p.scenes)||p.scenes.length<1||p.scenes.length>30)throw Error('اختر مقاسًا مدعومًا ومن 1 إلى 30 مشهدًا');
  const scenes=p.scenes.map((s,i)=>{
   if(!s||!layouts.includes(s.layout)||!Number.isFinite(Number(s.duration))||Number(s.duration)<2||Number(s.duration)>60||!str(s.title,160))throw Error('راجع نوع وعنوان ومدة المشهد '+(i+1)+' (2–60 ثانية)');
-  return {layout:s.layout,duration:Number(s.duration),title:str(s.title,160),subtitle:str(s.subtitle,250),narration:str(s.narration,3000),visual:str(s.visual,1400),motion:['push','pan','still'].includes(s.motion)?s.motion:'push',labels:Array.isArray(s.labels)?s.labels.slice(0,3).map(v=>str(v,100)).filter(Boolean):[]};
+  return {layout:s.layout,duration:Number(s.duration),title:str(s.title,160),subtitle:str(s.subtitle,250),narration:str(s.narration,3000),visual:str(s.visual,1400),composition:['auto','split','hero'].includes(s.composition)?s.composition:'auto',useCharacter:s.useCharacter===true,motion:['push','pan','still'].includes(s.motion)?s.motion:'push',labels:Array.isArray(s.labels)?s.labels.slice(0,3).map(v=>str(v,100)).filter(Boolean):[]};
  });
- const result={title:str(p.title,100)||'مشروع جديد',format:p.format,style:['editorial','cinematic','vector','product'].includes(p.style)?p.style:'editorial',scenes};
+ const result={title:str(p.title,100)||'مشروع جديد',format:p.format,character:str(p.character,800),style:['editorial','cinematic','vector','product'].includes(p.style)?p.style:'editorial',scenes};
  if(duration(result)>600)throw Error('الحد الأقصى عشر دقائق');return result;
 }
 function locate(p,t){let start=0;t=clamp(Number(t)||0,0,duration(p));for(let i=0;i<p.scenes.length;i++){const s=p.scenes[i];if(t<start+s.duration||i===p.scenes.length-1)return {i,local:t-start,scene:s};start+=s.duration;}}
-function review(p,assets=new Map()){const out=[],used=new Map();p.scenes.forEach((s,i)=>{const a=assets.get(i),n=i+1,add=(level,text)=>out.push({level,text:'المشهد '+n+': '+text});
- if(s.layout==='media'&&!a)add('error','أرفق صورة أو فيديو');
+function review(p,assets=new Map()){const out=[],used=new Map(),prompts=new Map();p.scenes.forEach((s,i)=>{const a=assets.get(i),n=i+1,add=(level,text)=>out.push({level,text:'المشهد '+n+': '+text});
+ if(s.layout==='media'&&(!a||a.generated))add('error','أرفق صورة أو فيديو');
  if(s.title.length>65)add('warn','العنوان طويل');
  if(s.narration.split(/\s+/).filter(Boolean).length>s.duration*3)add('warn','التعليق طويل بالنسبة للمدة');
  if(i&&s.layout===p.scenes[i-1].layout&&!a&&!assets.get(i-1))add('warn','تكرار الإخراج البصري');
+ if(s.visual&&s.layout!=='media'){const k=s.visual.trim().toLowerCase().replace(/\s+/g,' ');if(prompts.has(k))add('warn','وصف بصري مكرر من المشهد '+prompts.get(k));else prompts.set(k,n);}
  if(a?.identity){if(used.has(a.identity))add('warn','تكرار أصل المشهد '+used.get(a.identity));else used.set(a.identity,n);}
  });return out;}
 const dimensions=f=>f==='9:16'?{w:1080,h:1920}:{w:1920,h:1080};
@@ -50,7 +51,16 @@ function art(c,s,b,t,a){c.save();const k=ease(t/.6);c.globalAlpha=k;c.translate(
  else if(s.layout==='insights'){card(25,35,750,635);label('ماذا يريد عملاؤك؟',65,68,670,75);const list=L.length?L:['الطلب','البدائل','فرص التحسين'];list.forEach((v,i)=>{let y=165+i*140;c.save();c.globalAlpha*=ease((t-i*.3)/.6);rect(c,65,y,670,115,22,i===1?'#d4efdf':P.soft);circle(c,120,y+57,25,i===1?P.ink:P.mint);label(v,170,y+15,525,85);c.restore();});label('مؤشرات توضيحية وليست أرقام مبيعات',65,595,670,45,'#55796a','center');}
  else if(s.layout==='cta'){circle(c,400,330,290,'#104b3b');circle(c,400,330,230,'#14634b');circle(c,400,330,120,P.mint);line(c,346,332,385,373,'#fff',15);line(c,385,373,459,292,'#fff',15);fit(c,L[0]||'ابدأ الآن',40,575,720,75,36,'#fff','center','ltr');}
  else{card(35,75,730,550);label('أرفق تسجيل التطبيق',70,240,660,180,P.ink,'center');}c.restore();}
+function heroScene(c,p,t,v,a,logo){const {w,h}=dimensions(p.format),s=v.scene,vert=w<h,pad=vert?72:95,im=a.node,iw=im.naturalWidth,ih=im.naturalHeight,progress=ease(v.local/s.duration);
+ c.save();c.setTransform(1,0,0,1,0,0);c.fillStyle=P.dark;c.fillRect(0,0,w,h);
+ const z=Math.max(w/iw,h/ih)*(s.motion==='push'?1+.12*progress:s.motion==='pan'?1.12:1),dx=s.motion==='pan'?(progress-.5)*Math.min(iw*z-w,120):0;c.drawImage(im,(w-iw*z)/2+dx,(h-ih*z)/2,iw*z,ih*z);
+ const shade=c.createLinearGradient(0,0,0,h);shade.addColorStop(0,'rgba(6,40,33,.75)');shade.addColorStop(.25,'rgba(6,40,33,.05)');shade.addColorStop(.4,'rgba(6,40,33,.15)');shade.addColorStop(.67,'rgba(6,40,33,.94)');shade.addColorStop(1,'#062821');c.fillStyle=shade;c.fillRect(0,0,w,h);
+ if(logo?.naturalWidth){const lh=56,lw=Math.min(250,lh*logo.naturalWidth/logo.naturalHeight);rect(c,pad-14,pad-8,lw+28,lh+16,14,'#ffffff');c.drawImage(logo,pad,pad,lw,lh);}else fit(c,'FullTimeDigi',pad,pad,300,65,38,'#fff','left','ltr');
+ const tw=w-2*pad,ty=vert?h*.65:h*.60,th=vert?220:170;c.save();c.globalAlpha=ease(v.local/.5);const titleOK=fit(c,s.title,pad,ty,tw,th,vert?83:96,'#fff','right','rtl',24),subOK=fit(c,s.subtitle,pad,ty+th+12,tw,vert?140:105,vert?46:52,'#c4f3d9');c.restore();
+ fit(c,'رسم توضيحي مولّد',pad,h-pad-48,tw,36,25,'#c4f3d9','right');rect(c,pad,h-pad/2,tw,5,2,'#356455');rect(c,pad,h-pad/2,Math.max(1,tw*clamp(t/duration(p),0,1)),5,2,P.mint);
+ const fade=Math.max(1-ease(v.local/.28),1-ease((s.duration-v.local)/.22));if(fade>0){c.globalAlpha=fade;c.fillStyle=P.dark;c.fillRect(0,0,w,h);}c.restore();return {titleOK,subOK};}
 function frame(c,p,t,assets=new Map(),logo=null){const {w,h}=dimensions(p.format),v=locate(p,t),s=v.scene,vert=w<h,dark=s.layout==='cta',pad=vert?72:95;
+ const a=assets.get(v.i);if(s.layout!=='media'&&a?.generated&&a.kind==='image'&&a.node?.naturalWidth&&a.node?.naturalHeight&&(s.composition==='hero'||(s.composition==='auto'&&['hook','cta'].includes(s.layout))))return heroScene(c,p,t,v,a,logo);
  c.save();c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,dark?P.dark:'#fff');g.addColorStop(1,dark?P.ink:'#e4f3eb');c.fillStyle=g;c.fillRect(0,0,w,h);
  if(logo?.naturalWidth){const h1=56,w1=h1*logo.naturalWidth/logo.naturalHeight;c.drawImage(logo,pad,pad,w1,h1);}else fit(c,'FullTimeDigi',pad,pad,300,65,38,dark?'#fff':P.ink,'left','ltr');
  const tb=vert?[pad,200,w-2*pad,230]:[1020,275,805,250],sb=vert?[pad,450,w-2*pad,155]:[1020,550,805,170];
