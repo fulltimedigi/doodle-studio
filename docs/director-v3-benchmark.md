@@ -22,3 +22,7 @@ Scope: public documentation and product behavior descriptions, not private sourc
 
 ## Slice 6 implementation
 Three independently editable tracks (visual, title, subtitle), validated keyframes with normalized offsets and scale, five easing options, calm/editorial/static presets, scene fade or cut, track display and playhead. Existing scenes receive compatible defaults. Reading-budget logic accounts for last movement and rejects an invisible/displaced final state. This is an incremental primitive, NOT a full multi-object editor, curve GUI, character rig, or frame-accurate encoder. Browser/full-suite validation remains outstanding.
+
+
+## Slice 7 — original multi-object scene composer
+Opt-in scene graph persists in JSON. Up to 24 objects with unique IDs, normalized artboard bounds, independent entrance timing, order and pose. Thirteen original vector primitives, three themes, six story-role presets and an editable campaign example. Merchant/shopper use articulated arm segments for illustrative gestures (not lip sync or a full skeleton editor). Each entrance is sampled from absolute time. Reading estimates include graph text and latest entrance. Captions reserve dedicated space and flag overflow. Real app proof requires real media; attached media takes precedence over graph. Existing scenes remain compatible. Structured numeric controls, not yet drag-and-drop. No proprietary assets or new dependencies. Actual browser UI and visual review pending.
