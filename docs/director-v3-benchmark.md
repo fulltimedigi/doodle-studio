@@ -43,3 +43,6 @@ HTTP navigation was blocked in the isolated browser test environment. Replaced s
 
 ## Slice 11 — readable product demonstration and captions
 Scene-local editable captions with bounded non-overlapping timing, Arabic lower band, global SRT export and optional estimated cues based on measured narration clip duration. The estimate is not speech recognition or word alignment. Manual edits are preserved unless the user explicitly replaces captions. A dedicated uncropped media/evidence composition maximizes recording size, with text and caption zones separated. All caption cues are checked for fit in browser preflight and offline CLI. No external calls. Visual and integrated playback validation still required.
+
+## Slice 12 — editorial framing
+Three explicit compositions (split, reverse, centered) with different automatic framing by story role for scene-graph projects. Portrait reverse places artwork above text. All resting boxes reserve caption/brand space and do not intersect. Legacy projects without a scene graph retain the split default. Hero and evidence layouts remain separate. Numeric geometry and regression tests are not a visual quality guarantee; actual layout review is still needed.
