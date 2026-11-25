@@ -85,6 +85,9 @@ function focusAt(frames,t){
  return frames.at(-1);
 }
 function focusCrop(iw,ih,f){if(!Number.isFinite(iw)||!Number.isFinite(ih)||iw<=0||ih<=0)throw Error('Invalid image dimensions');const sw=iw/f.zoom,sh=ih/f.zoom;return {sx:clamp(iw*f.x-sw/2,0,iw-sw),sy:clamp(ih*f.y-sh/2,0,ih-sh),sw,sh};}
+// Contained source thumbnail; pointer coordinates are relative to actual pixels, not letterbox margins.
+function sourceFit(iw,ih,w,h){if(![iw,ih,w,h].every(x=>Number.isFinite(x)&&x>0))throw Error('Invalid media dimensions');const k=Math.min(w/iw,h/ih),dw=iw*k,dh=ih*k;return {x:(w-dw)/2,y:(h-dh)/2,w:dw,h:dh};}
+function sourcePoint(box,x,y){if(x<box.x||x>box.x+box.w||y<box.y||y>box.y+box.h)return null;return {x:clamp((x-box.x)/box.w,0,1),y:clamp((y-box.y)/box.h,0,1)};}
 function focusPreset(seconds,x=.5,y=.5,zoom=1.65){const ramp=Math.min(1.5,seconds*.2);return normalizeFocus([{t:0,x:.5,y:.5,zoom:1},{t:ramp,x:.5,y:.5,zoom:1},{t:ramp*2,x,y,zoom},{t:seconds-ramp*1.5,x,y,zoom},{t:seconds-ramp*.3,x:.5,y:.5,zoom:1}],seconds);}
 function reviewTimes(s){const stable=Math.max(1.5,finalHold(s).start+.15,graphReady(s.sceneGraph)+.15),limit=s.duration-.15;return [...new Set([Math.min(limit,.4),Math.min(limit,stable),s.duration*.5,Math.max(.05,limit)].map(t=>Math.max(.05,t)))].sort((a,b)=>a-b);}
 function normalize(p){
@@ -262,5 +265,5 @@ function frame(c,p,t,assets=new Map(),logo=null){const {w,h}=dimensions(p.format
  const captionOK=captionBand(c,s,v.local,w,h);const opacity=transitionAlpha(s,v.local);if(opacity>0){c.globalAlpha=opacity;c.fillStyle=dark?P.dark:'#eef8f3';c.fillRect(0,0,w,h);}c.restore();return {titleOK,subOK,artOK,captionOK};}
 // Prefer widely compatible H.264, not unspecified MP4 (which may contain VP9).
 function chooseMime(isSupported,hasAudio){const choices=hasAudio?['video/mp4;codecs=avc1.420034,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']:['video/mp4;codecs=avc1.420034','video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];return choices.find(m=>isSupported(m))||null;}
-root.DirectorV3=Object.freeze({layouts,sample,normalize,duration,locate,review,dimensions,wrap,frame,chooseMime,readingSeconds,paced,trackPreset,normalizeTracks,sampleTrack,layerState,finalHold,transitionAlpha,objectKinds,objectMotions,objectPoses,normalizeGraph,objectState,graphReady,graphPreset,sceneGraphDemo,drawGraph,normalizeCaptions,captionAt,estimateCaptions,srt,captionCheck,framing,normalizeFocus,focusAt,focusCrop,focusPreset,reviewTimes});
+root.DirectorV3=Object.freeze({layouts,sample,normalize,duration,locate,review,dimensions,wrap,frame,chooseMime,readingSeconds,paced,trackPreset,normalizeTracks,sampleTrack,layerState,finalHold,transitionAlpha,objectKinds,objectMotions,objectPoses,normalizeGraph,objectState,graphReady,graphPreset,sceneGraphDemo,drawGraph,normalizeCaptions,captionAt,estimateCaptions,srt,captionCheck,framing,normalizeFocus,focusAt,focusCrop,focusPreset,reviewTimes,sourceFit,sourcePoint});
 })(globalThis);
