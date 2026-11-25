@@ -22,6 +22,7 @@ export const SCRIPTS = {
   'core.js': { from: 'web/js/core.js' },
   'director-v3.js': { from: 'web/js/director-v3.js' },
   'director-editor.js': { from: 'web/js/director-editor.js' },
+  'director-bundle.js': { from: 'web/js/director-bundle.js' },
   'director-ai.js': { from: 'web/js/director-ai.js' },
   'director-sound.js': { from: 'web/js/director-sound.js' },
   'director-v3-ui.js': { from: 'web/js/director-v3-ui.js' },
