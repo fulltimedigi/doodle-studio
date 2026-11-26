@@ -19,7 +19,7 @@ try{
  run(ff,['-v','error','-f','lavfi','-i','color=c=green:s=320x180','-frames:v','1','-threads','1',join(dir,'still.png')]);
  run(ff,['-v','error','-f','lavfi','-i','sine=frequency=440:duration=6:sample_rate=24000','-c:a','pcm_s16le',join(dir,'voice.wav')]);
  run(ff,['-v','error','-f','lavfi','-i','sine=frequency=220:duration=2:sample_rate=24000','-c:a','pcm_s16le',join(dir,'music.wav')]);
- const base=D.normalize({title:'اختبار محلي',format:'16:9',scenes:[{layout:'hook',duration:2,title:'اختبار الرسم',subtitle:'',transition:'cut',motionTracks:D.trackPreset('static')},{layout:'media',duration:2,title:'اختبار الفيديو',subtitle:'',transition:'cut',motionTracks:D.trackPreset('static')},{layout:'media',duration:2,title:'اختبار الصورة',subtitle:'',transition:'cut',motionTracks:D.trackPreset('static')}]});
+ const base=D.normalize({title:'اختبار محلي',format:'16:9',scenes:[{layout:'hook',production:'local',duration:2,title:'اختبار الرسم',subtitle:'',transition:'cut',motionTracks:D.trackPreset('static')},{layout:'media',duration:2,title:'اختبار الفيديو',subtitle:'',transition:'cut',motionTracks:D.trackPreset('static')},{layout:'media',duration:2,title:'اختبار الصورة',subtitle:'',transition:'cut',motionTracks:D.trackPreset('static')}]});
  const items=[await media('scene','clip.webm','video/webm',1),await media('scene','still.png','image/png',2),await media('voice','voice.wav','audio/wav'),await media('music','music.wav','audio/wav')];
  const bundle=join(dir,'fixture.ftdproject'),out=join(dir,'fixture.mp4');await writeFile(bundle,Buffer.from(await B.pack(base,items,{gain:18,duck:28},A.signature(base)).arrayBuffer()));
  run(process.execPath,[fileURLToPath(new URL('render-director.mjs',import.meta.url)),bundle,out,'--fps','24','--size','720']);
