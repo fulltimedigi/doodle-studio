@@ -1,0 +1,98 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import '../web/js/director-v3.js';
+import '../web/js/director-ai.js';
+const D=globalThis.DirectorV3,A=globalThis.DirectorAI;
+const sample=()=>A.enrich(D.sample);
+test('art prompt varies by scene and forbids fake evidence',()=>{const p=sample();assert.notEqual(A.artPrompt(p,0),A.artPrompt(p,1));assert.match(A.artPrompt(p,0),/fabricated proof/);p.scenes[0].layout='media';assert.throws(()=>A.artPrompt(p,0));});
+test('creative metadata survives normalization',()=>{const p=sample();p.style='cinematic';p.scenes[0].visual='A merchant at a desk';p.scenes[0].motion='pan';const q=A.enrich(p);assert.equal(q.style,'cinematic');assert.equal(q.scenes[0].visual,p.scenes[0].visual);assert.equal(q.scenes[0].motion,'pan');});
+test('AI plan requires narration, art and scene limit',()=>{const p=sample();assert.throws(()=>A.validatePlan(p,'16:9',3));assert.throws(()=>A.validatePlan(p,'16:9',8));p.scenes.forEach(s=>s.visual='unique visual');assert.equal(A.validatePlan(p,'9:16',8).format,'9:16');});
+test('audio timeline uses actual lengths and preserves silent scenes',()=>{const p=sample();p.scenes[1].narration='';const plan=A.audioTimeline(p,[48000,0,72000,96000,120000,24000]);assert.ok(plan.project.scenes[0].duration>=10);assert.ok(plan.project.scenes[1].duration>=11);assert.equal(plan.segments[1].offset,Math.round(plan.project.scenes[0].duration*24000));assert.equal(plan.segments[2].offset,Math.round((plan.project.scenes[0].duration+plan.project.scenes[1].duration)*24000));assert.equal(plan.total,Math.round(D.duration(plan.project)*24000));});
+test('audio mix and WAV header are sample accurate',()=>{const p=sample();const lengths=p.scenes.map(()=>24000);const plan=A.audioTimeline(p,lengths);const clips=lengths.map(n=>new Float32Array(n).fill(.5));const f=A.mix(plan,clips);assert.equal(f[0],.5);assert.equal(f[24000],0);assert.equal(f[plan.segments[1].offset],.5);const v=new DataView(A.wav(f));assert.equal(v.getUint32(24,true),24000);assert.equal(v.getUint32(40,true),f.length*2);});
+test('audio change invalidates signature',()=>{const p=sample(),k=A.signature(p);p.scenes[0].narration+=' تعديل';assert.notEqual(A.signature(p),k);});
+test('request has no retry after provider rejection',async()=>{let n=0;await assert.rejects(()=>A.request('test-model','dummy',{},async()=>{n++;return {ok:false,status:429};}));assert.equal(n,1);});
+test('response parsing rejects non-JSON and absent media',()=>{assert.throws(()=>A.parse({}));assert.throws(()=>A.part({},'image'));assert.equal(A.part({candidates:[{content:{parts:[{inlineData:{mimeType:'image/png',data:'abc'}}]}}]},'image').data,'abc');});
+
+test('production readiness detects stale narration and permits matching manual audio',()=>{const p=sample(),duration=D.duration(p),sig=A.signature(p);assert.equal(A.voiceReady(p,duration,sig),true);assert.equal(A.voiceReady(p,duration,null),true);assert.equal(A.voiceReady(p,duration+1,sig),false);assert.equal(A.voiceReady(p,NaN,sig),false);p.scenes[0].narration+=' updated';assert.equal(A.voiceReady(p,duration,sig),false);});
+test('hybrid planning preserves manual media and refreshes stale generated artwork',()=>{const p=sample();p.scenes.forEach(s=>s.production='local');p.scenes[0].production='image';p.scenes[1].production='image';p.scenes[2].production='cinema';p.scenes[3].layout='media';const assets=new Map([[0,{kind:'image',generated:true,identity:'old'}],[1,{kind:'image',generated:false}],[2,{kind:'image',generated:true,identity:'new-2'}],[3,{kind:'image',generated:true}]]);const plan=A.productionPlan(p,assets,false,i=>'new-'+i);assert.deepEqual(plan.images,[0]);assert.deepEqual(plan.cinema,[2]);assert.deepEqual(plan.evidence,[3]);assert.equal(plan.voice,true);assets.set(0,{kind:'image',generated:true,identity:'new-0'});assets.set(2,{kind:'video',generated:true});assets.set(3,{kind:'video',generated:false});assert.deepEqual(A.productionPlan(p,assets,true,i=>'new-'+i),{images:[],cinema:[],evidence:[],voice:false});});
+
+test('export readiness differentiates complete production from a draft',()=>{const p=sample();p.scenes.forEach(s=>s.production='local');p.scenes[0].production='cinema';const assets=new Map([[0,{kind:'image',generated:true,identity:'current'}]]);const draft=A.exportReadiness(p,assets,true,()=> 'current');assert.equal(draft.ready,false);assert.deepEqual(draft.missingCinema,[0]);assets.set(0,{kind:'video',generated:true});assert.equal(A.exportReadiness(p,assets,true).ready,true);assert.equal(A.exportReadiness(p,assets,false).ready,false);});
+
+test('Omni budget uses integer cents and rejects invalid duration',()=>{assert.equal(A.cinemaCost(10),70);assert.deepEqual(A.cinemaBudget(10,30,100),{cost:70,total:100,allowed:true});assert.equal(A.cinemaBudget(10,31,100).allowed,false);assert.throws(()=>A.cinemaCost(16));assert.throws(()=>A.cinemaBudget(3,-1,100));});
+test('Omni accepts only cinematic illustrative scenes and bounded duration',()=>{const p=sample();p.scenes[0].production='cinema';p.scenes[0].visual='merchant opening a parcel';p.scenes[0].duration=10;const b=A.cinemaBody(p,0);assert.equal(b.model,A.OMNI_MODEL);assert.equal(b.response_format.duration,'10s');assert.equal(b.store,false);p.scenes[0].layout='media';assert.throws(()=>A.cinemaBody(p,0));});
+test('Omni transport never retries rejected requests',async()=>{let calls=0;await assert.rejects(()=>A.cinemaGenerate({model:A.OMNI_MODEL},'dummy',async()=>{calls++;return {ok:false,status:429};}));assert.equal(calls,1);});
+
+test('session budget rejects cumulative requests and accepts cached zero-cost work',()=>{assert.deepEqual(A.requestBudget(4,8,12),{total:12,allowed:true});assert.equal(A.requestBudget(1,12,12).allowed,false);assert.equal(A.requestBudget(0,12,12).allowed,true);assert.throws(()=>A.requestBudget(-1,0,12));assert.throws(()=>A.requestBudget(1,0,NaN));});
+
+test('cinematic clip becomes stale when shot direction or duration changes',()=>{const p=sample();p.scenes.forEach(s=>s.production='local');p.scenes[0].production='cinema';const assets=new Map([[0,{kind:'video',generated:true,cinemaSignature:A.cinemaSignature(p,0)}]]);assert.equal(A.exportReadiness(p,assets,true).ready,true);p.scenes[0].visual='different scene';assert.deepEqual(A.exportReadiness(p,assets,true).missingCinema,[0]);assets.set(0,{kind:'video',generated:false});assert.equal(A.exportReadiness(p,assets,true).ready,true);});
+
+test('UGC shares the bounded Omni reference transport',()=>{const b=A.ugcCinemaBody('Arabic spoken dialogue',{mimeType:'image/png',data:'YWJj'});assert.equal(b.model,A.OMNI_MODEL);assert.equal(b.response_format.duration,'8s');assert.equal(b.response_format.aspect_ratio,'9:16');assert.equal(b.store,false);assert.throws(()=>A.ugcCinemaBody('test',{mimeType:'text/html',data:'abc'}));});
+
+const omniFile='https://generativelanguage.googleapis.com/v1beta/files/abc-123';
+const omniDownload=omniFile+':download?alt=media';
+const omniReply=uri=>Response.json({status:'completed',steps:[
+ {type:'model_output',content:[{type:'video',mime_type:'video/mp4',uri}]}
+]});
+
+test('Omni uses one generation POST and polls documented URI delivery',async()=>{
+ const requests=[];
+ const queue=[
+  omniReply(omniDownload),
+  Response.json({state:'PROCESSING'}),
+  Response.json({state:'ACTIVE'}),
+  new Response('video',{headers:{'content-type':'video/mp4'}})
+ ];
+ const waits=[];
+ const config=A.ugcCinemaBody('Move the camera',{mimeType:'image/png',data:'YWJj'});
+ const blob=await A.cinemaGenerate(config,'dummy',async(url,opts)=>{
+  requests.push([url,opts.method||'GET']);
+  if(url.startsWith(omniDownload)){
+   assert.equal(opts.headers,undefined);
+   assert.equal(opts.credentials,'omit');
+   assert.equal(opts.referrerPolicy,'no-referrer');
+  }else{
+   assert.equal(opts.headers['x-goog-api-key'],'dummy');
+   assert.equal(opts.redirect,'error');
+  }
+  if(opts.method==='POST')assert.equal(JSON.parse(opts.body).response_format.delivery,'uri');
+  return queue.shift();
+ },async ms=>{waits.push(ms);});
+ assert.deepEqual(requests,[
+  ['https://generativelanguage.googleapis.com/v1beta/interactions','POST'],
+  [omniFile,'GET'],[omniFile,'GET'],[omniDownload+'&key=dummy','GET']
+ ]);
+ assert.deepEqual(waits,[5000]);
+ assert.equal(blob.type,'video/mp4');
+ assert.equal(await blob.text(),'video');
+});
+
+test('Omni rejects unexpected download origins before sending credentials',async()=>{
+ let calls=0;
+ await assert.rejects(A.cinemaGenerate({model:A.OMNI_MODEL},'dummy',async()=>{
+  calls++;
+  return omniReply('https://example.invalid/v1beta/files/abc:download?alt=media');
+ }),/رابط فيديو Omni غير صالح/);
+ assert.equal(calls,1);
+});
+
+test('Omni stops retrieval when the provider marks a file failed',async()=>{
+ const queue=[omniReply(omniDownload),Response.json({state:'FAILED'})];
+ await assert.rejects(A.cinemaGenerate({model:A.OMNI_MODEL},'dummy',async()=>queue.shift()),/FAILED/);
+ assert.equal(queue.length,0);
+});
+
+test('speech uses the selected dialect in its generation instructions',async()=>{
+ const calls=[];
+ const provider=async(url,opts)=>{
+  calls.push(JSON.parse(opts.body).contents[0].parts[0].text);
+  return Response.json({candidates:[{content:{parts:[{inlineData:{mimeType:'audio/L16',data:'AAAA'}}]}}]});
+ };
+ for(const dialect of ['saudi','egyptian','standard']){
+  await A.speech('اختبار الصوت','Charon','moderate pace','gemini-3.8-flash-tts','dummy',dialect,provider);
+ }
+ assert.match(calls[0],/Saudi white/);
+ assert.match(calls[1],/Egyptian Arabic/);
+ assert.match(calls[2],/Modern Standard Arabic/);
+ await assert.rejects(A.speech('اختبار','Charon','','test','dummy','unknown',provider));
+ assert.equal(calls.length,3);
+});

@@ -1,0 +1,99 @@
+{
+  "title": "FullTimeDigi | لحظة الاختيار",
+  "format": "9:16",
+  "style": "cinematic",
+  "scenes": [
+    {
+      "layout": "hook",
+      "production": "cinema",
+      "duration": 8,
+      "title": "لحظة الاختيار",
+      "subtitle": "عميلك عنده سؤال قبل يشتري",
+      "narration": "عميلك لقى منتج يعجبه. بس لو المعلومة اللي يحتاجها ناقصة، كيف يقرر؟",
+      "captions": [
+        { "start": 0.5, "end": 3.5, "text": "عميلك لقى منتج يعجبه." },
+        { "start": 3.5, "end": 7.2, "text": "بس لو المعلومة اللي يحتاجها ناقصة، كيف يقرر؟" }
+      ],
+      "visual": "Illustrative cinematic macro shot. A shopper’s thumb pauses over a phone outside camera view beside a closed unbranded product box on a dark evergreen shop counter. Early sunlight picks out the texture of the paper. Frame from counter height, shoot a gradual 10 cm push toward the still hand. No face, no visible screen, no text or interface. Leave clean space for the title.",
+      "motion": "push",
+      "composition": "hero",
+      "transition": "cut"
+    },
+    {
+      "layout": "media",
+      "production": "evidence",
+      "duration": 9,
+      "title": "افحص الكتالوج مجانًا",
+      "subtitle": "قراءة فقط",
+      "narration": "ابدأ بفحص مجاني. فول تايم ديجي يوريك وش ناقص في صفحات منتجاتك، بدون أي تعديل عليها.",
+      "captions": [
+        { "start": 0.4, "end": 3, "text": "ابدأ بفحص مجاني." },
+        { "start": 3, "end": 8.4, "text": "فول تايم ديجي يوريك وش ناقص في صفحات منتجاتك، بدون أي تعديل عليها." }
+      ],
+      "visual": "REQUIRED REAL RECORDING: capture the actual FullTimeDigi audit report on an authorized store; hold on a real missing product description. No fabricated report, UI, counts or demonstration of changing product data. Keep the report at its native aspect ratio.",
+      "motion": "still",
+      "transition": "cut"
+    },
+    {
+      "layout": "media",
+      "production": "evidence",
+      "duration": 10,
+      "title": "وصف تراجعه بنفسك",
+      "subtitle": "اقتراحات بإتاحة مبكرة",
+      "narration": "نقترح وصف مبني على معلومات منتجك. تقدر تراجعه وتعدّله قبل ما توافق عليه.",
+      "captions": [
+        { "start": 0.5, "end": 4.6, "text": "نقترح وصف مبني على معلومات منتجك." },
+        { "start": 4.6, "end": 9, "text": "تقدر تراجعه وتعدّله قبل ما توافق عليه." }
+      ],
+      "visual": "REQUIRED REAL RECORDING: capture the authentic early-access suggestions view where the merchant reviews an existing product field and its suggested description. Avoid showing a storefront write or a claim that approval automatically publishes edits.",
+      "motion": "still",
+      "transition": "cut"
+    },
+    {
+      "layout": "media",
+      "production": "evidence",
+      "duration": 13,
+      "title": "مساعد المبيعات على زد",
+      "subtitle": "الظهور بالمتجر بانتظار اعتماد زد",
+      "narration": "ومساعد المبيعات على زد، يجاوب من منتجات متجرك ويساعد العميل يختار. وإذا المعلومة مو موجودة، يقول له.",
+      "captions": [
+        { "start": 0.5, "end": 4, "text": "ومساعد المبيعات على زد،" },
+        { "start": 4, "end": 8.2, "text": "يجاوب من منتجات متجرك ويساعد العميل يختار." },
+        { "start": 8.2, "end": 12, "text": "وإذا المعلومة مو موجودة، يقول له." }
+      ],
+      "visual": "REQUIRED REAL RECORDING: use the actual FullTimeDigi authorized demo or preview of the Zid assistant. Mark demo footage explicitly. Record a real question and an answer grounded in a listed product. Keep the Zid storefront approval status in the editable subtitle. Do not fabricate an enabled live storefront or animate a replica interface.",
+      "motion": "still",
+      "transition": "cut"
+    },
+    {
+      "layout": "hook",
+      "production": "image",
+      "duration": 7,
+      "title": "قرار أوضح داخل متجرك",
+      "subtitle": "",
+      "narration": "من سؤال عن المنتج، إلى قرار أوضح داخل متجرك.",
+      "captions": [
+        { "start": 0.5, "end": 5.5, "text": "من سؤال عن المنتج، إلى قرار أوضح داخل متجرك." }
+      ],
+      "visual": "Illustrative insert: overhead product still with an unbranded paper box set in a pool of light over dark evergreen, distinct from the first shot’s side-on shopper moment. Crisp diagonal shadow and subtle emerald accents. Center the composition. No hands, signage, phone, checkout or suggestion of a completed purchase.",
+      "motion": "pan",
+      "composition": "hero",
+      "transition": "cut"
+    },
+    {
+      "layout": "cta",
+      "production": "local",
+      "duration": 7,
+      "title": "افحص كتالوجك مجانًا",
+      "subtitle": "",
+      "labels": ["fulltimedigi.com"],
+      "narration": "ابدأ بالفحص المجاني، وشوف وش يحتاج كتالوجك.",
+      "captions": [
+        { "start": 0.5, "end": 5.6, "text": "ابدأ بالفحص المجاني، وشوف وش يحتاج كتالوجك." }
+      ],
+      "visual": "Use the built-in FullTimeDigi end card and original logo. Let the CTA and website hold steadily with a quiet music release.",
+      "motion": "still",
+      "transition": "cut"
+    }
+  ]
+}

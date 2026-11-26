@@ -1,0 +1,9 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import '../web/js/director-v3.js';
+const D=globalThis.DirectorV3;
+test('layer tracks are independent, deterministic and hold final position',()=>{const p=D.normalize(D.sample),s=p.scenes[0];const a=D.layerState(s,'title',.3),b=D.layerState(s,'subtitle',.3);assert.ok(a.opacity>b.opacity);assert.deepEqual(D.layerState(s,'title',.3),a);assert.equal(D.layerState(s,'title',9).opacity,1);assert.ok(D.finalHold(s).visible);});
+test('track constraints reject unsafe ranges, unordered time and missing layers',()=>{const t=D.trackPreset();assert.throws(()=>D.normalizeTracks({...t,visual:[]},10));assert.throws(()=>D.normalizeTracks({...t,title:[{t:0,x:1}]},10));assert.throws(()=>D.normalizeTracks({...t,title:[{t:0},{t:0}]},10));assert.throws(()=>D.normalizeTracks({...t,title:[{t:0},{t:11}]},10));});
+test('late movement extends reading time rather than losing the hold',()=>{const p=D.normalize(D.sample),s=p.scenes[0],before=D.readingSeconds(s);s.motionTracks.title=[{t:0,opacity:0,x:0,y:0,scale:1,ease:'linear'},{t:8,opacity:1,x:0,y:0,scale:1,ease:'linear'}];assert.ok(D.readingSeconds(s)>before);assert.ok(D.paced(p).scenes[0].duration>=D.readingSeconds(s));});
+test('invisible final state is an export-blocking issue',()=>{const p=D.normalize(D.sample);p.scenes[0].motionTracks.title.at(-1).opacity=0;assert.ok(D.review(p).some(x=>x.level==='error'&&x.text.includes('مستقر')));});
+test('static and cuts remain stable; easing is sampleable',()=>{const p=D.normalize(D.sample),s=p.scenes[0];s.motionTracks=D.trackPreset('static');s.transition='cut';assert.equal(D.transitionAlpha(s,0),0);assert.equal(D.layerState(s,'title',0).opacity,1);const t=D.normalizeTracks(D.trackPreset('editorial'),10);assert.equal(D.sampleTrack(t.subtitle,.5).opacity,0);assert.ok(D.sampleTrack(t.subtitle,1.1).opacity>0);});

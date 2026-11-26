@@ -28,7 +28,7 @@
 </head>
 <body>
 <main class="wide">
-  <div><h1 class="page">🎥 إعلان فيديو UGC</h1><p class="lead">مبدع/ة يتكلم للكاميرا عن منتجك بلهجتك، مصوَّر بالذكاء الاصطناعي (Veo 3.1) مع منتجك الحقيقي، ثم يُجمَّع مع الترجمة وشعارك وبطاقة ختامية. تكتب الفكرة، تراجع السكريبت مجانًا، ثم تدفع فقط عند التصوير.</p></div>
+  <div><h1 class="page">🎥 إعلان فيديو UGC</h1><p class="lead">مبدع/ة يتكلم للكاميرا عن منتجك بلهجتك، مصوَّر بالذكاء الاصطناعي (Omni 1.2) مع منتجك الحقيقي، ثم يُجمَّع مع الترجمة وشعارك وبطاقة ختامية. تكتب الفكرة، تراجع السكريبت مجانًا، ثم تدفع فقط عند التصوير.</p></div>
   <div class="pane">
     <section class="card">
       <label class="f">المنتج / العرض وما تريد أن يقوله المبدع</label>
@@ -39,12 +39,12 @@
         <div><label class="f">عدد اللقطات (٨ ث لكل لقطة)</label><select id="count"><option>2</option><option selected>3</option><option>4</option></select></div>
       </div>
       <div class="grid2">
-        <div><label class="f">جودة التصوير</label><select id="tier" onchange="cost()"><option value="fast">Veo 3.1 Fast — 1080p (الأفضل قيمة، كل لقطة تبدأ من صورة المبدع)</option><option value="lite">Veo 3.1 Lite — 720p (الأرخص)</option><option value="standard">Veo 3.1 — أعلى جودة (صور مرجعية للمبدع والمنتج)</option></select></div>
+        <div><label class="f">جودة التصوير</label><select id="tier" onchange="cost()"><option value="fast">Omni 1.2 — 720p (إطار مرجعي لكل لقطة)</option></select></div>
         <div><label class="f">المكان</label><select id="place"><option value="auto">يختاره الوكيل</option><option>مطبخ منزلي مضيء</option><option>غرفة معيشة</option><option>داخل السيارة</option><option>مقهى</option><option>الشارع نهارًا</option></select></div>
       </div>
       <button class="primary big" id="go" onclick="makeAd()">🎬 اصنع الإعلان (سكريبت ← تصوير ← فيديو جاهز)</button>
-      <div class="muted center" id="oneLine" style="margin-top:8px">زر واحد: يكتب السكريبت، يصوّر اللقطات بـ Veo، ويجمّع الإعلان مع الترجمة والشعار. الكلفة التقريبية تظهر قبل الدفع.</div>
-      <div class="row" style="justify-content:center;margin-top:6px"><button class="ghost small fix" onclick="writeScript()">✍️ اكتب السكريبت فقط وراجعه أولًا (مجاني)</button></div>
+      <div class="muted center" id="oneLine" style="margin-top:8px">زر واحد: يكتب السكريبت، يصوّر اللقطات عبر Omni، ويجمّع الإعلان مع الترجمة والشعار. الكلفة التقريبية تظهر قبل الدفع.</div>
+      <div class="row" style="justify-content:center;margin-top:6px"><button class="ghost small fix" onclick="writeScript()">✍️ اكتب السكريبت فقط وراجعه أولًا</button></div>
       <div id="msg" class="msg"></div>
     </section>
 
@@ -67,10 +67,14 @@
 <script src="js/mp4-muxer.js"></script>
 <script src="js/webm-muxer.js"></script>
 <script src="js/core.js"></script>
+<script src="js/director-v3.js"></script>
+<script src="js/director-ai.js"></script>
 <script>
-const { $, esc, say, toast, copyText, geminiJSON, generateImage, veoGenerate, VEO_PRICE, IMG_PRICE, brandContext, loadBrand, lib, needKey, chatEdit, readFile, q, sleep, pmap, settings, DIALECT_NOTE, DIALECTS } = Suite;
+const { $, esc, say, toast, copyText, IMG_PRICE, brandContext, loadBrand, lib, needKey, readFile, q, sleep, pmap, settings, DIALECT_NOTE, DIALECTS } = Suite;
 Suite.mountHeader('إعلان UGC');
 const B = loadBrand();
+const clipPreviewUrls=[];
+let finalUrl='',assembling=false;
 let DATA = null, PRODUCT = '', CREATOR = '', CLIPS = {}, KEYS = {}, ERR = {}, ID = q.get('id'), FINAL = null, FINAL_EXT = 'mp4';
 // A plan item hands the brief over in the URL; land it in this unit's own input.
 if (q.get('topic') && $('brief')) $('brief').value = q.get('topic');
@@ -79,39 +83,98 @@ const FORM = ['brief', 'persona', 'count', 'tier', 'place'];
 function formSave() { try { localStorage.setItem('ugc_form', JSON.stringify(Object.fromEntries(FORM.map((k) => [k, $(k).value])))); } catch {} }
 function formRestore() { try { const f = JSON.parse(localStorage.getItem('ugc_form') || '{}'); for (const k of FORM) if (f[k] != null && $(k)) $(k).value = f[k]; } catch {} }
 FORM.forEach((k) => $(k) && $(k).addEventListener('input', formSave));
-const res = () => ($('tier').value === 'lite' ? '720p' : '1080p');
-function clipCost() { const t = $('tier').value; return (VEO_PRICE[t] || VEO_PRICE.fast)[res()] * 8; }
-function cost() { const n = DATA ? DATA.clips.length : +$('count').value; const img = IMG_PRICE[settings.img] || 0.067; const total = n * clipCost() + (CREATOR ? 0 : img) + ($('tier').value === 'standard' ? 0 : n * img); $('costLine').textContent = `التصوير ≈ $${total.toFixed(2)} (${n} لقطات × $${clipCost().toFixed(2)} + صورة المبدع)`; $('costBtn').textContent = `≈ $${total.toFixed(2)}`; return total; }
+function clipCost() { return DirectorAI.cinemaCost(8)/100; }
+const imageCost=()=>IMG_PRICE[settings.img]||0.067;
+let writingScript=false,shootingClip=false,shootingBatch=false;
+function cost(){
+  const n=DATA?DATA.clips.length:+$('count').value;
+  const videos=DATA?DATA.clips.filter((_,i)=>!CLIPS[i]).length:n;
+  const frames=DATA?DATA.clips.filter((_,i)=>!CLIPS[i]&&!KEYS[i]).length:n;
+  const total=videos*clipCost()+(frames+(videos&&!CREATOR?1:0))*imageCost();
+  const estimate='≈ $'+total.toFixed(2);
+  $('costLine').textContent='التصوير المتبقي '+estimate+' · '+videos+' لقطات، '+frames+' إطارات مرجعية';
+  $('costBtn').textContent=estimate;
+  return total;
+}
+function ugcParts(text,refs=[]){
+  return [{text},...refs.map(ref=>{
+    const match=/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(ref);
+    if(!match)throw Error('الصورة المرجعية غير صالحة');
+    return {inlineData:{mimeType:match[1],data:match[2]}};
+  })];
+}
+async function ugcText(system,text,refs=[]){
+  const response=await DirectorAI.request(settings.model,settings.key,{
+    systemInstruction:{parts:[{text:system}]},
+    contents:[{parts:ugcParts(text,refs)}],
+    generationConfig:{responseMimeType:'application/json'}
+  });
+  return DirectorAI.parse(response);
+}
 async function writeScript() {
   const brief = $('brief').value.trim(); if (!brief) return say('msg', 'اكتب المنتج والفكرة أولًا', true);
-  if (!needKey('msg')) return; $('go').disabled = true; say('msg', '✍️ جارٍ كتابة السكريبت…');
+  if (writingScript||shootingClip||shootingBatch||assembling||!needKey('msg')) return;
+  if (!confirm('إرسال طلب نص واحد إلى Gemini لكتابة السكريبت؟ قد يُحاسب حسب حجم النص والصورة.')) return;
+  writingScript=true; $('go').disabled = true; say('msg', '✍️ جارٍ كتابة السكريبت…');
   try {
     const sys = (await (await fetch('assets/prompts/ugc.md')).text()) + '\n\n' + brandContext(B);
     const user = `Brief: ${brief}\nNumber of clips: ${$('count').value}\nCreator preference: ${$('persona').value === 'auto' ? 'choose to match the audience (respect any brand rule about who may appear on camera)' : $('persona').value}\nSetting preference: ${$('place').value === 'auto' ? 'choose' : $('place').value}\n${PRODUCT ? 'A real product photo is attached: describe the product in the notes exactly as it looks so the video model keeps it consistent.' : ''}\nReturn ONLY the JSON.`;
-    DATA = await geminiJSON(sys, user, { onWait: (m) => say('msg', m), images: PRODUCT ? [PRODUCT] : [] });
-    DATA._brief = brief; ID = null; CLIPS = {}; KEYS = {}; ERR = {}; CREATOR = ''; FINAL = null; renderScript(); await save(true); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر» — محفوظ تلقائيًا، التحديث لا يضيّعه');
+    DATA = await ugcText(sys,user,PRODUCT?[PRODUCT]:[]);
+    DATA._brief = brief; ID = null; CLIPS = {}; KEYS = {}; ERR = {}; CREATOR = ''; clearFinal(); renderScript(); await save(true); say('msg', '✅ راجع الكلام، عدّل ما تريد، ثم اضغط «صوّر» — محفوظ تلقائيًا، التحديث لا يضيّعه');
     $('scriptCard').hidden = false; $('scriptCard').scrollIntoView({ behavior: 'smooth' });
   } catch (e) { say('msg', '❌ ' + e.message, true); }
-  $('go').disabled = false;
+  finally { writingScript=false; $('go').disabled = false; }
+}
+function clearFinal(){
+  if(finalUrl)URL.revokeObjectURL(finalUrl);
+  finalUrl='';
+  FINAL=null;
+  $('final').replaceChildren();
+}
+function setClipField(i,field,value){
+  if(writingScript||shootingClip||shootingBatch||assembling)return;
+  if(DATA.clips[i][field]===value)return;
+  DATA.clips[i][field]=value;
+  if(field==='say'){delete CLIPS[i];delete ERR[i];renderClips();}
+  clearFinal();
 }
 function renderScript() {
   $('creatorTxt').textContent = '👤 ' + (DATA.creator || ''); $('settingTxt').textContent = '📍 ' + (DATA.setting || '');
   $('creatorImg').hidden = !CREATOR; if (CREATOR) $('creatorImg').src = CREATOR;
   $('clipsEd').innerHTML = DATA.clips.map((c, i) => `<div class="clip"><div class="h"><b>لقطة ${i + 1}</b> · ${esc({ hook: 'الخطّاف', product: 'المنتج', cta: 'الدعوة للفعل' }[c.role] || c.role)} · ٨ ث</div>
-    <textarea oninput="DATA.clips[${i}].say=this.value">${esc(c.say)}</textarea>
-    <input value="${esc(c.caption_ar || '')}" placeholder="الترجمة على الشاشة (٢–٦ كلمات)" oninput="DATA.clips[${i}].caption_ar=this.value" style="margin-top:6px;font-size:13px">
+    <textarea oninput="setClipField(${i},'say',this.value)">${esc(c.say)}</textarea>
+    <input value="${esc(c.caption_ar || '')}" placeholder="الترجمة على الشاشة (٢–٦ كلمات)" oninput="setClipField(${i},'caption_ar',this.value)" style="margin-top:6px;font-size:13px">
     <div class="notes">${esc(c.action || '')} — ${esc(c.camera || '')}</div></div>`).join('');
   $('cap').textContent = DATA.caption || ''; $('hash').textContent = (DATA.hashtags || []).join(' '); $('capBox').hidden = false;
   renderClips(); cost();
 }
 function renderClips() {
+  clipPreviewUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));
+  const preview=blob=>{const url=URL.createObjectURL(blob);clipPreviewUrls.push(url);return url;};
   const any = Object.keys(CLIPS).length;
-  $('clips').innerHTML = DATA.clips.map((c, i) => CLIPS[i] ? `<div class="c"><video src="${URL.createObjectURL(CLIPS[i])}" controls playsinline></video><span class="n">${i + 1}</span><button class="soft small re" onclick="shootOne(${i})">🔁</button></div>` : ERR[i] ? `<div class="c err"><span>لقطة ${i + 1}<br><small>${esc(ERR[i])}</small></span><button class="soft small re" onclick="shootOne(${i})">🔁 أعد</button></div>` : KEYS[i] ? `<div class="c"><img src="${KEYS[i]}" style="width:100%;height:100%;object-fit:cover;opacity:.85"><span class="n">${i + 1}</span><span style="position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,0,0,.55);border-radius:8px;padding:4px 6px;font-size:11px">الإطار الأول جاهز — التصوير…</span></div>` : `<div class="c"><span>لقطة ${i + 1}<br><small class="muted">لم تُصوَّر بعد</small></span></div>`).join('');
+  $('clips').innerHTML = DATA.clips.map((c, i) => CLIPS[i] ? `<div class="c"><video src="${preview(CLIPS[i])}" controls playsinline></video><span class="n">${i + 1}</span><button class="soft small re" onclick="shootOne(${i})">🔁</button></div>` : ERR[i] ? `<div class="c err"><span>لقطة ${i + 1}<br><small>${esc(ERR[i])}</small></span><button class="soft small re" onclick="shootOne(${i})">🔁 أعد</button></div>` : KEYS[i] ? `<div class="c"><img src="${KEYS[i]}" style="width:100%;height:100%;object-fit:cover;opacity:.85"><span class="n">${i + 1}</span><span style="position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,0,0,.55);border-radius:8px;padding:4px 6px;font-size:11px">الإطار الأول جاهز — التصوير…</span></div>` : `<div class="c"><span>لقطة ${i + 1}<br><small class="muted">لم تُصوَّر بعد</small></span></div>`).join('');
   $('assembleRow').hidden = !(any && Object.keys(CLIPS).length === DATA.clips.length);
+  cost();
 }
 async function chat() {
-  const ins = $('chatIn').value.trim(); if (!ins || !DATA) return; if (!needKey('msg2')) return; say('msg2', '✏️ جارٍ التعديل…');
-  try { const out = await chatEdit(DATA, ins, 'UGC video ad script', (m) => say('msg2', m)); if (out.clips?.length) { DATA = out; renderScript(); $('chatIn').value = ''; say('msg2', '✅ تم'); } } catch (e) { say('msg2', '❌ ' + e.message, true); }
+  const instruction=$('chatIn').value.trim();
+  if(!instruction||!DATA||writingScript||shootingClip||shootingBatch||assembling||!needKey('msg2'))return;
+  if(!confirm('إرسال طلب نص واحد إلى Gemini لتعديل السكريبت؟ قد يُحاسب حسب حجم النص.'))return;
+  writingScript=true;
+  try{
+    const out=await ugcText('Edit the UGC script JSON. Preserve its schema and return the complete result. '+brandContext(B),
+      JSON.stringify({script:DATA,instruction}));
+    if(out.clips?.length){
+      const newCreator=out.creator!==DATA.creator||out.setting!==DATA.setting;
+      if(newCreator)CREATOR='';
+      for(const [i,previous] of DATA.clips.entries()){
+        const next=out.clips[i];
+        if(newCreator||!next||next.action!==previous.action||next.camera!==previous.camera){delete KEYS[i];delete CLIPS[i];delete ERR[i];}
+        else if(next.say!==previous.say){delete CLIPS[i];delete ERR[i];}
+      }
+      clearFinal();DATA={...out,_brief:DATA._brief};renderScript();$('chatIn').value='';say('msg2','تم تعديل السكريبت');}
+  }catch(e){say('msg2',e.message,true);}
+  finally{writingScript=false;}
 }
 const dialectName = () => ({ eg: 'Egyptian', gulf: 'Gulf (Saudi/Khaleeji)', msa: 'Modern Standard' }[B.dialect] || 'Egyptian');
 async function ensureCreator() {
@@ -126,16 +189,13 @@ function veoPrompt(c) {
 const NOPHONE_RE = /\b(hand-?held|selfie|holding (a |the |his |her )?(smart)?phone|phone in (his |her |one )?hand|arm extended|mirror)\b/gi;
 const clean = (t) => String(t || '').replace(NOPHONE_RE, 'propped front camera');
 const NOPHONE = 'STRICT: no smartphone anywhere in the image — the phone is the camera and cannot be seen. No hand raised toward the lens, no arm extended, no mirror. Both hands are below the chest: resting on the desk, gesturing naturally at waist level, or holding the product.';
-async function phoneVisible(url) {
-  try { const r = await geminiJSON('You check images. Answer ONLY JSON: {"phone_visible": true|false, "hand_raised_to_camera": true|false}', 'Is a smartphone (or any phone-shaped device) visible anywhere in this image, or is a hand/arm raised toward the camera as if holding one?', { images: [url], temperature: 0 }); return !!(r.phone_visible || r.hand_raised_to_camera); } catch { return false; }
-}
-async function imageNoPhone(prompt, opts, label) {
-  for (let t = 0; t < 3; t++) {
-    const url = await generateImage(t ? `${NOPHONE} ${prompt} (Previous attempt wrongly showed a phone in hand — remove it completely.)` : `${NOPHONE} ${prompt}`, opts);
-    if (!(await phoneVisible(url))) return url;
-    say('msg2', `🔎 ${label}: ظهر موبايل في الصورة — أعيد التوليد (${t + 1}/3)…`);
-  }
-  throw new Error(`${label}: تعذّر الحصول على صورة بدون موبايل بعد ٣ محاولات`);
+async function imageNoPhone(prompt,{ratio,refs},label){
+  const body={contents:[{parts:ugcParts(NOPHONE+' '+prompt,refs)}],
+    generationConfig:{responseModalities:['IMAGE'],imageConfig:{aspectRatio:ratio}}};
+  if(!Suite.spend.guard(imageCost(),label))throw Error('أُلغي توليد الصورة');
+  Suite.spend.add(imageCost(),label+' · حجز تقديري');
+  const image=DirectorAI.part(await DirectorAI.request(settings.img,settings.key,body),'image');
+  return `data:${image.mimeType};base64,${image.data}`;
 }
 function keyPrompt(c) {
   return `Photorealistic vertical 9:16 frame from a phone's front camera propped at eye level, first frame of a UGC video, chest-up framing. The SAME person as in the first reference image (identical face, hair, skin tone, clothes). Setting: ${DATA.setting}. Action: ${clean(c.action)}. The camera IS the phone, so the phone is never visible: no phone in hand, no arm stretched toward the camera, no mirror. Hands are free, resting, gesturing naturally, or holding the product. ${PRODUCT ? 'The product from the second reference image is clearly visible and identical in shape, label and colours.' : ''} Looking at the camera, mid-sentence natural expression, ${c.camera}. Real room, natural light, slight phone-camera softness. No text, no captions, no logos, no watermark.`;
@@ -149,28 +209,35 @@ async function keyframe(i) {
 function veoPromptFromFrame(c) {
   return `Animate this frame into a UGC style vertical video recorded on a propped-up phone front camera: the person in the image talks directly to the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Action: ${clean(c.action)}. Camera: ${clean(c.camera)}, static or very slight drift, real room ambience. The camera IS the phone, so the phone is never visible: no phone in hand, no arm stretched toward the camera, no mirror. Hands are free, resting, gesturing naturally, or holding the product. Keep the same person, clothes and product exactly as in the image. No on-screen text, no captions, no subtitles, no logos, no watermark.`;
 }
-async function shootOne(i) {
-  if (!needKey('msg2')) return; await ensureCreator();
-  const c = DATA.clips[i]; say('msg2', `🎬 تصوير اللقطة ${i + 1}…`);
-  delete ERR[i];
-  try {
-    const tier = $('tier').value; const onStatus = (m) => say('msg2', `لقطة ${i + 1}: ${m}`);
-    const job = tier === 'standard'
-      ? { prompt: veoPrompt(c), refs: [CREATOR, PRODUCT].filter(Boolean) }            // Veo 3.1: reference images keep creator + product consistent
-      : { prompt: veoPromptFromFrame(c), image: await keyframe(i) };                  // Fast / Lite: image-to-video from a per-clip keyframe (same creator, product in shot)
-    CLIPS[i] = await veoGenerate({ ...job, tier, aspect: '9:16', resolution: res(), duration: 8, negative: 'visible phone, holding a phone, phone in hand, arm extended toward camera, mirror selfie, text, captions, subtitles, watermark, logo, cartoon, blurry, distorted hands', onStatus });
-    renderClips(); say('msg2', `✅ اللقطة ${i + 1} جاهزة`); await save(true); }
-  catch (e) { ERR[i] = e.message; renderClips(); say('msg2', `❌ لقطة ${i + 1}: ${e.message}`, true); }
+async function shootOne(i, approved=false) {
+  if(writingScript||shootingClip||assembling||(shootingBatch&&!approved)||!DATA||!needKey('msg2'))return;
+  const estimate=clipCost()+((CREATOR?0:1)+(KEYS[i]?0:1))*imageCost();
+  if(!approved&&!confirm('توليد لقطة واحدة عبر Omni وصورها الناقصة بتقدير USD '+estimate.toFixed(2)+'؟'))return;
+  shootingClip=true;
+  try{
+    if(!Suite.spend.guard(clipCost(),'لقطة Omni'))return;
+    await ensureCreator();
+    const frame=await keyframe(i),m=/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(frame);
+    if(!m)throw Error('إطار مرجعي غير صالح');
+    const body=DirectorAI.ugcCinemaBody(veoPromptFromFrame(DATA.clips[i]),{mimeType:m[1],data:m[2]});
+    if(!Suite.spend.guard(clipCost(),'لقطة Omni'))return;
+    Suite.spend.add(clipCost(),'Omni UGC estimated reservation');
+    say('msg2','جاري توليد اللقطة '+(i+1)+'؛ لا تعِد الطلب قبل مراجعة AI Studio');
+    const next=await DirectorAI.cinemaGenerate(body,settings.key);
+    clearFinal();CLIPS[i]=next;delete ERR[i];renderClips();await save(true);
+    say('msg2','اللقطة '+(i+1)+' جاهزة للمراجعة');
+  }catch(e){ERR[i]=e.message;renderClips();say('msg2',e.message,true);}
+  finally{shootingClip=false;}
 }
 async function makeAd() {
-  if (!needKey('msg')) return;
+  if (writingScript||shootingClip||shootingBatch||assembling||!needKey('msg')) return;
   const brief = $('brief').value.trim(); if (!brief && !DATA) return say('msg', 'اكتب المنتج والفكرة أولًا', true);
   $('go').disabled = true;
   try {
     const stale = !DATA || (DATA._brief && DATA._brief !== brief);
-    if (stale) { await writeScript(); if (!DATA) return; DATA._brief = brief; }
-    const n = DATA.clips.length; const est = n * clipCost() + (CREATOR ? 0 : 0.07) + ($('tier').value === 'standard' ? 0 : n * 0.07);
-    if (!confirm(`الإعلان: ${n} لقطات × ٨ ثوانٍ. التكلفة التقريبية $${est.toFixed(2)} من رصيد Gemini، والوقت ٣–٨ دقائق. نبدأ التصوير؟`)) return;
+    if(stale){await writeScript();if(!DATA||DATA._brief!==brief)return;}
+    const n=DATA.clips.filter((_,i)=>!CLIPS[i]).length;const est=cost();
+    if (n&&!confirm(`الإعلان: ${n} لقطات × ٨ ثوانٍ. التكلفة التقريبية $${est.toFixed(2)} من رصيد Gemini، والوقت ٣–٨ دقائق. نبدأ التصوير؟`)) return;
     $('scriptCard').hidden = false; $('scriptCard').scrollIntoView({ behavior: 'smooth' });
     await shoot(true);
     if (Object.keys(CLIPS).length === DATA.clips.length) { await assemble(); $('final').scrollIntoView({ behavior: 'smooth' }); }
@@ -178,19 +245,37 @@ async function makeAd() {
   finally { $('go').disabled = false; }
 }
 async function shoot(silent) {
-  if (!DATA) return; if (!needKey('msg2')) return;
-  const total = cost(); if (!silent && !confirm(`سيتم تصوير ${DATA.clips.length} لقطات بـ Veo 3.1 بتكلفة تقريبية $${total.toFixed(2)} من رصيد Gemini. كل لقطة تستغرق ١–٣ دقائق. نكمل؟`)) return;
-  $('shootBtn').disabled = true;
+  if (!DATA||writingScript||shootingClip||shootingBatch||assembling||!needKey('msg2')) return;
+  if(DATA.clips.every((_,i)=>CLIPS[i]))return;
+  const total = cost(); if (!silent && !confirm(`سيتم تصوير ${DATA.clips.length} لقطات بـ Omni 1.2 بتكلفة تقريبية $${total.toFixed(2)} من رصيد Gemini. كل لقطة تستغرق ١–٣ دقائق. نكمل؟`)) return;
+  shootingBatch=true; $('shootBtn').disabled = true;
   try {
     await ensureCreator(); let done = 0; $('bar').style.width = '5%';
-    await pmap(DATA.clips.map((c, i) => i), 4, async (i) => { await shootOne(i); done++; $('bar').style.width = Math.round(done / DATA.clips.length * 100) + '%'; });
+    for(let i=0;i<DATA.clips.length;i++){if(!CLIPS[i])await shootOne(i,true);done++;$('bar').style.width=Math.round(done/DATA.clips.length*100)+'%';}
     say('msg2', Object.keys(CLIPS).length === DATA.clips.length ? '✅ كل اللقطات جاهزة — اضغط «جمّع الإعلان النهائي»' : `⚠️ فشلت ${DATA.clips.length - Object.keys(CLIPS).length} لقطات — السبب: ${Object.values(ERR)[0] || 'غير معروف'}`, Object.keys(CLIPS).length !== DATA.clips.length);
-  } finally { $('shootBtn').disabled = false; }
+  }catch(e){say('msg2',e.message,true);}
+  finally{shootingBatch=false;$('shootBtn').disabled=false;}
 }
 // ---------- assembly: clips + burned captions + logo + end card -> one MP4 (WebCodecs) ----------
 const W = 1080, H = 1920, FPS = 30, SR = 48000;
-function loadVideo(blob) { return new Promise((ok, bad) => { const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob); v.onloadedmetadata = () => ok(v); v.onerror = () => bad(new Error('تعذّر قراءة اللقطة (تأكد أن المتصفح Chrome أو Edge)')); }); }
-const seekTo = (v, t) => new Promise((ok) => { if (Math.abs(v.currentTime - t) < 0.001) return ok(); v.onseeked = () => ok(); v.currentTime = t; });
+function loadVideo(blob) { return new Promise((ok, bad) => { const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob); v.onloadedmetadata = () => ok(v); v.onerror = () => {URL.revokeObjectURL(v.src);bad(new Error('تعذّر قراءة اللقطة (تأكد أن المتصفح Chrome أو Edge)'));}; }); }
+function seekTo(v,t){
+  if(!v.seeking&&Math.abs(v.currentTime-t)<0.001)return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const done=error=>{
+      clearTimeout(timer);
+      v.removeEventListener('seeked',seeked);
+      v.removeEventListener('error',failed);
+      if(error)reject(error);else resolve();
+    };
+    const seeked=()=>done();
+    const failed=()=>done(Error('تعذّر الانتقال داخل اللقطة'));
+    const timer=setTimeout(failed,15000);
+    v.addEventListener('seeked',seeked);
+    v.addEventListener('error',failed);
+    v.currentTime=t;
+  });
+}
 function drawCover(ctx, v) { const vw = v.videoWidth, vh = v.videoHeight; const s = Math.max(W / vw, H / vh); const dw = vw * s, dh = vh * s; ctx.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh); }
 function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 function drawCaption(ctx, text, alpha) {
@@ -207,10 +292,14 @@ function drawEndCard(ctx, logo, p) {
   ctx.font = '500 40px Cairo, sans-serif'; ctx.globalAlpha *= .85; ctx.fillText([B.website, B.phone].filter(Boolean).join('  ·  '), W / 2, H * 0.70); ctx.restore();
 }
 async function assemble() {
+  if(assembling||shootingClip||shootingBatch||writingScript||!DATA?.clips?.length||!DATA.clips.every((_,i)=>CLIPS[i]))return;
   if (!('VideoEncoder' in window)) return say('msg2', '❌ متصفحك لا يدعم WebCodecs — استخدم Chrome أو Edge', true);
-  say('msg2', '🧩 تجهيز اللقطات…'); $('final').innerHTML = ''; $('bar').style.width = '0%';
+  assembling=true;
+  say('msg2', '🧩 تجهيز اللقطات…'); $('bar').style.width = '0%';
+  const vids=[];
+  let ac;
   try {
-    const order = DATA.clips.map((c, i) => i); const vids = []; const ac = new AudioContext();
+    const order = DATA.clips.map((c, i) => i); ac=new AudioContext();
     for (const i of order) { const v = await loadVideo(CLIPS[i]); let ab = null; try { ab = await ac.decodeAudioData(await CLIPS[i].arrayBuffer()); } catch {} vids.push({ v, ab, dur: Math.min(v.duration || 8, 8.5), i }); }
     const END = 2.6; const total = vids.reduce((a, x) => a + x.dur, 0) + END; const frames = Math.ceil(total * FPS);
     const logo = B.logo ? await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = B.logo; }) : null;
@@ -228,18 +317,20 @@ async function assemble() {
     ];
     let container = 'mp4', muxer = null, lastErr = null;
     for (const A of ATTEMPTS) {
+      let venc,aenc;
       try {
         if (!(await VideoEncoder.isConfigSupported(A.vcfg)).supported) continue;
         container = A.container;
-        let acodec = container === 'mp4' ? 'mp4a.40.2' : 'opus'; if (!(await AudioEncoder.isConfigSupported({ codec: acodec, sampleRate: SR, numberOfChannels: 1, bitrate: 128000 })).supported) acodec = 'opus';
-        if (container === 'mp4' && acodec === 'opus' && !(await AudioEncoder.isConfigSupported({ codec: 'opus', sampleRate: SR, numberOfChannels: 1, bitrate: 128000 })).supported) continue;
+        const acodec=container==='mp4'?'mp4a.40.2':'opus';
+        const audioConfig={codec:acodec,sampleRate:SR,numberOfChannels:1,bitrate:128000};
+        if(!(await AudioEncoder.isConfigSupported(audioConfig)).supported)continue;
         muxer = container === 'mp4'
-          ? new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: { codec: acodec === 'opus' ? 'opus' : 'aac', numberOfChannels: 1, sampleRate: SR }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })
+          ? new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: { codec: 'aac', numberOfChannels: 1, sampleRate: SR }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })
           : new WebMMuxer.Muxer({ target: new WebMMuxer.ArrayBufferTarget(), video: { codec: 'V_VP9', width: W, height: H }, audio: { codec: 'A_OPUS', numberOfChannels: 1, sampleRate: SR }, firstTimestampBehavior: 'offset' });
         let encErr = null;
-        const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { encErr = e; } });
+        venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { encErr = e; } });
         venc.configure(A.vcfg);
-        const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: (e) => { encErr = e; } }); aenc.configure({ codec: acodec, sampleRate: SR, numberOfChannels: 1, bitrate: 128000 });
+        aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: (e) => { encErr = e; } }); aenc.configure(audioConfig);
         for (let i = 0; i < pcm.length; i += SR) { const n = Math.min(SR, pcm.length - i); const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: 1, timestamp: Math.round(i / SR * 1e6), data: pcm.slice(i, i + n) }); aenc.encode(ad); ad.close(); }
         await aenc.flush(); aenc.close();
         const t0 = performance.now();
@@ -256,19 +347,60 @@ async function assemble() {
         await venc.flush(); if (encErr) throw encErr; venc.close(); muxer.finalize();
         lastErr = null; break;
       } catch (e) { lastErr = e; muxer = null; console.warn('encoder attempt failed', A.label, e); say('msg2', `⚠️ ${A.label} فشل على هذا الجهاز — أجرّب مشفّرًا آخر…`); }
+      finally{
+        if(venc&&venc.state!=='closed')venc.close();
+        if(aenc&&aenc.state!=='closed')aenc.close();
+      }
     }
     if (!muxer) throw new Error('تعذّر تجميع الفيديو على هذا الجهاز: ' + (lastErr?.message || 'لا يوجد مشفّر مدعوم') + ' — جرّب من Chrome على الكمبيوتر، اللقطات محفوظة.');
-    FINAL = new Blob([muxer.target.buffer], { type: container === 'mp4' ? 'video/mp4' : 'video/webm' }); FINAL_EXT = container; const url = URL.createObjectURL(FINAL);
-    $('final').innerHTML = `<video src="${url}" controls playsinline></video><div class="row" style="justify-content:center"><a class="fix" href="${url}" download="${esc((DATA.title || 'ugc-ad'))}.${container}"><button class="primary">⬇ تحميل الإعلان (${(FINAL.size / 1e6).toFixed(1)} MB)</button></a></div>`;
+    clearFinal();
+    FINAL=new Blob([muxer.target.buffer],{type:container==='mp4'?'video/mp4':'video/webm'});
+    FINAL_EXT=container;
+    renderFinal();
     $('bar').style.width = '100%'; say('msg2', `✅ الإعلان جاهز — ${total.toFixed(0)} ث`); await save(true);
   } catch (e) { say('msg2', '❌ ' + e.message, true); console.error(e); }
+  finally{
+    for(const {v} of vids){URL.revokeObjectURL(v.src);v.removeAttribute('src');v.load();}
+    if(ac)await ac.close().catch(()=>{});
+    assembling=false;
+  }
+}
+function renderFinal(){
+  if(!FINAL)return;
+  if(finalUrl)URL.revokeObjectURL(finalUrl);
+  finalUrl=URL.createObjectURL(FINAL);
+  $('final').innerHTML=`<video src="${finalUrl}" controls playsinline></video><div class="row" style="justify-content:center"><button id="downloadAd" class="primary fix">⬇ تحميل الإعلان</button></div>`;
+  $('downloadAd').onclick=()=>Suite.download(FINAL,(DATA.title||'ugc-ad')+'.'+FINAL_EXT);
 }
 async function save(quiet) {
   if (!DATA) return; const item = await lib.save({ id: ID || undefined, type: 'ugc', title: DATA.title || DATA.clips[0]?.say?.slice(0, 40), data: DATA, creator: CREATOR, product: PRODUCT, clips: CLIPS, keys: KEYS, video: FINAL, ext: FINAL_EXT, thumb: CREATOR || '', brief: $('brief').value }); ID = item.id;
   try { localStorage.setItem('ugc_last', ID); const u = new URL(location.href); if (u.searchParams.get('id') !== ID) { u.searchParams.set('id', ID); history.replaceState(null, '', u); } } catch {}
   if (!quiet) toast('💾 حُفظ في المكتبة');
 }
-(async () => { formRestore(); cost(); if (!ID) { try { ID = localStorage.getItem('ugc_last') || null; } catch {} } if (ID) { const it = await lib.get(ID); if (!it) { ID = null; return; } if (it) { DATA = it.data; CREATOR = it.creator || ''; PRODUCT = it.product || ''; CLIPS = it.clips || {}; KEYS = it.keys || {}; FINAL = it.video || null; if (it.brief) $('brief').value = it.brief; if (PRODUCT && $('prodPrev')) { $('prodPrev').src = PRODUCT; $('prodPrev').hidden = false; } $('scriptCard').hidden = false; renderScript(); say('msg', '↩️ رجّعت آخر شغلك تلقائيًا — سكريبت جديد يبدأ بزر «اكتب سكريبت الإعلان»'); if (FINAL) { const url = URL.createObjectURL(FINAL); $('final').innerHTML = `<video src="${url}" controls playsinline></video><div class="row" style="justify-content:center"><a class="fix" href="${url}" download="${esc(DATA.title || 'ugc-ad')}.mp4"><button class="primary">⬇ تحميل الإعلان</button></a></div>`; } } } })();
+async function restore(){
+  formRestore();
+  cost();
+  if(!ID){
+    try{ID=localStorage.getItem('ugc_last');}catch{}
+  }
+  if(!ID)return;
+  const item=await lib.get(ID);
+  if(!item){ID=null;return;}
+  DATA=item.data;
+  CREATOR=item.creator||'';
+  PRODUCT=item.product||'';
+  CLIPS=item.clips||{};
+  KEYS=item.keys||{};
+  FINAL=item.video||null;
+  FINAL_EXT=item.ext==='webm'?'webm':'mp4';
+  if(item.brief)$('brief').value=item.brief;
+  if(PRODUCT){$('prodPrev').src=PRODUCT;$('prodPrev').hidden=false;}
+  $('scriptCard').hidden=false;
+  renderScript();
+  say('msg','استُرجع آخر مشروع');
+  if(FINAL)renderFinal();
+}
+restore().catch(error=>say('msg',error.message,true));
 </script>
 </body>
 </html>

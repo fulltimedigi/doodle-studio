@@ -1,0 +1,9 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import '../web/js/director-bundle.js';
+const B=globalThis.DirectorBundle,p={title:'مشروع عربي',scenes:[{}]},mix={gain:18,duck:28};
+test('portable manifest rejects duplicate and unsupported media',()=>{const a={role:'scene',scene:0,name:'a',type:'image/png',size:10};const m={version:1,project:p,media:[a],mix,voiceSignature:null};assert.equal(B.validate(m),10);assert.throws(()=>B.validate({...m,media:[a,a]}));assert.throws(()=>B.validate({...m,media:[{...a,type:'text/html'}]}));assert.throws(()=>B.validate({...m,media:[{...a,scene:1}]}));});
+test('portable manifest enforces limits and mix settings',()=>{const m={version:1,project:p,media:[],mix,voiceSignature:null};assert.throws(()=>B.validate({...m,mix:{gain:200,duck:20}}));assert.throws(()=>B.validate({...m,voiceSignature:'x'}));assert.throws(()=>B.validate({...m,media:[{role:'voice',name:'v',type:'audio/wav',size:101*1024*1024}]}));});
+test('actual Blob round trip retains Arabic, media and provenance flag',async()=>{const data=new Uint8Array([0,1,2,250,255]);const a={role:'scene',scene:0,name:'صورة.png',blob:new Blob([data],{type:'image/png'}),generated:true};const b=B.pack(p,[a],mix);const q=await B.unpack(b);assert.deepEqual(q.manifest.project,p);assert.equal(q.items[0].name,a.name);assert.equal(q.items[0].generated,true);assert.deepEqual([...new Uint8Array(await q.items[0].blob.arrayBuffer())],[...data]);await assert.rejects(()=>B.unpack(b.slice(0,b.size-1)));});
+
+test('portable manifest preserves bounded generated-media signatures',()=>{const m={version:1,project:p,media:[{role:'scene',scene:0,name:'clip.mp4',type:'video/mp4',size:10,generated:true,cinemaSignature:'direction-v1'}],mix,voiceSignature:null};assert.equal(B.validate(m),10);assert.throws(()=>B.validate({...m,media:[{...m.media[0],generated:false}]}));assert.throws(()=>B.validate({...m,media:[{...m.media[0],cinemaSignature:'x'.repeat(5001)}]}));});

@@ -1,0 +1,13 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import '../web/js/director-v3.js';
+import '../web/js/director-ai.js';
+import '../web/js/director-sound.js';
+const D=globalThis.DirectorV3,A=globalThis.DirectorAI,S=globalThis.DirectorSound;
+test('character and composition survive normalization',()=>{const p=A.enrich(D.sample);p.character='same fictional merchant';p.scenes[0].useCharacter=true;p.scenes[0].composition='hero';const q=A.enrich(p);assert.equal(q.character,p.character);assert.equal(q.scenes[0].useCharacter,true);assert.equal(q.scenes[0].composition,'hero');});
+test('reference is scoped to explicitly marked scenes',()=>{const p=A.enrich(D.sample);p.scenes[0].useCharacter=true;p.character='same merchant';const ref={mimeType:'image/png',data:'abc'};assert.equal(A.imageBody(p,0,ref).contents[0].parts.length,3);assert.equal(A.imageBody(p,1,ref).contents[0].parts.length,1);assert.match(A.artPrompt(p,0),/same merchant/);assert.equal(A.imageBody(p,0,ref).generationConfig.imageConfig.aspectRatio,'16:9');});
+test('media evidence refuses generated artwork',()=>{const p=A.enrich(D.sample);p.scenes[0].layout='media';assert.ok(D.review(p,new Map([[0,{generated:true}]])).some(x=>x.level==='error'));assert.throws(()=>A.imageBody(p,0));});
+test('repeated visual prompts are flagged',()=>{const p=A.enrich(D.sample);p.scenes[0].visual='same   prompt';p.scenes[1].visual='SAME prompt';assert.ok(D.review(p).some(x=>x.text.includes('وصف بصري مكرر')));});
+test('hero renders both aspect ratios on mock canvas',()=>{const c=new Proxy({measureText:s=>({width:s.length*25}),createLinearGradient:()=>({addColorStop(){}})},{get:(o,k)=>k in o?o[k]:(()=>{}),set:(o,k,v)=>(o[k]=v,true)});for(const format of ['16:9','9:16']){const p=A.enrich({...D.sample,format});const assets=new Map([[0,{generated:true,kind:'image',node:{naturalWidth:1200,naturalHeight:800}}]]);assert.equal(D.frame(c,p,2,assets).titleOK,true);}});
+test('music ducks under voice and fades at endpoints',()=>{const rate=24000,v=new Float32Array(rate*4),m=new Float32Array(rate*4).fill(.5);v.fill(.3,rate,rate*2);const a=S.master(v,m,4,{rate,musicGain:.2,duck:.2}),b=S.master(v,new Float32Array(0),4,{rate});assert.equal(a.length,rate*4);assert.equal(a[0],0);assert.equal(a[a.length-1],0);assert.ok(a[rate*1.5]-b[rate*1.5]<a[rate*.5]*.4);assert.ok(a[rate*3]>a[rate*1.5]-b[rate*1.5]);});
+test('mix peaks bounded, looping and gain zero',()=>{const rate=24000,v=new Float32Array(rate).fill(1),m=new Float32Array(rate/2).fill(1);const a=S.master(v,m,2,{rate,musicGain:.5,duck:1});assert.equal(a.length,rate*2);assert.ok(a.every(x=>Math.abs(x)<=.951));const b=S.master(new Float32Array(0),m,2,{rate,musicGain:0});assert.ok(b.every(x=>x===0));assert.throws(()=>S.master(v,m,601));});
