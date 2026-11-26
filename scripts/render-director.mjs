@@ -1,5 +1,5 @@
 // Deterministic local MP4 rendering: one canvas PNG per exact timestamp, streamed to FFmpeg.
-// Usage: node scripts/render-director.mjs project.json output.mp4 [--fps 30] [--audio mix.wav] [--size 720]
+// Usage: node scripts/render-director.mjs project.json output.mp4 [--fps 30] [--audio mix.wav] [--size 720] [--draft]
 // Accepts complete .ftdproject bundles or procedural JSON; no external network.
 import {readFile,writeFile,mkdir,mkdtemp,link,rm,access,stat} from 'node:fs/promises';
 import {resolve,dirname,extname,join} from 'node:path';
@@ -15,12 +15,12 @@ await import('../web/js/director-editor.js');
 for(const f of ['director-bundle','director-ai','director-sound'])await import('../web/js/'+f+'.js');
 const D=globalThis.DirectorV3,E=globalThis.DirectorEditor,B=globalThis.DirectorBundle,A=globalThis.DirectorAI;
 const [input,output,...args]=process.argv.slice(2);
-if(!input||!output||extname(output).toLowerCase()!=='.mp4')throw Error('Usage: node scripts/render-director.mjs project.json output.mp4 [--fps 30] [--audio mix.wav] [--size 720]');
-const opts={fps:30,size:1080,audio:null};
-for(let i=0;i<args.length;i+=2){const [k,v]=args.slice(i,i+2);if(!v)throw Error('Missing argument '+k);if(k==='--fps')opts.fps=Number(v);else if(k==='--size')opts.size=Number(v);else if(k==='--audio')opts.audio=resolve(v);else throw Error('Unknown argument '+k);}
+if(!input||!output||extname(output).toLowerCase()!=='.mp4')throw Error('Usage: node scripts/render-director.mjs project.json output.mp4 [--fps 30] [--audio mix.wav] [--size 720] [--draft]');
+const opts={fps:30,size:1080,audio:null,draft:false};
+for(let i=0;i<args.length;){const k=args[i++];if(k==='--draft'){opts.draft=true;continue;}const v=args[i++];if(!v)throw Error('Missing argument '+k);if(k==='--fps')opts.fps=Number(v);else if(k==='--size')opts.size=Number(v);else if(k==='--audio')opts.audio=resolve(v);else throw Error('Unknown argument '+k);}
 if(![720,1080].includes(opts.size))throw Error('Size must be 720 or 1080');
 const source=resolve(input);if((await stat(source)).size>B.MAX+2*1024*1024+32)throw Error('Project too large');
-const {project:p,items,mix,issues}=await readProject(new Blob([await readFile(source)]),extname(source).toLowerCase(),D,B,A);
+const {project:p,items,mix,issues,readiness}=await readProject(new Blob([await readFile(source)]),extname(source).toLowerCase(),D,B,A,{allowDraft:opts.draft,externalVoice:Boolean(opts.audio)});if(!readiness.ready)console.warn('DRAFT ONLY:',JSON.stringify(readiness));
 if(issues.length)console.warn('Project warnings:',issues.map(x=>x.text).join('; '));
 const plan=E.framePlan(D.duration(p),opts.fps),d=D.dimensions(p.format),ratio=opts.size/1080,w=Math.round(d.w*ratio/2)*2,h=Math.round(d.h*ratio/2)*2;
 const out=resolve(output);
@@ -60,7 +60,7 @@ try{
  if(a?.kind==='video'){const node=a.node,at=directorTargetTime(v.local,node.duration);if(Math.abs(node.currentTime-at)>.0001||node.seeking){await new Promise((ok,bad)=>{const finish=err=>{clearTimeout(timer);node.removeEventListener('seeked',onSeek);node.removeEventListener('error',onError);err?bad(err):ok();},onSeek=()=>finish(),onError=()=>finish(Error('Video seek failed')),timer=setTimeout(()=>finish(Error('Video seek timed out')),15000);node.addEventListener('seeked',onSeek);node.addEventListener('error',onError);node.currentTime=at;});}}
  return D.frame(document.querySelector('canvas').getContext('2d'),renderProject,t,renderAssets,renderLogo);};
  },refs);
- const quality=await page.evaluate(async()=>{const D=DirectorV3,p=renderProject,r=[];let t=0;for(const s of p.scenes){const result=await renderAt(t+Math.min(s.duration-.45,Math.max(1.5,D.graphReady(s.sceneGraph)+.2,D.finalHold(s).start+.1)));const canvas=document.querySelector('canvas');result.captionOK=D.captionCheck(canvas.getContext('2d'),s,canvas.width,canvas.height)&&result.captionOK!==false;r.push(result);t+=s.duration;}return r;});
+ const quality=await page.evaluate(async()=>{const D=DirectorV3,p=renderProject,r=[];let t=0;for(const s of p.scenes){for(const local of D.reviewTimes(s)){const result=await renderAt(t+local);const canvas=document.querySelector('canvas');result.captionOK=D.captionCheck(canvas.getContext('2d'),s,canvas.width,canvas.height)&&result.captionOK!==false;r.push(result);}t+=s.duration;}return r;});
  if(!quality.every(x=>x.titleOK&&x.subOK&&x.artOK!==false&&x.captionOK!==false))throw Error('Text fit failed: '+JSON.stringify(quality));
  let audio=null;
  if(refs.some(x=>['voice','music','override'].includes(x.role))){
