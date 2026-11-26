@@ -28,7 +28,7 @@
 </head>
 <body>
 <main class="wide">
-  <div><h1 class="page">🎥 إعلان فيديو UGC</h1><p class="lead">مبدع/ة يتكلم للكاميرا عن منتجك بلهجتك، مصوَّر بالذكاء الاصطناعي (Veo 3.1) مع منتجك الحقيقي، ثم يُجمَّع مع الترجمة وشعارك وبطاقة ختامية. تكتب الفكرة، تراجع السكريبت مجانًا، ثم تدفع فقط عند التصوير.</p></div>
+  <div><h1 class="page">🎥 إعلان فيديو UGC</h1><p class="lead">مبدع/ة يتكلم للكاميرا عن منتجك بلهجتك، مصوَّر بالذكاء الاصطناعي (Omni 1.2) مع منتجك الحقيقي، ثم يُجمَّع مع الترجمة وشعارك وبطاقة ختامية. تكتب الفكرة، تراجع السكريبت مجانًا، ثم تدفع فقط عند التصوير.</p></div>
   <div class="pane">
     <section class="card">
       <label class="f">المنتج / العرض وما تريد أن يقوله المبدع</label>
@@ -39,7 +39,7 @@
         <div><label class="f">عدد اللقطات (٨ ث لكل لقطة)</label><select id="count"><option>2</option><option selected>3</option><option>4</option></select></div>
       </div>
       <div class="grid2">
-        <div><label class="f">جودة التصوير</label><select id="tier" onchange="cost()"><option value="fast">Veo 3.1 Fast — 1080p (الأفضل قيمة، كل لقطة تبدأ من صورة المبدع)</option><option value="lite">Veo 3.1 Lite — 720p (الأرخص)</option><option value="standard">Veo 3.1 — أعلى جودة (صور مرجعية للمبدع والمنتج)</option></select></div>
+        <div><label class="f">جودة التصوير</label><select id="tier" onchange="cost()"><option value="fast">Omni 1.2 — 720p (إطار مرجعي لكل لقطة)</option></select></div>
         <div><label class="f">المكان</label><select id="place"><option value="auto">يختاره الوكيل</option><option>مطبخ منزلي مضيء</option><option>غرفة معيشة</option><option>داخل السيارة</option><option>مقهى</option><option>الشارع نهارًا</option></select></div>
       </div>
       <button class="primary big" id="go" onclick="makeAd()">🎬 اصنع الإعلان (سكريبت ← تصوير ← فيديو جاهز)</button>
@@ -67,6 +67,8 @@
 <script src="js/mp4-muxer.js"></script>
 <script src="js/webm-muxer.js"></script>
 <script src="js/core.js"></script>
+<script src="js/director-v3.js"></script>
+<script src="js/director-ai.js"></script>
 <script>
 const { $, esc, say, toast, copyText, geminiJSON, generateImage, veoGenerate, VEO_PRICE, IMG_PRICE, brandContext, loadBrand, lib, needKey, chatEdit, readFile, q, sleep, pmap, settings, DIALECT_NOTE, DIALECTS } = Suite;
 Suite.mountHeader('إعلان UGC');
@@ -79,8 +81,8 @@ const FORM = ['brief', 'persona', 'count', 'tier', 'place'];
 function formSave() { try { localStorage.setItem('ugc_form', JSON.stringify(Object.fromEntries(FORM.map((k) => [k, $(k).value])))); } catch {} }
 function formRestore() { try { const f = JSON.parse(localStorage.getItem('ugc_form') || '{}'); for (const k of FORM) if (f[k] != null && $(k)) $(k).value = f[k]; } catch {} }
 FORM.forEach((k) => $(k) && $(k).addEventListener('input', formSave));
-const res = () => ($('tier').value === 'lite' ? '720p' : '1080p');
-function clipCost() { const t = $('tier').value; return (VEO_PRICE[t] || VEO_PRICE.fast)[res()] * 8; }
+const res = () => '720p';
+function clipCost() { return DirectorAI.cinemaCost(8)/100; }
 function cost() { const n = DATA ? DATA.clips.length : +$('count').value; const img = IMG_PRICE[settings.img] || 0.067; const total = n * clipCost() + (CREATOR ? 0 : img) + ($('tier').value === 'standard' ? 0 : n * img); $('costLine').textContent = `التصوير ≈ $${total.toFixed(2)} (${n} لقطات × $${clipCost().toFixed(2)} + صورة المبدع)`; $('costBtn').textContent = `≈ $${total.toFixed(2)}`; return total; }
 async function writeScript() {
   const brief = $('brief').value.trim(); if (!brief) return say('msg', 'اكتب المنتج والفكرة أولًا', true);
@@ -149,18 +151,25 @@ async function keyframe(i) {
 function veoPromptFromFrame(c) {
   return `Animate this frame into a UGC style vertical video recorded on a propped-up phone front camera: the person in the image talks directly to the camera and says in natural spoken ${dialectName()} Arabic, casually and sincerely: "${c.say}". Lip movement matches the words. Action: ${clean(c.action)}. Camera: ${clean(c.camera)}, static or very slight drift, real room ambience. The camera IS the phone, so the phone is never visible: no phone in hand, no arm stretched toward the camera, no mirror. Hands are free, resting, gesturing naturally, or holding the product. Keep the same person, clothes and product exactly as in the image. No on-screen text, no captions, no subtitles, no logos, no watermark.`;
 }
-async function shootOne(i) {
-  if (!needKey('msg2')) return; await ensureCreator();
-  const c = DATA.clips[i]; say('msg2', `🎬 تصوير اللقطة ${i + 1}…`);
-  delete ERR[i];
-  try {
-    const tier = $('tier').value; const onStatus = (m) => say('msg2', `لقطة ${i + 1}: ${m}`);
-    const job = tier === 'standard'
-      ? { prompt: veoPrompt(c), refs: [CREATOR, PRODUCT].filter(Boolean) }            // Veo 3.1: reference images keep creator + product consistent
-      : { prompt: veoPromptFromFrame(c), image: await keyframe(i) };                  // Fast / Lite: image-to-video from a per-clip keyframe (same creator, product in shot)
-    CLIPS[i] = await veoGenerate({ ...job, tier, aspect: '9:16', resolution: res(), duration: 8, negative: 'visible phone, holding a phone, phone in hand, arm extended toward camera, mirror selfie, text, captions, subtitles, watermark, logo, cartoon, blurry, distorted hands', onStatus });
-    renderClips(); say('msg2', `✅ اللقطة ${i + 1} جاهزة`); await save(true); }
-  catch (e) { ERR[i] = e.message; renderClips(); say('msg2', `❌ لقطة ${i + 1}: ${e.message}`, true); }
+let shootingClip=false;
+async function shootOne(i, approved=false) {
+  if(shootingClip||!DATA||!needKey('msg2'))return;
+  if(!approved&&!confirm('توليد لقطة واحدة عبر Omni بتكلفة فيديو أساسية تقديرية USD '+clipCost().toFixed(2)+'؛ قد تضاف تكلفة الصور. لا إعادة محاولة تلقائية.'))return;
+  shootingClip=true;
+  try{
+    if(!Suite.spend.guard(clipCost(),'لقطة Omni'))return;
+    await ensureCreator();
+    const frame=await keyframe(i),m=/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(frame);
+    if(!m)throw Error('إطار مرجعي غير صالح');
+    const body=DirectorAI.ugcCinemaBody(veoPromptFromFrame(DATA.clips[i]),{mimeType:m[1],data:m[2]});
+    if(!Suite.spend.guard(clipCost(),'لقطة Omni'))return;
+    Suite.spend.add(clipCost(),'Omni UGC estimated reservation');
+    say('msg2','جاري توليد اللقطة '+(i+1)+'؛ لا تعِد الطلب قبل مراجعة AI Studio');
+    const next=await DirectorAI.cinemaGenerate(body,settings.key);
+    CLIPS[i]=next;delete ERR[i];renderClips();await save(true);
+    say('msg2','اللقطة '+(i+1)+' جاهزة للمراجعة');
+  }catch(e){ERR[i]=e.message;renderClips();say('msg2',e.message,true);}
+  finally{shootingClip=false;}
 }
 async function makeAd() {
   if (!needKey('msg')) return;
@@ -179,11 +188,11 @@ async function makeAd() {
 }
 async function shoot(silent) {
   if (!DATA) return; if (!needKey('msg2')) return;
-  const total = cost(); if (!silent && !confirm(`سيتم تصوير ${DATA.clips.length} لقطات بـ Veo 3.1 بتكلفة تقريبية $${total.toFixed(2)} من رصيد Gemini. كل لقطة تستغرق ١–٣ دقائق. نكمل؟`)) return;
+  const total = cost(); if (!silent && !confirm(`سيتم تصوير ${DATA.clips.length} لقطات بـ Omni 1.2 بتكلفة تقريبية $${total.toFixed(2)} من رصيد Gemini. كل لقطة تستغرق ١–٣ دقائق. نكمل؟`)) return;
   $('shootBtn').disabled = true;
   try {
     await ensureCreator(); let done = 0; $('bar').style.width = '5%';
-    await pmap(DATA.clips.map((c, i) => i), 4, async (i) => { await shootOne(i); done++; $('bar').style.width = Math.round(done / DATA.clips.length * 100) + '%'; });
+    for(let i=0;i<DATA.clips.length;i++){if(!CLIPS[i])await shootOne(i,true);done++;$('bar').style.width=Math.round(done/DATA.clips.length*100)+'%';}
     say('msg2', Object.keys(CLIPS).length === DATA.clips.length ? '✅ كل اللقطات جاهزة — اضغط «جمّع الإعلان النهائي»' : `⚠️ فشلت ${DATA.clips.length - Object.keys(CLIPS).length} لقطات — السبب: ${Object.values(ERR)[0] || 'غير معروف'}`, Object.keys(CLIPS).length !== DATA.clips.length);
   } finally { $('shootBtn').disabled = false; }
 }
