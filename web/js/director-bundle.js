@@ -11,6 +11,8 @@ function validate(m){
   const key=a.role==='scene'?'scene:'+a.scene:a.role;if(seen.has(key))throw Error('وسائط مكررة');seen.add(key);
   if(a.role==='scene'){if(!Number.isInteger(a.scene)||a.scene<0||a.scene>=m.project.scenes.length||!/^image\/(png|jpeg|webp)$|^video\/(mp4|webm)$/.test(a.type))throw Error('وسائط مشهد غير صالحة');}
   else if(!/^audio\/[a-zA-Z0-9.+-]+$/.test(a.type)||a.size>100*1024*1024)throw Error('صوت غير صالح');
+  if(a.cinemaSignature!=null&&(a.role!=='scene'||a.type!=='video/mp4'||a.generated!==true||typeof a.cinemaSignature!=='string'||a.cinemaSignature.length>5000))throw Error('توقيع لقطة غير صالح');
+  if(a.artIdentity!=null&&(a.role!=='scene'||!a.type.startsWith('image/')||a.generated!==true||typeof a.artIdentity!=='string'||a.artIdentity.length>6000))throw Error('توقيع رسم غير صالح');
   total+=a.size;if(total>MAX)throw Error('حجم الوسائط يتجاوز 300 MB');
  }
  if(!m.mix||!Number.isFinite(m.mix.gain)||m.mix.gain<0||m.mix.gain>50||!Number.isFinite(m.mix.duck)||m.mix.duck<0||m.mix.duck>100)throw Error('إعدادات مزج غير صالحة');
@@ -18,7 +20,7 @@ function validate(m){
  return total;
 }
 function pack(project,items,mix,voiceSignature=null){
- const m={version:1,project,media:items.map(a=>({role:a.role,scene:a.scene,name:a.name,type:a.blob.type,size:a.blob.size,generated:a.generated===true})),mix,voiceSignature};
+ const m={version:1,project,media:items.map(a=>({role:a.role,scene:a.scene,name:a.name,type:a.blob.type,size:a.blob.size,generated:a.generated===true,...(a.cinemaSignature?{cinemaSignature:a.cinemaSignature}:{}),...(a.artIdentity?{artIdentity:a.artIdentity}:{})})),mix,voiceSignature};
  validate(m);const json=new Blob([JSON.stringify(m)]);if(json.size>MANIFEST_MAX)throw Error('بيانات المشروع كبيرة جدًا');
  const head=MAGIC+String(json.size).padStart(8,'0')+'\n';
  return new Blob([head,json,...items.map(a=>a.blob)],{type:'application/octet-stream'});
